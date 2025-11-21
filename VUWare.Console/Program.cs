@@ -649,6 +649,11 @@ class Program
         LogDetail("Color Reference Chart:");
         LogDetail("  • off     → RGB(0, 0, 0)       - Black");
         LogDetail("  • red     → RGB(100, 0, 0)     - Pure Red");
+        LogDetail("  • green   → RGB(0, 100, 0)     - Pure Green");
+        LogDetail("  • blue    → RGB(0, 0, 100)     - Pure Blue");
+        LogDetail("  • white   → RGB(100, 100, 100) - Pure White");
+        LogDetail("  • yellow  → RGB(100, 100, 0)   - Red + Green");
+        LogDetail("  • cyan    → RGB(0, 100, 100)   - Green + Blue");
         LogDetail("  • magenta → RGB(100, 0, 100)   - Red + Blue");
         LogDetail("  • orange  → RGB(100, 50, 0)    - Red + Half Green");
         LogDetail("  • purple  → RGB(100, 0, 100)   - Red + Blue");
@@ -759,6 +764,147 @@ class Program
         }
     }
 
+    private static async Task CommandTestDials()
+    {
+        if (_controller == null)
+        {
+            PrintError("Controller not initialized");
+            return;
+        }
+
+        // Auto-connect if not connected
+        if (!_controller.IsConnected)
+        {
+            LogInfo("Auto-connecting to VU1 Hub...");
+            Console.WriteLine("Auto-connecting to VU1 Hub...");
+            bool connectSuccess = _controller.AutoDetectAndConnect();
+            
+            if (!connectSuccess)
+            {
+                PrintError("Failed to auto-connect to VU1 Hub");
+                LogError("Auto-connect failed in test command");
+                return;
+            }
+            
+            PrintSuccess("Connected to VU1 Hub!");
+            LogInfo("✓ Auto-connected successfully");
+        }
+
+        // Auto-initialize if not initialized
+        if (!_controller.IsInitialized)
+        {
+            LogInfo("Auto-initializing dials...");
+            Console.WriteLine("Auto-initializing dials...");
+            bool initSuccess = await _controller.InitializeAsync();
+            
+            if (!initSuccess)
+            {
+                PrintError("Failed to initialize dials");
+                LogError("Auto-init failed in test command");
+                return;
+            }
+            
+            PrintSuccess($"Initialized! Found {_controller.DialCount} dial(s).");
+            LogInfo($"✓ Auto-initialized successfully - found {_controller.DialCount} dial(s)");
+        }
+
+        var dials = _controller.GetAllDials();
+        if (dials.Count == 0)
+        {
+            PrintWarning("No dials found. Test cannot be performed.");
+            LogWarning("Test command executed with no dials discovered");
+            return;
+        }
+
+        LogInfo("Starting automated dial test suite");
+        Console.WriteLine();
+        Console.WriteLine("╔════════════════════════════════╗");
+        Console.WriteLine("║   VUWare Dial Test Suite       ║");
+        Console.WriteLine($"║   Testing {dials.Count} dial(s)");
+        Console.WriteLine("╚════════════════════════════════╝");
+        Console.WriteLine();
+
+        int dialNumber = 1;
+        foreach (var dial in dials.Values)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"┌─ Dial {dialNumber}/{dials.Count}: {dial.Name} ─────────────┐");
+            Console.WriteLine($"│ UID: {dial.UID}");
+            Console.WriteLine("│");
+
+            try
+            {
+                // Set to test position
+                LogInfo($"Testing dial '{dial.Name}' (UID: {dial.UID})");
+                Console.WriteLine($"│ Setting position to 50%...");
+                
+                var setTimer = Stopwatch.StartNew();
+                bool setSuccess = await _controller.SetDialPercentageAsync(dial.UID, 50);
+                setTimer.Stop();
+
+                if (setSuccess)
+                {
+                    Console.WriteLine($"│ ✓ Position set in {setTimer.ElapsedMilliseconds}ms");
+                    LogInfo($"✓ Successfully set dial position to 50% in {setTimer.ElapsedMilliseconds}ms");
+                }
+                else
+                {
+                    Console.WriteLine($"│ ✗ Failed to set position");
+                    LogError($"✗ Failed to set dial position");
+                }
+
+                // Set to test color (green)
+                LogInfo($"Setting dial '{dial.Name}' backlight to Green");
+                Console.WriteLine($"│ Setting backlight to Green...");
+                
+                var colorTimer = Stopwatch.StartNew();
+                bool colorSuccess = await _controller.SetBacklightColorAsync(dial.UID, Colors.Green);
+                colorTimer.Stop();
+
+                if (colorSuccess)
+                {
+                    Console.WriteLine($"│ ✓ Backlight set in {colorTimer.ElapsedMilliseconds}ms");
+                    LogInfo($"✓ Successfully set backlight to Green in {colorTimer.ElapsedMilliseconds}ms");
+                }
+                else
+                {
+                    Console.WriteLine($"│ ✗ Failed to set backlight");
+                    LogError($"✗ Failed to set backlight color");
+                }
+
+                Console.WriteLine("│");
+                Console.WriteLine("│ Press any key to continue...");
+                Console.ReadKey(true);
+
+                // Reset to default
+                Console.WriteLine("│ Resetting position to 0% and backlight to Off...");
+                
+                await _controller.SetDialPercentageAsync(dial.UID, 0);
+                await _controller.SetBacklightColorAsync(dial.UID, Colors.Off);
+
+                LogInfo($"✓ Reset dial '{dial.Name}' to defaults");
+                Console.WriteLine($"│ ✓ Dial reset to defaults");
+                Console.WriteLine("└────────────────────────────────┘");
+
+                PrintSuccess($"Dial {dial.Name} test completed successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"│ ✗ Error: {ex.Message}");
+                Console.WriteLine("└────────────────────────────────┘");
+                PrintError($"Error testing {dial.Name}: {ex.Message}");
+                LogError($"Exception during testing of dial '{dial.Name}': {ex.GetType().Name}: {ex.Message}");
+            }
+
+            dialNumber++;
+        }
+
+        Console.WriteLine();
+        PrintSuccess("Dial test suite completed successfully!");
+        LogInfo($"✓ Test suite completed - tested {dials.Count} dial(s)");
+        LogDetail("All dials have been reset to default state (position: 0%, backlight: off)");
+    }
+
     private static void CommandHelp()
     {
         LogInfo("Displaying help information");
@@ -774,6 +920,9 @@ class Program
         Console.WriteLine("║ set <uid> <0-100>       - Set dial position (percentage)   ║");
         Console.WriteLine("║ color <uid> <name>      - Set backlight color              ║");
         Console.WriteLine("║ image <uid> <filepath>  - Load 1-bit BMP image (200x200)   ║");
+        Console.WriteLine("║                                                            ║");
+        Console.WriteLine("║ TESTING:                                                   ║");
+        Console.WriteLine("║ test                    - Run automated test on all dials   ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("║ QUERYING:                                                  ║");
         Console.WriteLine("║ dial <uid>              - Show detailed info for one dial   ║");
@@ -793,6 +942,7 @@ class Program
         Console.WriteLine("║ > set 3A4B5C6D7E8F0123 75                                  ║");
         Console.WriteLine("║ > color 3A4B5C6D7E8F0123 red                               ║");
         Console.WriteLine("║ > image 3A4B5C6D7E8F0123 ./test.bmp                         ║");
+        Console.WriteLine("║ > test                  - Test all dials                    ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
     }

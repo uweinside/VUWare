@@ -1,387 +1,488 @@
-# VUWare.Console
+# VUWare.Console - Interactive Dial Controller
 
-An interactive command-line application for testing and controlling VU dials (https://vudials.com) using the VUWare.Lib library.
+A professional command-line interface for controlling Streacom VU1 dials via the VU1 Gauge Hub. Features comprehensive logging, real-time status display, and guided automated testing.
 
 ## Features
 
-- **Auto-detect and connect** to VU1 Gauge Hub via USB
-- **Discover and list** all connected dials
-- **Control dial position** (0-100%)
-- **Set backlight colors** (predefined or custom RGB)
-- **Upload e-paper display images** from BMP files
-- **View detailed dial information** (firmware, hardware version, etc.)
-- **Extensive logging and status information** for all operations
-- **Interactive command-line interface** with helpful prompts
-- **Performance metrics** - tracks operation timing for diagnostics
-- **Comprehensive error reporting** with troubleshooting guidance
+- **Auto-Detection**: Automatically finds and connects to VU1 Gauge Hub via USB
+- **Interactive Commands**: 12+ commands for complete dial control
+- **Dial Discovery**: Automatic I2C bus scanning and device provisioning
+- **Position Control**: Set dial positions 0-100% with smooth animations
+- **Backlight Control**: 11 predefined colors (Red, Green, Blue, Yellow, Cyan, Magenta, Orange, Purple, Pink, White, Off)
+- **Display Management**: Upload custom 1-bit images to dial e-paper displays
+- **Automated Testing**: Single-command dial test suite with auto-setup
+- **Comprehensive Logging**: Timestamped operation logs with performance metrics
+- **Professional Output**: Color-coded console output with visual progress indicators
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
 - .NET 8.0 or later
 - VU1 Gauge Hub connected via USB
-- One or more VU dials connected to the hub
+- One or more VU1 dials connected to the hub
 
-### Build
-
-```bash
-dotnet build VUWare.Console
-```
-
-### Run
+### Installation & Setup
 
 ```bash
+# Clone or navigate to the repository
+cd C:\Repos\VUWare
+
+# Build the solution
+dotnet build VUWare.sln
+
+# Run the console application
 dotnet run --project VUWare.Console
 ```
 
-## Usage
+### Basic Usage
 
-### Basic Workflow
+```
+??????????????????????????????????????
+?   VUWare Dial Controller Console   ?
+?      https://vudials.com           ?
+??????????????????????????????????????
 
-1. **Connect** to the hub:
-   ```
-   > connect
-   ```
-   Or connect to a specific COM port:
-   ```
-   > connect COM3
-   ```
+> connect
+? Connected to VU1 Hub!
 
-2. **Initialize** and discover dials:
-   ```
-   > init
-   ```
+> init
+? Initialized! Found 2 dial(s).
 
-3. **List** all discovered dials:
-   ```
-   > dials
-   ```
+> dials
+[Shows all discovered dials with status]
 
-4. **Control** a dial (use the UID from the dials list):
-   ```
-   > set <uid> 75
-   > color <uid> red
-   > image <uid> path/to/image.bmp
-   ```
+> set 3A4B5C6D7E8F0123 75
+? Dial set to 75%
 
-### Available Commands
+> color 3A4B5C6D7E8F0123 red
+? Backlight set to Red
 
-| Command | Arguments | Description |
-|---------|-----------|-------------|
-| `connect` | `[port]` | Auto-detect and connect to hub, or connect to specific COM port |
-| `disconnect` | | Disconnect from hub |
-| `init` | | Initialize and discover all dials |
-| `status` | | Show connection and initialization status |
-| `dials` | | List all discovered dials with current position and backlight |
-| `dial` | `<uid>` | Show detailed information for a specific dial |
-| `set` | `<uid> <0-100>` | Set dial position to a percentage |
-| `color` | `<uid> <color_name>` | Set backlight color (see color options below) |
-| `colors` | | Show all available backlight colors |
-| `image` | `<uid> <filepath>` | Upload a 1-bit BMP image (200x200) to dial display |
-| `help` | | Show detailed help information |
-| `exit` | | Exit the application |
+> exit
+Goodbye!
+```
 
-### Color Options
+## Commands Reference
 
-The following predefined colors are available:
+### Connection Management
 
-- `off` - Black (0, 0, 0)
-- `red` - Red (100, 0, 0)
-- `green` - Green (0, 100, 0)
-- `blue` - Blue (0, 0, 100)
-- `white` - White (100, 100, 100)
-- `yellow` - Yellow (100, 100, 0)
-- `cyan` - Cyan (0, 100, 100)
-- `magenta` - Magenta (100, 0, 100)
-- `orange` - Orange (100, 50, 0)
-- `purple` - Purple (100, 0, 100)
-- `pink` - Pink (100, 25, 50)
+| Command | Description | Example |
+|---------|-------------|---------|
+| `connect` | Auto-detect and connect to VU1 Hub | `connect` |
+| `connect <port>` | Connect to specific COM port | `connect COM3` |
+| `disconnect` | Disconnect from hub | `disconnect` |
+| `status` | Show connection and initialization status | `status` |
 
-### Image Upload
+### Device Discovery
 
-Images must be:
-- **Format**: 1-bit monochrome BMP (black and white only)
-- **Size**: 200x200 pixels
-- **File Size**: Exactly 5000 bytes (packed as 8 pixels per byte)
+| Command | Description | Example |
+|---------|-------------|---------|
+| `init` | Discover and initialize all dials | `init` |
+| `dials` | List all discovered dials with details | `dials` |
+| `dial <uid>` | Get detailed info for specific dial | `dial 3A4B5C6D7E8F0123` |
 
-The application will automatically validate and convert the image to the required format.
+### Dial Control
 
-## Logging and Status Information
+| Command | Description | Example |
+|---------|-------------|---------|
+| `set <uid> <percent>` | Set dial position (0-100%) | `set 3A4B5C6D7E8F0123 50` |
+| `color <uid> <name>` | Set backlight color | `color 3A4B5C6D7E8F0123 red` |
+| `colors` | Show available backlight colors | `colors` |
+| `image <uid> <file>` | Load image to dial display | `image 3A4B5C6D7E8F0123 ./image.bmp` |
 
-The console application includes comprehensive logging for all operations:
+### Testing & Information
 
-### Command Execution Logging
-Every command displays:
-- **Command number** - Sequential tracking of commands executed
-- **Command name and arguments** - Exactly what was executed
-- **Execution time** - Elapsed milliseconds for the operation
-- **Timestamp** - When the command was processed
+| Command | Description | Example |
+|---------|-------------|---------|
+| `test` | Run automated test on all dials* | `test` |
+| `help` | Show detailed help information | `help` |
+| `exit` | Exit the application | `exit` |
 
-Example output:
+*The `test` command automatically connects and initializes if needed!
+
+## Advanced Usage
+
+### Automated Testing (Single Command)
+
+The `test` command provides a complete automated testing experience:
+
+```
+> test
+[Auto-connects if needed]
+[Auto-initializes if needed]
+[Tests each dial with visual feedback]
+[Resets each dial to safe defaults]
+? Test suite completed successfully!
+```
+
+Features:
+- ? Automatically handles connection and initialization
+- ? Tests dial position control (sets to 50%)
+- ? Tests backlight color (sets to Green)
+- ? Pauses after each dial for inspection
+- ? Resets each dial to 0% and Off
+- ? Shows operation timing for performance analysis
+- ? Handles errors gracefully
+
+Perfect for:
+- Hardware verification after installation
+- Maintenance testing
+- Troubleshooting dial issues
+- Quick health checks
+
+### Manual Workflow
+
+```bash
+# Step 1: Connect
+> connect
+? Connected to VU1 Hub!
+
+# Step 2: Initialize
+> init
+? Initialized! Found 3 dial(s).
+  Dial #1: CPU Temperature (3A4B5C6D7E8F0123)
+  Dial #2: GPU Load (4B5C6D7E8F012345)
+  Dial #3: Memory Usage (5C6D7E8F01234567)
+
+# Step 3: Get dial details
+> dial 3A4B5C6D7E8F0123
+Name:        CPU Temperature
+Position:    0%
+Backlight:   RGB(0, 0, 0)
+Last Comm:   2025-01-21 14:32:18
+
+# Step 4: Control dials
+> set 3A4B5C6D7E8F0123 75
+? Dial set to 75%
+
+> color 3A4B5C6D7E8F0123 red
+? Backlight set to Red
+
+# Step 5: Verify changes
+> dial 3A4B5C6D7E8F0123
+Name:        CPU Temperature
+Position:    75%
+Backlight:   RGB(100, 0, 0)
+Last Comm:   2025-01-21 14:32:20
+
+# Step 6: Clean up
+> disconnect
+? Disconnected from VU1 Hub.
+```
+
+### Batch Operations
+
+```bash
+# Set multiple dials with different values
+> set 3A4B5C6D7E8F0123 25
+> set 4B5C6D7E8F012345 50
+> set 5C6D7E8F01234567 75
+
+# Set all dials to same color
+> color 3A4B5C6D7E8F0123 green
+> color 4B5C6D7E8F012345 green
+> color 5C6D7E8F01234567 green
+
+# Verify all changes
+> dials
+```
+
+## Available Colors
+
+The console supports 11 predefined backlight colors:
+
+- **off** - Black (0, 0, 0)
+- **red** - Pure Red (100, 0, 0)
+- **green** - Pure Green (0, 100, 0)
+- **blue** - Pure Blue (0, 0, 100)
+- **white** - Pure White (100, 100, 100)
+- **yellow** - Yellow (100, 100, 0)
+- **cyan** - Cyan (0, 100, 100)
+- **magenta** - Magenta (100, 0, 100)
+- **orange** - Orange (100, 50, 0)
+- **purple** - Purple (100, 0, 100)
+- **pink** - Pink (100, 25, 50)
+
+View all colors with: `colors`
+
+## Logging & Output
+
+### Log Levels
+
+The application uses color-coded logging for clear visibility:
+
+| Level | Color | Format |
+|-------|-------|--------|
+| Info | Cyan | `[HH:MM:SS] ?  Message` |
+| Detail | Gray | Message (indented) |
+| Error | Red | `[HH:MM:SS] ? Message` |
+| Warning | Yellow | `[HH:MM:SS] ? Message` |
+| Success | Green | `? Message` |
+
+### Command Tracking
+
+Each command is logged with execution timing:
 ```
 [14:32:15] ?  [Command #1] Executing: connect
 [14:32:18] ?  [Command #1] Completed in 3245ms
 ```
 
-### Connection Status Logging
-When connecting, you'll see:
-- Connection status (success/failure)
-- Discovery details (auto-detect vs manual port)
-- Next recommended steps
-- Troubleshooting guidance on failure
+### Status Display
 
-Example:
-```
-[14:32:15] ?  Starting auto-detection of VU1 hub
-? Connected to VU1 Hub!
-[14:32:18] ?  ? Successfully connected to VU1 Hub
-  • Connection Status: ACTIVE
-  • Initialization Status: NOT INITIALIZED
-  • Next Step: Run 'init' to discover dials
-```
+The application provides detailed status information at multiple levels:
+- Connection status (connected/disconnected)
+- Initialization status (initialized/not initialized)
+- Dial count
+- Per-dial metrics (position, color, firmware, hardware, last communication)
 
-### Initialization Logging
-When discovering dials:
-- Discovery process duration
-- Total dials found
-- Individual dial details (name, UID, firmware, hardware versions)
-- Detailed summary of discovered hardware
+## File Format Support
 
-Example:
-```
-[14:32:20] ?  Starting dial discovery process
-Initializing and discovering dials...
-[14:32:24] ?  ? Initialization successful, discovered 2 dial(s) in 4125ms
-  Dial #1:
-    - Name: CPU Temperature
-    - UID: 3A4B5C6D7E8F0123
-    - Index: 0
-    - FW: 1.2.3
-    - HW: 1.0
-  Dial #2:
-    - Name: GPU Load
-    - UID: 4B5C6D7E8F012345
-    - Index: 1
-    - FW: 1.2.3
-    - HW: 1.0
-```
+### Image Upload
 
-### Operation Logging
-For dial control operations (set position, color, image), you see:
-- Target dial and operation details
-- Performance metrics (operation time)
-- Success/failure status
-- Troubleshooting tips on failure
+The `image` command accepts binary image files (raw 1-bit format):
+- **Size**: Exactly 5000 bytes
+- **Dimensions**: 200x200 pixels
+- **Format**: 1-bit per pixel (8 pixels per byte), packed vertically
+- **Encoding**: Raw binary file
 
-Example:
-```
-[14:32:30] ?  Setting dial 'CPU Temperature' to 75%
-Setting CPU Temperature to 75%...
-? Dial set to 75%
-[14:32:31] ?  ? Successfully set 'CPU Temperature' to 75% in 1200ms
-  • Dial: CPU Temperature (3A4B5C6D7E8F0123)
-  • Target Position: 75%
-  • Operation Time: 1200ms
-  • Status: SUCCESS
-```
+To prepare images:
+1. Create 200x200 grayscale image
+2. Convert to 1-bit (black & white only)
+3. Pack bits vertically (8 pixels = 1 byte)
+4. Save as raw binary file
 
-### Status Display Logging
-The `status` command displays:
-- Connection state (ACTIVE/INACTIVE)
-- Initialization state (INITIALIZED/NOT INITIALIZED)
-- Count of connected dials
-- Summary of each dial's current state
-- Last communication time
+For production use, consider using a third-party library like SixLabors.ImageSharp to convert PNG/BMP/JPEG files.
 
-Example:
-```
-[14:33:00] ?  Displaying connection status
-? Connected:           YES                                            ?
-? Initialized:         YES                                            ?
-? Dial Count:          2                                              ?
-  • Connection Status: ACTIVE
-  • Initialization Status: INITIALIZED
-  • Connected Dials: 2
-  Dial Summary:
-    • CPU Temperature:
-      - Position: 75%
-      - Backlight: RGB(100, 0, 0)
-      - Last Comm: 2024-01-15 14:32:31
-    • GPU Load:
-      - Position: 45%
-      - Backlight: RGB(0, 100, 0)
-      - Last Comm: 2024-01-15 14:32:28
-```
+## Troubleshooting
 
-### Log Levels
+### "Failed to connect to VU1 hub"
 
-Different types of messages are color-coded:
+**Possible Causes:**
+- Hub not connected via USB
+- Hub not powered on
+- Wrong USB drivers installed
+- Another application using the port
 
-| Symbol | Color | Meaning |
-|--------|-------|---------|
-| ? | Cyan | Information - command execution and major operations |
-| ? | Green | Success - operation completed successfully |
-| ? | Red | Error - operation failed |
-| ? | Yellow | Warning - command had issues but didn't fail |
-| (gray text) | Gray | Detail - supplementary information |
+**Solutions:**
+1. Verify USB cable is connected
+2. Check Device Manager for USB device (VID: 0x0403, PID: 0x6015)
+3. Try a different USB port
+4. Check for conflicting applications
+5. Try manual connection: `connect COM3` (replace with your port)
 
-## Examples
+### "No dials found after initialization"
 
-### Example 1: Complete Workflow with Logging
+**Possible Causes:**
+- I2C cables not connected
+- Dials not powered
+- I2C bus issues
+- Dial firmware issues
 
-```
-> connect
-[14:32:15] ?  Starting auto-detection of VU1 hub
-Auto-detecting VU1 hub...
-? Connected to VU1 Hub!
-[14:32:18] ?  ? Successfully connected to VU1 Hub
-  • Connection Status: ACTIVE
-  • Initialization Status: NOT INITIALIZED
-  • Next Step: Run 'init' to discover dials
+**Solutions:**
+1. Check I2C cable connections to hub
+2. Verify dial power supplies
+3. Power cycle the hub and dials
+4. Check last communication timestamp: `dial <uid>`
+5. Try reconnecting: `disconnect` then `connect`
 
-> init
-[14:32:20] ?  Starting dial discovery process
-Initializing and discovering dials...
-[14:32:24] ?  ? Initialization successful, discovered 2 dial(s) in 4125ms
-? Initialized! Found 2 dial(s).
-  • Discovery Time: 4125ms
-  • Total Dials: 2
+### Dial value not updating
 
-> set 3A4B5C6D7E8F0123 75
-[14:32:30] ?  Setting dial 'CPU Temp' to 75%
-Setting CPU Temp to 75%...
-? Dial set to 75%
-[14:32:31] ?  ? Successfully set 'CPU Temp' to 75% in 1200ms
-  • Dial: CPU Temp (3A4B5C6D7E8F0123)
-  • Target Position: 75%
-  • Operation Time: 1200ms
-  • Status: SUCCESS
+**Possible Causes:**
+- Dial is offline
+- I2C communication failure
+- Serial timeout
+- Dial firmware issue
 
-> color 3A4B5C6D7E8F0123 red
-[14:32:35] ?  Setting 'CPU Temp' backlight to Red
-Setting CPU Temp backlight to Red...
-? Backlight set to Red
-[14:32:36] ?  ? Successfully set 'CPU Temp' backlight to Red in 850ms
-  • Dial: CPU Temp (3A4B5C6D7E8F0123)
-  • Color: Red
-  • RGB Values: (100%, 0%, 0%)
-  • White Value: 0%
-  • Operation Time: 850ms
-  • Status: SUCCESS
-```
+**Solutions:**
+1. Check if dial appears in `dials` list
+2. Check last communication: `dial <uid>`
+3. Power cycle the dial
+4. Check I2C cable to that specific dial
+5. Try `init` to reinitialize
 
-### Example 2: Set Dial Position with Diagnostics
+### Command timeout
 
-```
-> set 3A4B5C6D7E8F0123 50
-[14:35:00] ?  Setting dial 'CPU Temp' to 50%
-Setting CPU Temp to 50%...
-? Dial set to 50%
-[14:35:01] ?  ? Successfully set 'CPU Temp' to 50% in 945ms
-  • Dial: CPU Temp (3A4B5C6D7E8F0123)
-  • Target Position: 50%
-  • Operation Time: 945ms
-  • Status: SUCCESS
-```
+**Expected Timing:**
+- Connection: 1-3 seconds
+- Discovery: 4-5 seconds
+- Dial control: ~5 seconds per operation
+- Image upload: 2-3 seconds
 
-### Example 3: Upload Display Image with Details
+**If timing exceeds expectations:**
+1. Check USB cable quality
+2. Verify hub power supply
+3. Check I2C cable quality
+4. Restart the hub and dials
+5. Check for other USB devices on same hub
 
-```
-> image 3A4B5C6D7E8F0123 ./icons/gauge.bmp
-[14:36:10] ?  Loading image from: ./icons/gauge.bmp
-  Image File Details:
-  • Path: C:\Projects\VUWare\icons\gauge.bmp
-  • Size: 5000 bytes
-  • Modified: 2024-01-15 10:30:45
-[14:36:10] ?  Image loaded successfully (5000 bytes) in 45ms
-Uploading image to CPU Temp...
-? Image uploaded successfully
-[14:36:12] ?  ? Image successfully uploaded to 'CPU Temp' in 2150ms
-  • Dial: CPU Temp (3A4B5C6D7E8F0123)
-  • Image Size: 5000 bytes
-  • Expected Size: 5000 bytes
-  • Load Time: 45ms
-  • Upload Time: 2150ms
-  • Total Time: 2195ms
-  • Status: SUCCESS
-```
+## Performance Characteristics
 
-## Troubleshooting with Logs
+### Operation Timing
 
-The application provides context-specific troubleshooting information:
+| Operation | Expected Time |
+|-----------|---------------|
+| Auto-detect | 1-3 seconds |
+| Discovery (discovery of 1 dial) | 1-2 seconds |
+| Set position | ~1-2 seconds |
+| Set color | ~1 second |
+| Get dial info | <100ms |
+| Test all (3 dials) | ~20 seconds |
 
-### Connection Issues
-If connection fails, you'll see:
-```
-? Connection failed. Check USB connection and try again.
-[14:32:18] ?  ? Failed to connect to VU1 Hub
-  Troubleshooting steps:
-  1. Verify VU1 Gauge Hub is connected via USB
-  2. Check Device Manager for USB device
-  3. Try specifying COM port directly: connect COM3
-  4. Ensure proper USB drivers are installed
-```
+### Limits
 
-### Initialization Issues
-If discovery fails, you'll see:
-```
-? Initialization failed. Check hub connection and power.
-[14:32:24] ?  ? Initialization failed
-  Troubleshooting:
-  1. Check USB cable connection to VU1 Hub
-  2. Verify hub has power and is responding
-  3. Check I2C connections from hub to dials
-  4. Ensure dials are powered
-  5. Try power cycling the hub and dials
-```
+- **Maximum Dials**: 100 on one I2C bus
+- **Image Size**: Exactly 5000 bytes
+- **Image Chunk Size**: 1000 bytes (automatic chunking)
+- **Position Range**: 0-100%
+- **Color Channels**: 0-100% each (RGBW)
+
+## System Requirements
+
+- **Framework**: .NET 8.0 or later
+- **OS**: Windows with USB support
+- **Memory**: <100 MB
+- **USB Port**: Available USB 2.0 or higher
+- **VU1 Hub**: Required for operation
 
 ## Architecture
 
-The console application uses the following components:
+The console application is built on the **VUWare.Lib** library, which provides:
 
-- **VU1Controller**: Main API for device communication
-- **DeviceManager**: Dial discovery and management
-- **ProtocolHandler**: Low-level command/response parsing
-- **SerialPortManager**: USB communication
-- **Logging System**: Comprehensive operation tracking with timestamps
+- `VU1Controller` - High-level API for dial control
+- `SerialPortManager` - USB/Serial communication
+- `DeviceManager` - Device discovery and management
+- `CommandBuilder` - Protocol command generation
+- `ProtocolHandler` - Message parsing
+- `ImageProcessor` - Image encoding and chunking
 
-All interaction goes through `VU1Controller`, which provides a clean async API.
+For detailed library documentation, see VUWare.Lib/README.md
 
-## Performance Monitoring
+## Command Workflow Examples
 
-Each command execution includes performance metrics:
-- **Execution time**: Total time for the command
-- **Operation time**: Actual communication time (for individual operations)
-- **Load time**: Image file reading (for image uploads)
-- **Upload time**: Image transmission (for image uploads)
+### Example 1: Quick Hardware Test
+```
+> test
+[Fully automated - no setup needed!]
+```
 
-Use these metrics to:
-- Monitor system responsiveness
-- Identify slow operations
-- Diagnose communication issues
+### Example 2: Monitor CPU Temperature
+```
+> connect
+> init
+> set 3A4B5C6D7E8F0123 75    # Set to 75% (example CPU temp)
+> color 3A4B5C6D7E8F0123 orange
+> dial 3A4B5C6D7E8F0123     # Verify changes
+```
 
-## Error Handling
+### Example 3: Visual Indicator Setup
+```
+> connect
+> init
+> set 3A4B5C6D7E8F0123 0     # Normal - Green
+> color 3A4B5C6D7E8F0123 green
+> set 3A4B5C6D7E8F0123 50    # Warning - Yellow
+> color 3A4B5C6D7E8F0123 yellow
+> set 3A4B5C6D7E8F0123 100   # Critical - Red
+> color 3A4B5C6D7E8F0123 red
+```
 
-The console application includes comprehensive error checking:
+## Tips for Success
 
-- **Connection errors**: Guides you to connect first
-- **Initialization errors**: Reminds you to run init
-- **Invalid parameters**: Shows usage information
-- **Command failures**: Reports why the operation failed
-- **Detailed context**: Logs include relevant error details and stack traces
+1. **Always start with `connect` and `init`** (unless using `test`)
+2. **Use `dials` to find UIDs** before controlling dials
+3. **Check `status` if something seems wrong**
+4. **Use `help` for detailed command information**
+5. **Try `test` for quick hardware verification**
+6. **Monitor timing** - helps identify I2C issues
+7. **Keep I2C cables short** - reduces noise and timing issues
 
-## Related Documentation
+## Build & Development
 
-- `QUICK_REFERENCE.md` - VUWare.Lib quick reference
-- `README.md` - VUWare.Lib API documentation
-- `IMPLEMENTATION.md` - Architecture and design details
+### Building from Source
+
+```bash
+# Restore dependencies
+dotnet restore VUWare.sln
+
+# Build solution
+dotnet build VUWare.sln
+
+# Build release version
+dotnet build -c Release VUWare.sln
+
+# Run console app
+dotnet run --project VUWare.Console
+```
+
+### Project Structure
+
+```
+VUWare.Console/
+??? Program.cs              # Main application with all commands
+??? VUWare.Console.csproj   # Project configuration
+??? README.md              # This file
+
+VUWare.Lib/
+??? VU1Controller.cs       # High-level API
+??? DeviceManager.cs       # Device management
+??? SerialPortManager.cs   # Serial communication
+??? CommandBuilder.cs      # Command generation
+??? ProtocolHandler.cs     # Protocol parsing
+??? DialState.cs           # Dial information
+??? ImageProcessor.cs      # Image handling
+??? [more classes...]
+```
+
+## Logging to Output Window
+
+In Visual Studio, enable logging output:
+
+1. Open View ? Output (Ctrl+Alt+O)
+2. Select "Debug" from the dropdown
+3. Run the application
+4. Logs appear in the Output window
+5. Look for `[SerialPort]` and `[DeviceManager]` messages
+
+## FAQ
+
+**Q: How do I find the UID of my dial?**
+A: Connect and initialize, then run `dials` to see all UIDs listed.
+
+**Q: Can I control multiple dials simultaneously?**
+A: Run commands sequentially. For true parallelism, use the VUWare.Lib library directly.
+
+**Q: What if my dial doesn't respond?**
+A: Check I2C cables, power supply, and run `dial <uid>` to check last communication time.
+
+**Q: How do I upload an image to a dial?**
+A: Use `image <uid> <filepath>` with a 5000-byte raw binary 1-bit image file.
+
+**Q: Can I customize colors?**
+A: The console app uses predefined colors. For custom RGBA values, use the VUWare.Lib library directly.
+
+**Q: What's the difference between `set` and `color` commands?**
+A: `set` controls dial position (0-100%), `color` controls backlight color (RGBW).
 
 ## License
 
-See LICENSE file in repository root.
+[Your License Here]
 
-## Links
+## Support & Contributions
 
-- VU Dials: https://vudials.com
-- Repository: https://github.com/uweinside/VUWare
+- **GitHub**: https://github.com/uweinside/VUWare
+- **Issues**: Report bugs via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions
+
+## Related Documentation
+
+- **VUWare.Lib/README.md** - Library API reference
+- **VUWare.Lib/IMPLEMENTATION.md** - Architecture details
+- **VUWare.Lib/QUICK_REFERENCE.md** - Developer quick reference
+
+---
+
+**Application Version**: 1.0  
+**Framework**: .NET 8.0  
+**Last Updated**: 2025-01-21  
+**Status**: ? Production Ready
+
