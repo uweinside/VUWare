@@ -140,7 +140,7 @@ foreach (var dial in dials.Values)
 ### Display Image Example
 
 ```csharp
-// Create a blank 200x200 image
+// Create a blank 200x144 image
 byte[] blankImage = ImageProcessor.CreateBlankImage();
 
 // Or create a test pattern
@@ -229,17 +229,17 @@ Static utility class for image handling.
 
 #### Methods
 
-- `byte[] CreateBlankImage()` - Create white 200x200 image
+- `byte[] CreateBlankImage()` - Create white 200x144 image
 - `byte[] CreateTestPattern()` - Create checkerboard pattern
-- `byte[] LoadImageFile(string path)` - Load image from file
+- `byte[] LoadImageFile(string path)` - Load PNG/BMP/JPEG image and convert to 1-bit format
 - `byte[] ConvertGrayscaleTo1Bit(byte[] data, int w, int h, int threshold)` - Convert grayscale
 - `List<byte[]> ChunkImageData(byte[] data)` - Split into transmission chunks
 
 #### Constants
 
 - `DISPLAY_WIDTH` = 200
-- `DISPLAY_HEIGHT` = 200
-- `BYTES_PER_IMAGE` = 5000
+- `DISPLAY_HEIGHT` = 144
+- `BYTES_PER_IMAGE` = 3600
 - `MAX_CHUNK_SIZE` = 1000
 
 ### NamedColor and Colors
@@ -323,13 +323,14 @@ Recommended: Implement a heartbeat mechanism in your application to detect disco
 
 ### Image Loading
 
-`ImageProcessor.LoadImageFile()` is a placeholder that only reads raw binary files. For production:
+`ImageProcessor.LoadImageFile()` now supports PNG, BMP, and JPEG images directly:
 
-1. Use System.Drawing or a third-party library (SixLabors.ImageSharp)
-2. Load PNG/BMP/JPEG files
-3. Resize to 200x200
-4. Convert to grayscale
-5. Convert to 1-bit format
+1. Loads PNG/BMP/JPEG files natively using System.Drawing.Common
+2. Automatically converts color images to grayscale (luminosity formula)
+3. Resizes images to 200x144 if needed (preserves aspect ratio with high-quality interpolation)
+4. Converts to 1-bit black/white format with configurable threshold (default: 127)
+
+Alternatively, you can use `CreateBlankImage()` or `CreateTestPattern()` for quick testing.
 
 ### Index vs. UID
 

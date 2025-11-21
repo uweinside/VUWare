@@ -239,14 +239,28 @@ The application provides detailed status information at multiple levels:
 
 ### Image Upload
 
-The `image` command accepts binary image files (raw 1-bit format):
-- **Size**: Exactly 5000 bytes
-- **Dimensions**: 200x200 pixels
-- **Format**: 1-bit per pixel (8 pixels per byte), packed vertically
-- **Encoding**: Raw binary file
+The `image` command now accepts PNG, BMP, and JPEG image files directly:
+- **Supported Formats**: PNG, BMP, JPEG
+- **Dimensions**: Images are automatically resized to 200x144 pixels
+- **Color**: Color images are automatically converted to grayscale
+- **Output**: Converted to 1-bit black/white format
 
-To prepare images:
-1. Create 200x200 grayscale image
+Example usage:
+```
+> image 3A4B5C6D7E8F0123 ./images/cpu-temp.png
+> image 3A4B5C6D7E8F0123 ./images/blank.png
+```
+
+The official reference images are available in `etc/image_pack/`:
+- `blank.png` - Blank white background
+- `cpu-temp.png` - CPU temperature indicator
+- `cpu-load.png` - CPU load indicator  
+- `gpu-temp.png` - GPU temperature indicator
+- `gpu-load.png` - GPU load indicator
+- `fan-speed.png` - Fan speed indicator
+
+To prepare custom images:
+1. Create 200x144 grayscale image
 2. Convert to 1-bit (black & white only)
 3. Pack bits vertically (8 pixels = 1 byte)
 4. Save as raw binary file
@@ -326,13 +340,15 @@ For production use, consider using a third-party library like SixLabors.ImageSha
 | Set position | ~1-2 seconds |
 | Set color | ~1 second |
 | Get dial info | <100ms |
+| Image upload (PNG conversion + transfer) | 2-3 seconds |
 | Test all (3 dials) | ~20 seconds |
 
 ### Limits
 
 - **Maximum Dials**: 100 on one I2C bus
-- **Image Size**: Exactly 5000 bytes
+- **Image Size**: Exactly 3600 bytes (200x144 pixels, 1-bit format)
 - **Image Chunk Size**: 1000 bytes (automatic chunking)
+- **Supported Image Formats**: PNG, BMP, JPEG (automatic conversion)
 - **Position Range**: 0-100%
 - **Color Channels**: 0-100% each (RGBW)
 

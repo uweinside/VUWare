@@ -153,7 +153,8 @@ namespace VUWare.Lib
 
         /// <summary>
         /// Sets the background image for a dial's e-paper display.
-        /// Image data should be 1-bit packed format (5000 bytes for 200x200).
+        /// Image data should be 1-bit packed format (3600 bytes for 200x144).
+        /// Supports PNG, BMP, and JPEG files which are automatically converted.
         /// </summary>
         public async Task<bool> SetDisplayImageAsync(string uid, byte[] imageData)
         {
