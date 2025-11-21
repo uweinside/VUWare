@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="VUWare.Console/VUWare.Console.csproj" />
+  <Project Path="VUWare.Lib/VUWare.Lib.csproj" />
+</Solution>
