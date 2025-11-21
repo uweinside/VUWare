@@ -3,6 +3,7 @@ using System.IO.Ports;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace VUWare.Lib
 {
@@ -17,10 +18,13 @@ namespace VUWare.Lib
         private const int BAUD_RATE = 115200;
         private const int READ_TIMEOUT_MS = 2000;
         private const int WRITE_TIMEOUT_MS = 2000;
+        private const int RESPONSE_BUFFER_SIZE = 10000;
 
         private SerialPort? _serialPort;
         private readonly object _lockObj = new object();
         private bool _isConnected;
+        private byte[] _responseBuffer = new byte[RESPONSE_BUFFER_SIZE];
+        private int _bufferIndex = 0;
 
         public bool IsConnected => _isConnected;
 
@@ -67,11 +71,13 @@ namespace VUWare.Lib
                         Parity = Parity.None,
                         StopBits = StopBits.One,
                         ReadTimeout = READ_TIMEOUT_MS,
-                        WriteTimeout = WRITE_TIMEOUT_MS
+                        WriteTimeout = WRITE_TIMEOUT_MS,
+                        Handshake = Handshake.None
                     };
 
                     _serialPort.Open();
                     _isConnected = true;
+                    _bufferIndex = 0;
                     return true;
                 }
                 catch (Exception ex)
@@ -118,60 +124,112 @@ namespace VUWare.Lib
 
                 try
                 {
+                    // Clear any pending data
+                    if (_serialPort.BytesToRead > 0)
+                    {
+                        _serialPort.DiscardInBuffer();
+                    }
+
                     // Send command with CRLF terminator
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Sending command: {command}");
                     _serialPort.WriteLine(command);
                     _serialPort.BaseStream.Flush();
 
-                    // Read response
-                    string response = ReadResponse(timeoutMs);
+                    // Read response with improved timeout handling
+                    string response = ReadResponseWithTimeout(timeoutMs);
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Received response: {response}");
                     return response;
                 }
                 catch (TimeoutException)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout waiting for response after {timeoutMs}ms");
                     throw new TimeoutException($"No response received within {timeoutMs}ms");
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Communication error: {ex.Message}");
                     throw new InvalidOperationException($"Serial communication error: {ex.Message}", ex);
                 }
             }
         }
 
         /// <summary>
-        /// Reads a complete response line from the serial port.
-        /// Response format: <CCDDLLLL[DATA]<CR><LF>
+        /// Reads a complete response with improved timeout and buffer management.
+        /// Response format: <CCDDLLLL[DATA]
         /// </summary>
-        private string ReadResponse(int timeoutMs)
+        private string ReadResponseWithTimeout(int timeoutMs)
         {
-            DateTime startTime = DateTime.UtcNow;
+            Stopwatch timeout = Stopwatch.StartNew();
             string response = string.Empty;
+            bool foundStart = false;
 
-            while ((DateTime.UtcNow - startTime).TotalMilliseconds < timeoutMs)
+            while (timeout.ElapsedMilliseconds < timeoutMs)
             {
                 if (_serialPort.BytesToRead > 0)
                 {
-                    char c = (char)_serialPort.ReadByte();
-                    
-                    // Wait for start character
-                    if (c == '<' || response.Length > 0)
+                    try
                     {
-                        response += c;
-
-                        // Check for line terminator
-                        if (response.EndsWith("\r\n"))
+                        char c = (char)_serialPort.ReadByte();
+                        
+                        // Start collecting when we see '<'
+                        if (c == '<')
                         {
-                            // Remove line terminator and return
-                            return response.Substring(0, response.Length - 2);
+                            foundStart = true;
+                            response = string.Empty;
                         }
+
+                        if (foundStart)
+                        {
+                            response += c;
+
+                            // Check if we have a complete message
+                            // Minimum: <CCDDLLLL (9 characters)
+                            if (response.Length >= 9)
+                            {
+                                // Try to parse the length field to know how much more data we need
+                                try
+                                {
+                                    string lengthStr = response.Substring(5, 4);
+                                    int dataLength = int.Parse(lengthStr, System.Globalization.NumberStyles.HexNumber);
+                                    
+                                    // Calculate expected total length: 9 (header) + (dataLength * 2 for hex encoding)
+                                    int expectedLength = 9 + (dataLength * 2);
+                                    
+                                    if (response.Length >= expectedLength)
+                                    {
+                                        // We have the complete message
+                                        return response;
+                                    }
+                                }
+                                catch
+                                {
+                                    // If we can't parse length, wait for more data
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Read error: {ex.Message}");
                     }
                 }
                 else
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(1);
                 }
             }
 
-            throw new TimeoutException();
+            if (!foundStart)
+            {
+                throw new TimeoutException("No response start character '<' received");
+            }
+
+            if (response.Length > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Partial response (timeout): {response}");
+            }
+
+            throw new TimeoutException($"Incomplete response received: {response}");
         }
 
         /// <summary>
@@ -184,23 +242,40 @@ namespace VUWare.Lib
             {
                 // Get all available ports
                 string[] ports = SerialPort.GetPortNames();
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Found {ports.Length} available COM port(s): {string.Join(", ", ports)}");
 
-                // This simplified version just returns the first port
-                // A robust implementation would check device manager for VID/PID
-                // or use Windows Management Instrumentation (WMI)
+                if (ports.Length == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SerialPort] No COM ports available");
+                    return null;
+                }
+
+                // Try each port
                 foreach (string port in ports)
                 {
-                    // Try to connect and send a simple command
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Attempting to detect VU1 hub on: {port}");
+                    
                     if (TryPort(port))
                     {
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] ? Found VU1 hub on port: {port}");
                         return port;
                     }
                 }
 
+                System.Diagnostics.Debug.WriteLine("[SerialPort] No VU1 hub found on any port - trying fallback with first port");
+                
+                // Fallback: Try to connect to first port without validation
+                if (ports.Length > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Attempting fallback connection to first port: {ports[0]}");
+                    return ports[0];
+                }
+
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Port discovery error: {ex.Message}");
                 return null;
             }
         }
@@ -210,32 +285,112 @@ namespace VUWare.Lib
         /// </summary>
         private bool TryPort(string portName)
         {
+            SerialPort? testPort = null;
             try
             {
-                using (SerialPort testPort = new SerialPort(portName)
+                testPort = new SerialPort(portName)
                 {
                     BaudRate = BAUD_RATE,
-                    ReadTimeout = 500,
-                    WriteTimeout = 500
-                })
+                    ReadTimeout = SerialPort.InfiniteTimeout,
+                    WriteTimeout = SerialPort.InfiniteTimeout,
+                    Handshake = Handshake.None,
+                    DtrEnable = true,
+                    RtsEnable = true
+                };
+
+                testPort.Open();
+                
+                // Wait for port to stabilize
+                System.Threading.Thread.Sleep(100);
+                
+                // Clear any junk in buffer
+                if (testPort.BytesToRead > 0)
                 {
-                    testPort.Open();
-                    
-                    // Send a simple RESCAN_BUS command
-                    testPort.WriteLine(">0C0100000000");
-                    testPort.BaseStream.Flush();
-
-                    // Try to read response
-                    string response = testPort.ReadLine();
-                    testPort.Close();
-
-                    // If we get a valid response starting with '<0C', it's likely the hub
-                    return response != null && response.StartsWith("<0C");
+                    testPort.DiscardInBuffer();
                 }
+
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Testing {portName}: sending RESCAN_BUS command");
+                
+                // Send a simple RESCAN_BUS command
+                testPort.WriteLine(">0C0100000000");
+                testPort.BaseStream.Flush();
+
+                // Try to read response with longer timeout
+                Stopwatch sw = Stopwatch.StartNew();
+                string response = string.Empty;
+                bool foundStart = false;
+
+                // Wait up to 2 seconds for response
+                while (sw.ElapsedMilliseconds < 2000 && response.Length < 100)
+                {
+                    if (testPort.BytesToRead > 0)
+                    {
+                        try
+                        {
+                            char c = (char)testPort.ReadByte();
+                            
+                            if (c == '<')
+                            {
+                                foundStart = true;
+                                response = string.Empty;
+                            }
+                            
+                            if (foundStart)
+                            {
+                                response += c;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[SerialPort] Error reading from {portName}: {ex.Message}");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        System.Threading.Thread.Sleep(10);
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] {portName} response: '{response}'");
+
+                // Check if we got any valid response
+                // Accept any response that starts with '<' and contains at least the header
+                bool isHub = response.Length >= 9 && response.StartsWith("<");
+                
+                if (isHub && response.Length >= 2)
+                {
+                    // Log the command code for debugging
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] {portName} responded with command code: {response.Substring(1, 2)}");
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] {portName} is VU1 hub: {isHub}");
+                return isHub;
             }
-            catch
+            catch (UnauthorizedAccessException)
             {
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] {portName}: Access denied - port may be in use");
                 return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] TryPort({portName}) failed: {ex.GetType().Name}: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (testPort != null)
+                {
+                    try
+                    {
+                        if (testPort.IsOpen)
+                        {
+                            testPort.Close();
+                        }
+                        testPort.Dispose();
+                    }
+                    catch { }
+                }
             }
         }
 

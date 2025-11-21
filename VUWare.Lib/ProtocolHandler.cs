@@ -81,6 +81,7 @@ namespace VUWare.Lib
         {
             if (string.IsNullOrEmpty(response) || response.Length < MIN_RESPONSE_LENGTH)
             {
+                System.Diagnostics.Debug.WriteLine($"[ProtocolHandler] Invalid response: length {response?.Length ?? 0}, min required {MIN_RESPONSE_LENGTH}");
                 throw new ArgumentException("Invalid response format");
             }
 
@@ -89,6 +90,7 @@ namespace VUWare.Lib
                 // Validate start character
                 if (response[0] != '<')
                 {
+                    System.Diagnostics.Debug.WriteLine($"[ProtocolHandler] Response doesn't start with '<': {response}");
                     throw new InvalidOperationException("Response does not start with '<'");
                 }
 
@@ -99,6 +101,8 @@ namespace VUWare.Lib
 
                 // Extract data
                 string rawData = response.Length > HEADER_LENGTH ? response.Substring(HEADER_LENGTH) : string.Empty;
+
+                System.Diagnostics.Debug.WriteLine($"[ProtocolHandler] Parsed: CC=0x{command:X2}, DD={dataType}, Length={dataLength}, RawData='{rawData}'");
 
                 var message = new Message
                 {
@@ -112,6 +116,7 @@ namespace VUWare.Lib
                 if (message.DataType == DataType.StatusCode && rawData.Length >= 4)
                 {
                     message.BinaryData = HexStringToBytes(rawData.Substring(0, 4));
+                    System.Diagnostics.Debug.WriteLine($"[ProtocolHandler] Status code: 0x{(message.BinaryData[0] << 8 | message.BinaryData[1]):X4}");
                 }
                 else if (rawData.Length > 0)
                 {
@@ -122,6 +127,7 @@ namespace VUWare.Lib
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[ProtocolHandler] Failed to parse response '{response}': {ex.GetType().Name}: {ex.Message}");
                 throw new InvalidOperationException($"Failed to parse response: {response}", ex);
             }
         }

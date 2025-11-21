@@ -440,11 +440,19 @@ namespace VUWare.Lib
                 }
 
                 string command = CommandBuilder.SetDialPercentage(dial.Index, percentage);
-                string response = await SendCommandAsync(command, 1000);
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET command for dial index {dial.Index}, percentage {percentage}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Built command: {command}");
+                
+                string response = await SendCommandAsync(command, 5000);
+                
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET response received: {response}");
+                
                 var message = ProtocolHandler.ParseResponse(response);
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Parsed response: Command=0x{message.Command:X2}, DataType={message.DataType}, Length={message.DataLength}");
 
                 if (ProtocolHandler.IsSuccessResponse(message))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET command succeeded!");
                     lock (_lockObj)
                     {
                         dial.CurrentValue = percentage;
@@ -453,12 +461,17 @@ namespace VUWare.Lib
                     }
                     return true;
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET command returned error status!");
+                }
 
                 return false;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to set dial percentage: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Failed to set dial percentage: {ex.GetType().Name}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Exception: {ex}");
                 return false;
             }
         }
@@ -477,7 +490,7 @@ namespace VUWare.Lib
                 }
 
                 string command = CommandBuilder.SetRGBBacklight(dial.Index, red, green, blue, white);
-                string response = await SendCommandAsync(command, 1000);
+                string response = await SendCommandAsync(command, 5000);  // ? INCREASED FROM 1000ms
                 var message = ProtocolHandler.ParseResponse(response);
 
                 if (ProtocolHandler.IsSuccessResponse(message))
@@ -517,7 +530,7 @@ namespace VUWare.Lib
 
                 // Set dial easing step
                 string stepCmd = CommandBuilder.SetDialEasingStep(dial.Index, config.DialStep);
-                string stepResp = await SendCommandAsync(stepCmd, 1000);
+                string stepResp = await SendCommandAsync(stepCmd, 5000);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(stepResp)))
                 {
                     success = false;
@@ -525,7 +538,7 @@ namespace VUWare.Lib
 
                 // Set dial easing period
                 string periodCmd = CommandBuilder.SetDialEasingPeriod(dial.Index, config.DialPeriod);
-                string periodResp = await SendCommandAsync(periodCmd, 1000);
+                string periodResp = await SendCommandAsync(periodCmd, 5000);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(periodResp)))
                 {
                     success = false;
@@ -533,7 +546,7 @@ namespace VUWare.Lib
 
                 // Set backlight easing step
                 string blStepCmd = CommandBuilder.SetBacklightEasingStep(dial.Index, config.BacklightStep);
-                string blStepResp = await SendCommandAsync(blStepCmd, 1000);
+                string blStepResp = await SendCommandAsync(blStepCmd, 5000);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(blStepResp)))
                 {
                     success = false;
@@ -541,7 +554,7 @@ namespace VUWare.Lib
 
                 // Set backlight easing period
                 string blPeriodCmd = CommandBuilder.SetBacklightEasingPeriod(dial.Index, config.BacklightPeriod);
-                string blPeriodResp = await SendCommandAsync(blPeriodCmd, 1000);
+                string blPeriodResp = await SendCommandAsync(blPeriodCmd, 5000);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(blPeriodResp)))
                 {
                     success = false;

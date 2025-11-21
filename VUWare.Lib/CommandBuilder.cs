@@ -128,7 +128,7 @@ namespace VUWare.Lib
             }
 
             byte[] data = { dialIndex, percentage };
-            return BuildCommand(COMM_CMD_SET_DIAL_PERC_SINGLE, DataType.SingleValue, data);
+            return BuildCommand(COMM_CMD_SET_DIAL_PERC_SINGLE, DataType.KeyValuePair, data);
         }
 
         /// <summary>
@@ -142,7 +142,7 @@ namespace VUWare.Lib
             data[1] = (byte)(value >> 8);  // High byte
             data[2] = (byte)(value & 0xFF); // Low byte
 
-            return BuildCommand(COMM_CMD_SET_DIAL_RAW_SINGLE, DataType.SingleValue, data);
+            return BuildCommand(COMM_CMD_SET_DIAL_RAW_SINGLE, DataType.KeyValuePair, data);
         }
 
         /// <summary>
@@ -168,7 +168,7 @@ namespace VUWare.Lib
                 data[i * 2 + 1] = dialValues[i].percentage;
             }
 
-            return BuildCommand(COMM_CMD_SET_DIAL_PERC_MULTIPLE, DataType.SingleValue, data);
+            return BuildCommand(COMM_CMD_SET_DIAL_PERC_MULTIPLE, DataType.MultipleValue, data);
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace VUWare.Lib
         public static string SetRGBBacklight(byte dialIndex, byte red, byte green, byte blue, byte white = 0)
         {
             byte[] data = { dialIndex, red, green, blue, white };
-            return BuildCommand(COMM_CMD_SET_RGB_BACKLIGHT, DataType.SingleValue, data);
+            return BuildCommand(COMM_CMD_SET_RGB_BACKLIGHT, DataType.MultipleValue, data);
         }
 
         /// <summary>
