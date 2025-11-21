@@ -13,10 +13,16 @@ class Program
 
     static async Task Main(string[] args)
     {
-        Console.WriteLine("╔════════════════════════════════════╗");
-        Console.WriteLine("║   VUWare Dial Controller Console   ║");
-        Console.WriteLine("║      https://vudials.com           ║");
-        Console.WriteLine("╚════════════════════════════════════╝");
+        Console.WriteLine("╔═════════════════════════════════════════════════╗");
+        Console.WriteLine("║   VUWare Streacom VU1 Dial Controller Console   ║");
+        Console.WriteLine("║      (c) 2025 Uwe Baumann                       ║");
+        Console.WriteLine("║      https://github.com/uweinside/VUWare        ║");
+        Console.WriteLine("║                                                 ║");
+        Console.WriteLine("║      Based on the official VU1 code written by  ║");
+        Console.WriteLine("║      Saša Karanović                             ║");
+        Console.WriteLine("║      https://vudials.com                        ║");
+        Console.WriteLine("║      https://github.com/SasaKaranovic/VU-Server ║");
+        Console.WriteLine("╚═════════════════════════════════════════════════╝");
         Console.WriteLine();
         LogInfo("Initializing VUWare Console Application");
         LogInfo($"Build Time: {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}");
@@ -74,22 +80,23 @@ class Program
     private static void PrintMenu()
     {
         Console.WriteLine();
-        Console.WriteLine("┌─ Commands ─────────────────────────────────┐");
-        Console.WriteLine("│ connect          - Auto-detect and connect │");
-        Console.WriteLine("│ connect <port>   - Connect to specific COM │");
-        Console.WriteLine("│ disconnect       - Disconnect from hub     │");
-        Console.WriteLine("│ init             - Initialize dials        │");
-        Console.WriteLine("│ status           - Show connection status  │");
-        Console.WriteLine("│ dials            - List all dials          │");
-        Console.WriteLine("│ dial <uid>       - Show dial info          │");
-        Console.WriteLine("│ set <uid> <pct>  - Set dial position       │");
-        Console.WriteLine("│ color <uid> <c>  - Set backlight color     │");
-        Console.WriteLine("│ colors           - Show available colors   │");
-        Console.WriteLine("│ image <uid> <f>  - Set dial image (PNG/BMP/JPEG) │");
-        Console.WriteLine("│ test             - Test all dials          │");
-        Console.WriteLine("│ help             - Show detailed help      │");
-        Console.WriteLine("│ exit             - Exit program            │");
-        Console.WriteLine("└────────────────────────────────────────────┘");
+        Console.WriteLine("┌─ Commands ──────────────────────────────────┐");
+        Console.WriteLine("│ connect          - Auto-detect and connect  │");
+        Console.WriteLine("│ connect <port>   - Connect to specific COM  │");
+        Console.WriteLine("│ disconnect       - Disconnect from hub      │");
+        Console.WriteLine("│ init             - Initialize dials         │");
+        Console.WriteLine("│ status           - Show connection status   │");
+        Console.WriteLine("│ dials            - List all dials           │");
+        Console.WriteLine("│ dial <uid>       - Show dial info           │");
+        Console.WriteLine("│ set <uid> <pct>  - Set dial position        │");
+        Console.WriteLine("│ color <uid> <c>  - Set backlight color      │");
+        Console.WriteLine("│ colors           - Show available colors    │");
+        Console.WriteLine("│ image <uid> <f>  - Set dial image           │");
+        Console.WriteLine("│                    (PNG/BMP/JPEG,200x144px) │");
+        Console.WriteLine("│ test             - Test all dials           │");
+        Console.WriteLine("│ help             - Show detailed help       │");
+        Console.WriteLine("│ exit             - Exit program             │");
+        Console.WriteLine("└─────────────────────────────────────────────┘");
         Console.Write("> ");
     }
 
@@ -443,7 +450,7 @@ class Program
 
         LogInfo($"✓ Found dial: {dial.Name}");
         Console.WriteLine();
-        Console.WriteLine("╔═ Dial Details ═════════════════════════════════════╗");
+        Console.WriteLine( "╔═ Dial Details ═════════════════════════════════════╗");
         Console.WriteLine($"║ Name:              {dial.Name,-30} │");
         Console.WriteLine($"║ UID:               {dial.UID,-30} │");
         Console.WriteLine($"║ Index:             {dial.Index,-30} │");
@@ -453,7 +460,7 @@ class Program
         Console.WriteLine($"║ Firmware Version:  {dial.FirmwareVersion,-30} │");
         Console.WriteLine($"║ Hardware Version:  {dial.HardwareVersion,-30} │");
         Console.WriteLine($"║ Last Comm:         {dial.LastCommunication:yyyy-MM-dd HH:mm:ss,-26} │");
-        Console.WriteLine("╚═════════════════════════════════════════════════════╝");
+        Console.WriteLine( "╚═════════════════════════════════════════════════════╝");
 
         Console.WriteLine();
         LogDetail("Detailed Dial Information:");
@@ -816,10 +823,10 @@ class Program
 
         LogInfo("Starting automated dial test suite");
         Console.WriteLine();
-        Console.WriteLine("╔════════════════════════════════╗");
-        Console.WriteLine("║   VUWare Dial Test Suite       ║");
-        Console.WriteLine($"║   Testing {dials.Count} dial(s)");
-        Console.WriteLine("╚════════════════════════════════╝");
+        Console.WriteLine( "╔══════════════════════════════════╗");
+        Console.WriteLine( "║   VUWare Dial Test Suite         ║");
+        Console.WriteLine($"║   Testing {dials.Count} dial(s)  ║");
+        Console.WriteLine( "╚══════════════════════════════════╝");
         Console.WriteLine();
 
         int dialNumber = 1;
@@ -907,48 +914,48 @@ class Program
     {
         LogInfo("Displaying help information");
         Console.WriteLine();
-        Console.WriteLine("╔═ VUWare Console Help ══════════════════════════════════════╗");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ GETTING STARTED:                                           ║");
-        Console.WriteLine("║ 1. connect              - Auto-detect and connect to hub   ║");
-        Console.WriteLine("║ 2. init                 - Discover all connected dials     ║");
-        Console.WriteLine("║ 3. dials                - List dials                       ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ CONTROLLING DIALS:                                         ║");
-        Console.WriteLine("║ set <uid> <0-100>       - Set dial position (percentage)   ║");
-        Console.WriteLine("║ color <uid> <name>      - Set backlight color              ║");
-        Console.WriteLine("║ image <uid> <filepath>  - Load PNG/BMP/JPG (auto -> 200x144 / 3600B) ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ DISPLAY IMAGE FORMAT:                                      ║");
-        Console.WriteLine("║ • Resolution: 200x144 px                                   ║");
-        Console.WriteLine("║ • Color Depth: 1-bit (vertical pack, 8 pixels/byte)        ║");
-        Console.WriteLine("║ • Total Bytes: 3600                                        ║");
-        Console.WriteLine("║ • Bit: 1 = light (>127), 0 = dark (<=127)                  ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ TESTING:                                                   ║");
-        Console.WriteLine("║ test                    - Run automated test on all dials  ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ QUERYING:                                                  ║");
-        Console.WriteLine("║ dial <uid>              - Show detailed info for one dial  ║");
-        Console.WriteLine("║ dials                   - List all dials with status       ║");
-        Console.WriteLine("║ colors                  - Show available backlight colors  ║");
-        Console.WriteLine("║ status                  - Show connection status           ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ CONNECTION:                                                ║");
-        Console.WriteLine("║ connect                 - Auto-detect VU1 hub              ║");
-        Console.WriteLine("║ connect <port>          - Connect to specific COM port     ║");
-        Console.WriteLine("║ disconnect              - Disconnect from hub              ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("║ EXAMPLES:                                                  ║");
-        Console.WriteLine("║ > connect                                                  ║");
-        Console.WriteLine("║ > init                                                     ║");
-        Console.WriteLine("║ > dials                                                    ║");
-        Console.WriteLine("║ > set 3A4B... 75                                           ║");
-        Console.WriteLine("║ > color 3A4B... red                                        ║");
-        Console.WriteLine("║ > image 3A4B... ./etc/image_pack/cpu-temp.png              ║");
-        Console.WriteLine("║ > test                                                     ║");
-        Console.WriteLine("║                                                            ║");
-        Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+        Console.WriteLine("╔═ VUWare Console Help ════════════════════════════════════════════╗");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ GETTING STARTED:                                                 ║");
+        Console.WriteLine("║ 1. connect              - Auto-detect and connect to hub         ║");
+        Console.WriteLine("║ 2. init                 - Discover all connected dials           ║");
+        Console.WriteLine("║ 3. dials                - List dials                             ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ CONTROLLING DIALS:                                               ║");
+        Console.WriteLine("║ set <uid> <0-100>       - Set dial position (percentage)         ║");
+        Console.WriteLine("║ color <uid> <name>      - Set backlight color                    ║");
+        Console.WriteLine("║ image <uid> <filepath>  - Load PNG/BMP/JPG (auto->200x144/3600B) ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ DISPLAY IMAGE FORMAT:                                            ║");
+        Console.WriteLine("║ • Resolution: 200x144 px                                         ║");
+        Console.WriteLine("║ • Color Depth: 1-bit (vertical pack, 8 pixels/byte)              ║");
+        Console.WriteLine("║ • Total Bytes: 3600                                              ║");
+        Console.WriteLine("║ • Bit: 1 = light (>127), 0 = dark (<=127)                        ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ TESTING:                                                         ║");
+        Console.WriteLine("║ test                    - Run automated test on all dials        ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ QUERYING:                                                        ║");
+        Console.WriteLine("║ dial <uid>              - Show detailed info for one dial        ║");
+        Console.WriteLine("║ dials                   - List all dials with status             ║");
+        Console.WriteLine("║ colors                  - Show available backlight colors        ║");
+        Console.WriteLine("║ status                  - Show connection status                 ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ CONNECTION:                                                      ║");
+        Console.WriteLine("║ connect                 - Auto-detect VU1 hub                    ║");
+        Console.WriteLine("║ connect <port>          - Connect to specific COM port           ║");
+        Console.WriteLine("║ disconnect              - Disconnect from hub                    ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ EXAMPLES:                                                        ║");
+        Console.WriteLine("║ > connect                                                        ║");
+        Console.WriteLine("║ > init                                                           ║");
+        Console.WriteLine("║ > dials                                                          ║");
+        Console.WriteLine("║ > set 3A4B... 75                                                 ║");
+        Console.WriteLine("║ > color 3A4B... red                                              ║");
+        Console.WriteLine("║ > image 3A4B... ./etc/image_pack/cpu-temp.png                    ║");
+        Console.WriteLine("║ > test                                                           ║");
+        Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
     }
 
     private static NamedColor? GetColorByName(string name)
