@@ -1,5 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using VUWare.Lib;
+using VUWare.HWInfo64;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -93,6 +94,8 @@ class Program
         Console.WriteLine("│ colors           - Show available colors    │");
         Console.WriteLine("│ image <uid> <f>  - Set dial image           │");
         Console.WriteLine("│                    (PNG/BMP/JPEG,200x144px) │");
+        Console.WriteLine("│ sensors          - List HWInfo64 sensors    │");
+        Console.WriteLine("│ monitor <uid> <s>- Monitor sensor on dial   │");
         Console.WriteLine("│ test             - Test all dials           │");
         Console.WriteLine("│ help             - Show detailed help       │");
         Console.WriteLine("│ exit             - Exit program             │");
@@ -155,6 +158,14 @@ class Program
             case "exit":
                 _isRunning = false;
                 LogInfo("Exit command received - shutting down");
+                break;
+
+            case "sensors":
+                CommandListSensors();
+                break;
+
+            case "monitor":
+                await CommandMonitorSensors(args);
                 break;
 
             default:
@@ -946,14 +957,19 @@ class Program
         Console.WriteLine("║ connect <port>          - Connect to specific COM port           ║");
         Console.WriteLine("║ disconnect              - Disconnect from hub                    ║");
         Console.WriteLine("║                                                                  ║");
+        Console.WriteLine("║ HWINFO64 INTEGRATION:                                             ║");
+        Console.WriteLine("║ sensors                 - List all available HWInfo64 sensors    ║");
+        Console.WriteLine("║ monitor <uid> <s:e>     - Monitor sensor on dial (press key exit)║");
+        Console.WriteLine("║                          <s:e> format: \"SensorName:EntryName\"   ║");
+        Console.WriteLine("║                                                                  ║");
         Console.WriteLine("║ EXAMPLES:                                                        ║");
         Console.WriteLine("║ > connect                                                        ║");
         Console.WriteLine("║ > init                                                           ║");
+        Console.WriteLine("║ > sensors                                                        ║");
+        Console.WriteLine("║ > monitor ABC123 \"CPU Package:Temperature\"                      ║");
         Console.WriteLine("║ > dials                                                          ║");
         Console.WriteLine("║ > set 3A4B... 75                                                 ║");
         Console.WriteLine("║ > color 3A4B... red                                              ║");
-        Console.WriteLine("║ > image 3A4B... ./etc/image_pack/cpu-temp.png                    ║");
-        Console.WriteLine("║ > test                                                           ║");
         Console.WriteLine("║                                                                  ║");
         Console.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
     }
@@ -975,6 +991,280 @@ class Program
             "pink" => Colors.Pink,
             _ => null
         };
+    }
+
+    private static void CommandListSensors()
+    {
+        LogInfo("Listing all HWInfo64 sensors");
+        Console.WriteLine();
+        Console.WriteLine("╔═ HWInfo64 Sensors ════════════════════════════════════════════╗");
+
+        var reader = new HWiNFOReader();
+        if (!reader.Connect())
+        {
+            PrintWarning("HWInfo64 not available or Shared Memory Support not enabled");
+            LogWarning("Failed to connect to HWInfo64 shared memory");
+            Console.WriteLine("║ Make sure:                                                 │");
+            Console.WriteLine("║ 1. HWInfo64 is running                                     │");
+            Console.WriteLine("║ 2. Running in 'Sensors only' mode                          │");
+            Console.WriteLine("║ 3. 'Shared Memory Support' is enabled in Options           │");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+            return;
+        }
+
+        try
+        {
+            var readings = reader.ReadAllSensorReadings();
+
+            if (readings == null || readings.Count == 0)
+            {
+                PrintWarning("No sensors found.");
+                LogWarning("HWInfo64 reported no sensor readings");
+                Console.WriteLine("║ No sensor readings available in shared memory             │");
+                Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+                return;
+            }
+
+            // Group by sensor name
+            var grouped = readings.GroupBy(r => r.SensorName).OrderBy(g => g.Key);
+            int count = 0;
+
+            foreach (var sensorGroup in grouped)
+            {
+                Console.WriteLine($"║ [{sensorGroup.Key}]");
+                foreach (var reading in sensorGroup.OrderBy(r => r.EntryName))
+                {
+                    Console.WriteLine($"║   ├─ {reading.EntryName,-40}");
+                    Console.WriteLine($"║   │  Value: {reading.Value:F2} {reading.Unit,-10} Min: {reading.ValueMin:F2} Max: {reading.ValueMax:F2}");
+                    count++;
+                }
+                Console.WriteLine("║");
+            }
+
+            Console.WriteLine($"║ Total: {count} sensor reading(s)                           │");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+            LogInfo($"✓ Listed {count} sensor readings from {grouped.Count()} sensor(s)");
+        }
+        finally
+        {
+            reader.Disconnect();
+        }
+    }
+
+    private static async Task CommandMonitorSensors(string[] args)
+    {
+        if (_controller == null || !_controller.IsInitialized)
+        {
+            PrintError("VU1 not initialized. Use 'connect' and 'init' first.");
+            LogError("Monitor command attempted without initialized VU1");
+            return;
+        }
+
+        if (args.Length < 2)
+        {
+            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name> [poll_interval_ms]");
+            PrintError("Example: monitor ABC123 \"CPU Package:Temperature\" 500");
+            LogWarning("Monitor command missing required arguments");
+            return;
+        }
+
+        string dialUID = args[1];
+        if (args.Length < 3)
+        {
+            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name> [poll_interval_ms]");
+            LogWarning("Monitor command missing sensor name");
+            return;
+        }
+
+        var dial = _controller.GetDial(dialUID);
+        if (dial == null)
+        {
+            PrintError($"Dial '{dialUID}' not found.");
+            LogError($"Monitor dial not found with UID: {dialUID}");
+            return;
+        }
+
+        string[] sensorParts = args[2].Split(':');
+        if (sensorParts.Length != 2)
+        {
+            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name>");
+            PrintError("Example: monitor ABC123 \"CPU Package:Temperature\"");
+            LogWarning("Invalid sensor specification format");
+            return;
+        }
+
+        string sensorName = sensorParts[0];
+        string entryName = sensorParts[1];
+        int pollInterval = 500; // Default 500ms
+
+        if (args.Length > 3 && !int.TryParse(args[3], out pollInterval))
+        {
+            PrintError("Invalid poll interval. Using default 500ms");
+            pollInterval = 500;
+        }
+
+        LogInfo($"Starting sensor monitoring on dial '{dial.Name}'");
+        LogInfo($"Sensor: {sensorName} > {entryName}");
+        LogInfo($"Poll interval: {pollInterval}ms");
+
+        Console.WriteLine();
+        Console.WriteLine("╔═ Sensor Monitor ═══════════════════════════════════════════════╗");
+        Console.WriteLine($"║ Dial: {dial.Name,-55}│");
+        Console.WriteLine($"║ Sensor: {sensorName,-51}│");
+        Console.WriteLine($"║ Entry: {entryName,-52}│");
+        Console.WriteLine($"║ Poll Interval: {pollInterval}ms{new string(' ', 43)}│");
+        Console.WriteLine("║                                                               ║");
+        Console.WriteLine("║ Press any key to stop monitoring...                           ║");
+        Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
+        Console.WriteLine();
+
+        var cts = new CancellationTokenSource();
+        var reader = new HWiNFOReader();
+
+        if (!reader.Connect())
+        {
+            PrintError("Failed to connect to HWInfo64. Check if it's running.");
+            LogError("Cannot connect to HWInfo64 shared memory for monitoring");
+            return;
+        }
+
+        try
+        {
+            // Start a task to wait for key press
+            var keyPressTask = Task.Run(() => Console.ReadKey(true), cts.Token);
+
+            int updateCount = 0;
+            double lastValue = 0;
+            bool foundSensor = false;
+
+            while (!cts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    // Check if key was pressed
+                    if (keyPressTask.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    var readings = reader.ReadAllSensorReadings();
+                    var matching = readings.FirstOrDefault(r =>
+                        r.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase) &&
+                        r.EntryName.Equals(entryName, StringComparison.OrdinalIgnoreCase));
+
+                    if (matching != null)
+                    {
+                        foundSensor = true;
+                        double value = matching.Value;
+                        string unit = matching.Unit;
+
+                        // Map sensor value to dial percentage (0-100)
+                        // Simple linear mapping - adjust min/max as needed for your sensors
+                        byte percentage = 0;
+
+                        // Auto-detect reasonable ranges based on sensor type
+                        if (matching.Type == SensorType.Temperature)
+                        {
+                            // Temperature: assume 0-100°C range
+                            percentage = (byte)Math.Clamp((value / 100.0) * 100, 0, 100);
+                        }
+                        else if (matching.Type == SensorType.Usage)
+                        {
+                            // Usage: already percentage
+                            percentage = (byte)Math.Clamp(value, 0, 100);
+                        }
+                        else if (matching.Type == SensorType.Voltage)
+                        {
+                            // Voltage: assume 0-5V range
+                            percentage = (byte)Math.Clamp((value / 5.0) * 100, 0, 100);
+                        }
+                        else if (matching.Type == SensorType.Fan)
+                        {
+                            // Fan: assume 0-5000 RPM range
+                            percentage = (byte)Math.Clamp((value / 5000.0) * 100, 0, 100);
+                        }
+                        else if (matching.Type == SensorType.Power)
+                        {
+                            // Power: assume 0-500W range
+                            percentage = (byte)Math.Clamp((value / 500.0) * 100, 0, 100);
+                        }
+                        else
+                        {
+                            // Default: use min/max from sensor data
+                            if (matching.ValueMax > matching.ValueMin)
+                            {
+                                double range = matching.ValueMax - matching.ValueMin;
+                                percentage = (byte)Math.Clamp(((value - matching.ValueMin) / range) * 100, 0, 100);
+                            }
+                        }
+
+                        // Update dial
+                        try
+                        {
+                            await _controller.SetDialPercentageAsync(dialUID, percentage);
+                            updateCount++;
+
+                            // Log significant changes
+                            if (Math.Abs(value - lastValue) > 0.5)
+                            {
+                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Value: {value:F1} {unit,-6} │ Dial: {percentage:3}% │ Updates: {updateCount}");
+                                lastValue = value;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LogError($"Failed to update dial: {ex.Message}");
+                            break;
+                        }
+                    }
+                    else if (!foundSensor && updateCount == 0)
+                    {
+                        PrintWarning($"Sensor not found: {sensorName} > {entryName}");
+                        LogWarning($"Sensor not found in HWInfo64");
+                        LogDetail("Available sensors:");
+                        var allReadings = reader.ReadAllSensorReadings();
+                        var availableSensors = allReadings.GroupBy(r => r.SensorName).Take(5);
+                        foreach (var sensor in availableSensors)
+                        {
+                            LogDetail($"  • {sensor.Key}");
+                            foreach (var entry in sensor.Take(3))
+                            {
+                                LogDetail($"    - {entry.EntryName}");
+                            }
+                        }
+                        break;
+                    }
+
+                    await Task.Delay(pollInterval, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogError($"Error during monitoring: {ex.Message}");
+                    await Task.Delay(1000);
+                }
+            }
+
+            Console.WriteLine();
+            LogInfo($"✓ Monitoring completed - {updateCount} updates sent to dial");
+            PrintSuccess($"Monitoring ended. Sent {updateCount} updates to dial.");
+
+            // Reset dial to 0
+            try
+            {
+                await _controller.SetDialPercentageAsync(dialUID, 0);
+                await _controller.SetBacklightAsync(dialUID, 0, 100, 0); // Green
+            }
+            catch { }
+        }
+        finally
+        {
+            reader.Disconnect();
+            cts.Cancel();
+        }
     }
 
     // Logging Methods
