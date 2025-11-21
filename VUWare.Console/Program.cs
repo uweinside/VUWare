@@ -86,6 +86,7 @@ class Program
         Console.WriteLine("│ color <uid> <c>  - Set backlight color     │");
         Console.WriteLine("│ colors           - Show available colors   │");
         Console.WriteLine("│ image <uid> <f>  - Set dial image from BMP │");
+        Console.WriteLine("│ test             - Test all dials          │");
         Console.WriteLine("│ help             - Show detailed help      │");
         Console.WriteLine("│ exit             - Exit program            │");
         Console.WriteLine("└────────────────────────────────────────────┘");
@@ -134,6 +135,10 @@ class Program
 
             case "image":
                 await CommandSetImage(args);
+                break;
+
+            case "test":
+                await CommandTestDials();
                 break;
 
             case "help":
@@ -644,11 +649,6 @@ class Program
         LogDetail("Color Reference Chart:");
         LogDetail("  • off     → RGB(0, 0, 0)       - Black");
         LogDetail("  • red     → RGB(100, 0, 0)     - Pure Red");
-        LogDetail("  • green   → RGB(0, 100, 0)     - Pure Green");
-        LogDetail("  • blue    → RGB(0, 0, 100)     - Pure Blue");
-        LogDetail("  • white   → RGB(100, 100, 100) - Pure White");
-        LogDetail("  • yellow  → RGB(100, 100, 0)   - Red + Green");
-        LogDetail("  • cyan    → RGB(0, 100, 100)   - Green + Blue");
         LogDetail("  • magenta → RGB(100, 0, 100)   - Red + Blue");
         LogDetail("  • orange  → RGB(100, 50, 0)    - Red + Half Green");
         LogDetail("  • purple  → RGB(100, 0, 100)   - Red + Blue");
