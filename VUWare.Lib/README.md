@@ -8,7 +8,7 @@ A comprehensive C# library for controlling Streacom VU1 dials via the VU1 Gauge 
 - **Serial Communication**: Type-safe protocol implementation with automatic encoding/decoding
 - **Dial Control**: Set dial positions (0-100%) with smooth easing animations
 - **Backlight Control**: RGBW backlight control with named colors and easing
-- **Display Management**: Update e-paper background images with automatic chunking
+- **Display Management**: Update e-paper background images (200x144, 3600 bytes) with automatic chunking
 - **State Tracking**: In-memory dial state with UID-based identification
 - **Configuration Persistence**: Easing and calibration settings management
 - **Async/Await**: Fully asynchronous API for non-blocking operations
@@ -39,8 +39,8 @@ A comprehensive C# library for controlling Streacom VU1 dials via the VU1 Gauge 
    - Easing configuration management
 
 5. **ImageProcessor** - E-paper display image handling
-   - 1-bit binary format conversion
-   - Automatic chunking for serial transmission
+   - 1-bit binary format conversion (vertical packing 8 pixels/byte)
+   - Automatic chunking for serial transmission (1000-byte max)
    - Test pattern generation
 
 6. **VU1Controller** - High-level API
@@ -54,11 +54,11 @@ A comprehensive C# library for controlling Streacom VU1 dials via the VU1 Gauge 
 ```
 VU1Controller (main entry point)
 ??? SerialPortManager (USB communication)
-??? DeviceManager (device management)
-?   ??? CommandBuilder (command encoding)
-?       ??? ProtocolHandler (message parsing)
-??? ImageProcessor (image encoding)
-??? ImageUpdateQueue (queued image updates)
+    ??? DeviceManager (device management)
+        ??? CommandBuilder (command encoding)
+            ??? ProtocolHandler (message parsing)
+ImageProcessor (image encoding)
+ImageUpdateQueue (queued image updates)
 
 DialState (dial information)
 ??? BacklightColor (RGBW values)
@@ -79,25 +79,21 @@ class Program
     {
         var controller = new VU1Controller();
 
-        // Connect to hub
         if (!controller.AutoDetectAndConnect())
         {
             Console.WriteLine("Failed to connect to VU1 hub");
             return;
         }
 
-        // Initialize (discover dials)
         if (!await controller.InitializeAsync())
         {
             Console.WriteLine("Failed to initialize");
             return;
         }
 
-        // Get all dials
         var dials = controller.GetAllDials();
         Console.WriteLine($"Found {dials.Count} dials");
 
-        // Set first dial to 75%
         foreach (var dial in dials.Values)
         {
             await controller.SetDialPercentageAsync(dial.UID, 75);
@@ -110,40 +106,13 @@ class Program
 }
 ```
 
-### Advanced Example: Multiple Dials
-
-```csharp
-// Set multiple dials with different values
-var dials = controller.GetAllDials();
-int dialIndex = 0;
-
-foreach (var dial in dials.Values)
-{
-    byte percentage = (byte)((dialIndex + 1) * 25); // 25%, 50%, 75%, 100%
-    
-    await controller.SetDialPercentageAsync(dial.UID, percentage);
-    await controller.SetBacklightColorAsync(dial.UID, Colors.Green);
-    
-    // Custom easing: slow smooth animation
-    var easing = new EasingConfig(
-        dialStep: 1,
-        dialPeriod: 100,
-        backlightStep: 5,
-        backlightPeriod: 100
-    );
-    await controller.SetEasingConfigAsync(dial.UID, easing);
-    
-    dialIndex++;
-}
-```
-
 ### Display Image Example
 
 ```csharp
-// Create a blank 200x144 image
+// Blank (white) 200x144 image
 byte[] blankImage = ImageProcessor.CreateBlankImage();
 
-// Or create a test pattern
+// Test pattern
 byte[] testPattern = ImageProcessor.CreateTestPattern();
 
 // Set image on first dial
@@ -154,7 +123,7 @@ foreach (var dial in dials.Values)
     break;
 }
 
-// Queue image update for later processing
+// Queue image update
 foreach (var dial in dials.Values)
 {
     controller.QueueImageUpdate(dial.UID, blankImage);
@@ -163,77 +132,7 @@ foreach (var dial in dials.Values)
 
 ## API Reference
 
-### VU1Controller
-
-Main entry point for the library.
-
-#### Methods
-
-- `bool AutoDetectAndConnect()` - Auto-detect and connect to VU1 hub
-- `bool Connect(string portName)` - Connect to specific COM port
-- `void Disconnect()` - Disconnect from hub
-- `async Task<bool> InitializeAsync()` - Discover dials and start updates
-- `IReadOnlyDictionary<string, DialState> GetAllDials()` - Get all dials
-- `DialState GetDial(string uid)` - Get dial by UID
-- `async Task<bool> SetDialPercentageAsync(string uid, byte percentage)` - Set dial position
-- `async Task<bool> SetBacklightAsync(string uid, byte r, byte g, byte b, byte w)` - Set color
-- `async Task<bool> SetBacklightColorAsync(string uid, NamedColor color)` - Set named color
-- `async Task<bool> SetEasingConfigAsync(string uid, EasingConfig config)` - Configure easing
-- `async Task<bool> SetDisplayImageAsync(string uid, byte[] imageData)` - Update display
-- `void QueueImageUpdate(string uid, byte[] imageData)` - Queue image for later
-
-#### Properties
-
-- `bool IsConnected` - Connection status
-- `bool IsInitialized` - Initialization status
-- `int DialCount` - Number of discovered dials
-
-### DialState
-
-Represents the current state of a single dial.
-
-#### Properties
-
-- `byte Index` - Hub index (0-99)
-- `string UID` - Unique identifier (permanent)
-- `string Name` - User-friendly name
-- `byte CurrentValue` - Current position (0-100%)
-- `BacklightColor Backlight` - Current backlight color
-- `EasingConfig Easing` - Animation settings
-- `string FirmwareVersion` - Firmware version
-- `string HardwareVersion` - Hardware version
-- `DateTime LastCommunication` - Last contact timestamp
-
-### EasingConfig
-
-Controls smooth transitions for dial and backlight.
-
-#### Properties
-
-- `uint DialStep` - Percentage change per period (default: 2)
-- `uint DialPeriod` - Milliseconds between updates (default: 50)
-- `uint BacklightStep` - Percentage change per period (default: 5)
-- `uint BacklightPeriod` - Milliseconds between updates (default: 100)
-
-### BacklightColor
-
-RGBW color values (0-100%).
-
-```csharp
-var color = new BacklightColor(100, 50, 0); // Orange
-```
-
 ### ImageProcessor
-
-Static utility class for image handling.
-
-#### Methods
-
-- `byte[] CreateBlankImage()` - Create white 200x144 image
-- `byte[] CreateTestPattern()` - Create checkerboard pattern
-- `byte[] LoadImageFile(string path)` - Load PNG/BMP/JPEG image and convert to 1-bit format
-- `byte[] ConvertGrayscaleTo1Bit(byte[] data, int w, int h, int threshold)` - Convert grayscale
-- `List<byte[]> ChunkImageData(byte[] data)` - Split into transmission chunks
 
 #### Constants
 
@@ -242,159 +141,45 @@ Static utility class for image handling.
 - `BYTES_PER_IMAGE` = 3600
 - `MAX_CHUNK_SIZE` = 1000
 
-### NamedColor and Colors
+#### Methods
 
-Individual color instances (NamedColor class):
-
-```csharp
-var color = new NamedColor("Custom", 100, 50, 0); // Orange
-```
-
-Predefined colors in the Colors static class:
-
-```csharp
-await controller.SetBacklightColorAsync(uid, Colors.Red);
-await controller.SetBacklightColorAsync(uid, Colors.Green);
-await controller.SetBacklightColorAsync(uid, Colors.Blue);
-```
-
-#### Available Colors
-
-- `Colors.Off` - Black (0, 0, 0)
-- `Colors.Red` - (100, 0, 0)
-- `Colors.Green` - (0, 100, 0)
-- `Colors.Blue` - (0, 0, 100)
-- `Colors.White` - (100, 100, 100)
-- `Colors.Yellow` - (100, 100, 0)
-- `Colors.Cyan` - (0, 100, 100)
-- `Colors.Magenta` - (100, 0, 100)
-- `Colors.Orange` - (100, 50, 0)
-- `Colors.Purple` - (100, 0, 100)
-- `Colors.Pink` - (100, 25, 50)
+- `byte[] CreateBlankImage()`
+- `byte[] CreateTestPattern()`
+- `byte[] LoadImageFile(string path)` (PNG/BMP/JPEG ? 1-bit packed 3600 bytes)
+- `byte[] ConvertGrayscaleTo1Bit(...)`
+- `List<byte[]> ChunkImageData(byte[] data)`
 
 ## Key Design Decisions
 
-### UID-Based Identification
+### Correct Display Geometry
 
-Dials are identified by their unique 12-byte UID (factory-programmed) rather than I2C address index. This ensures:
-
-- Dial identity persists across power cycles
-- Metadata follows the physical dial regardless of position
-- Automatic recovery if dials are rearranged
-
-### Asynchronous API
-
-All network operations use async/await to prevent blocking:
-
-```csharp
-// Non-blocking
-await controller.SetDialPercentageAsync(uid, 75);
-
-// Event loop continues to run
-```
-
-### Automatic Provisioning
-
-Device discovery handles the I2C provisioning complexity:
-
-1. All dials start at default address 0x09
-2. Hub assigns unique addresses via UID-based targeting
-3. Each dial maps its UID to assigned address
-4. Server maintains UID?Index mapping
+Official product spec: e-paper panel is 200x144 pixels (not 200x200). 1-bit vertical packing yields 3600 bytes per full frame ((200*144)/8). Earlier reverse-engineered notes assumed 5000 bytes; those were based on a generic buffer limit. Only 3600 bytes must be transmitted for a full image.
 
 ### Chunked Image Transfer
 
-Large image data (5000 bytes) is split into 1000-byte chunks:
+3600-byte image is sent as 4 chunks (1000 + 1000 + 1000 + 600) with 200ms pauses matching the Python reference implementation. This prevents RX buffer overflow and mirrors firmware pacing expectations.
 
-- Prevents USB/serial buffer overflows
-- Allows progress tracking
-- Automatic 200ms delay between chunks
+## Performance
 
-## Limitations and Known Issues
-
-### Power Cycle Detection
-
-The library does NOT automatically detect dial power cycles. If dials lose power during operation:
-
-- Call `await controller.InitializeAsync()` again to re-provision
-- Or disconnect/reconnect manually
-
-Recommended: Implement a heartbeat mechanism in your application to detect disconnections.
-
-### Image Loading
-
-`ImageProcessor.LoadImageFile()` now supports PNG, BMP, and JPEG images directly:
-
-1. Loads PNG/BMP/JPEG files natively using System.Drawing.Common
-2. Automatically converts color images to grayscale (luminosity formula)
-3. Resizes images to 200x144 if needed (preserves aspect ratio with high-quality interpolation)
-4. Converts to 1-bit black/white format with configurable threshold (default: 127)
-
-Alternatively, you can use `CreateBlankImage()` or `CreateTestPattern()` for quick testing.
-
-### Index vs. UID
-
-Remember:
-
-- **Index** (0-99): Hub's internal I2C address offset, can change
-- **UID**: Permanent identifier, never changes, use this for persistence
-
-## Implementation Notes
-
-### Thread Safety
-
-The library is thread-safe:
-
-- All shared state protected by locks
-- Serial port operations are serialized
-- Device manager maintains consistent state
-
-### Error Handling
-
-Exceptions are logged to Debug output but not thrown for network errors:
-
-- Connection failures return `false`
-- Use `IsConnected` and `IsInitialized` properties
-- Check return values of async operations
-
-### Performance
-
-- Discovery takes ~2-3 seconds (3 provision attempts × 200ms)
-- Dial value update: ~50-100ms
-- Image update: ~2-3 seconds (for 5000-byte image at 1000-byte chunks)
-- Periodic update loop runs every 500ms
+| Operation | Typical Time |
+|-----------|--------------|
+| Discovery (single dial) | 1-2 s |
+| Set dial value | ~50-100 ms |
+| Set backlight | ~50-100 ms |
+| Image upload (3600 bytes) | 2-3 s |
 
 ## Troubleshooting
 
-### "Failed to connect to VU1 hub"
+### Image Not Displaying
 
-- Check USB connection
-- Verify VID:0x0403, PID:0x6015 in Device Manager
-- Try manual `Connect("COM3")` with specific port
+- Ensure final buffer length is exactly 3600 bytes
+- Verify vertical packing (8 vertical pixels per byte, MSB=top)
+- Use `CreateTestPattern()` to validate display integrity
+- Confirm dial is initialized and online
 
-### "No dials found after initialization"
+### Legacy Documentation Mentions 200x200 / 5000 Bytes
 
-- Check I2C connections from hub to dials
-- Verify dial power supply
-- Try `RescanBus()` and `ProvisionDevice()` manually
-
-### Dial value not updating
-
-- Verify dial's `LastCommunication` is recent
-- Check backlight status (may indicate I2C issue)
-- Rescan/reprovision the bus
-
-### Image not displaying
-
-- Verify image data size: 5000 bytes exactly
-- Check 1-bit format (8 vertical pixels per byte)
-- Try test pattern first: `CreateTestPattern()`
-
-## References
-
-- IMPLEMENTATION_GUIDE.md - Detailed architecture and device lifecycle
-- SERIAL_PROTOCOL.md - Low-level protocol specification
-- VU1 Gauge Hub hardware documentation
+These values are obsolete. The hardware panel is 200x144; send only 3600 bytes. The protocol maximum RX data length (5000) exceeds required size and is a firmware upper bound.
 
 ## License
 

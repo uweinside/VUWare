@@ -152,64 +152,46 @@ namespace VUWare.Lib
         }
 
         /// <summary>
-        /// Sets the background image for a dial's e-paper display.
-        /// Image data should be 1-bit packed format (3600 bytes for 200x144).
-        /// Supports PNG, BMP, and JPEG files which are automatically converted.
+        /// Sets the e-paper display image. Expects a 3600-byte packed buffer (200x144 1-bit). Use ImageProcessor.LoadImageFile.
         /// </summary>
         public async Task<bool> SetDisplayImageAsync(string uid, byte[] imageData)
         {
             if (imageData == null || imageData.Length == 0)
-            {
                 throw new ArgumentException("Image data cannot be empty", nameof(imageData));
-            }
-
-            if (imageData.Length > ImageProcessor.BYTES_PER_IMAGE)
-            {
-                throw new ArgumentOutOfRangeException(nameof(imageData),
-                    $"Image data exceeds maximum size of {ImageProcessor.BYTES_PER_IMAGE} bytes");
-            }
+            if (imageData.Length != ImageProcessor.BYTES_PER_IMAGE)
+                throw new ArgumentException($"Image data must be exactly {ImageProcessor.BYTES_PER_IMAGE} bytes (got {imageData.Length})", nameof(imageData));
 
             try
             {
-                var dial = _deviceManager.GetDialByUID(uid);
-                if (dial == null)
-                {
-                    throw new ArgumentException($"Dial with UID '{uid}' not found");
-                }
+                var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
 
-                // Clear display
+                // Clear (white) then origin
                 string clearCmd = CommandBuilder.DisplayClear(dial.Index, false);
-                string clearResp = await SendCommandAsync(clearCmd, 1000);
-                if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(clearResp)))
-                {
-                    return false;
-                }
+                string clearResp = await SendCommandAsync(clearCmd, 1500);
+                if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(clearResp))) return false;
 
-                // Go to origin
                 string gotoCmd = CommandBuilder.DisplayGotoXY(dial.Index, 0, 0);
-                string gotoResp = await SendCommandAsync(gotoCmd, 1000);
-                if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(gotoResp)))
-                {
-                    return false;
-                }
+                string gotoResp = await SendCommandAsync(gotoCmd, 1500);
+                if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(gotoResp))) return false;
 
-                // Send image data in chunks
                 var chunks = ImageProcessor.ChunkImageData(imageData);
-                foreach (byte[] chunk in chunks)
+                int c = 0;
+                foreach (var chunk in chunks)
                 {
+                    c++;
                     string imgCmd = CommandBuilder.DisplayImageData(dial.Index, chunk);
-                    string imgResp = await SendCommandAsync(imgCmd, 2000);
+                    string imgResp = await SendCommandAsync(imgCmd, 2500);
                     if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(imgResp)))
                     {
+                        System.Diagnostics.Debug.WriteLine($"Image chunk {c} failed");
                         return false;
                     }
-                    // Delay between chunks as recommended in docs
-                    await Task.Delay(200);
+                    await Task.Delay(200); // pacing as per Python implementation
                 }
 
-                // Show image
+                await Task.Delay(200); // settle before show
                 string showCmd = CommandBuilder.DisplayShowImage(dial.Index);
-                string showResp = await SendCommandAsync(showCmd, 3000);
+                string showResp = await SendCommandAsync(showCmd, 4000);
                 return ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(showResp));
             }
             catch (Exception ex)
@@ -225,15 +207,10 @@ namespace VUWare.Lib
         /// </summary>
         private void StartPeriodicUpdates()
         {
-            if (_periodicUpdateTask != null && !_periodicUpdateTask.IsCompleted)
-            {
-                return; // Already running
-            }
-
+            if (_periodicUpdateTask != null && !_periodicUpdateTask.IsCompleted) return;
             _periodicUpdateCancellation = new CancellationTokenSource();
             _periodicUpdateTask = Task.Run(() => PeriodicUpdateLoop(_periodicUpdateCancellation.Token));
         }
-
         /// <summary>
         /// Stops the periodic update loop.
         /// Called automatically by Disconnect.
@@ -241,52 +218,41 @@ namespace VUWare.Lib
         private void StopPeriodicUpdates()
         {
             _periodicUpdateCancellation?.Cancel();
-            try
-            {
-                _periodicUpdateTask?.Wait(TimeSpan.FromSeconds(5));
-            }
-            catch { }
+            try { _periodicUpdateTask?.Wait(TimeSpan.FromSeconds(5)); } catch { }
         }
-
         /// <summary>
         /// Periodic update loop that processes image updates.
         /// Runs every ~500ms while connected.
         /// </summary>
-        private async void PeriodicUpdateLoop(CancellationToken cancellationToken)
+        private async void PeriodicUpdateLoop(CancellationToken ct)
         {
             try
             {
-                while (!cancellationToken.IsCancellationRequested && IsConnected)
+                while (!ct.IsCancellationRequested && IsConnected)
                 {
                     try
                     {
                         // Process pending image updates
-                        while (_imageQueue.TryGetNextUpdate(out byte dialIndex, out byte[] imageData))
+                        while (_imageQueue.TryGetNextUpdate(out byte idx, out byte[] img))
                         {
-                            var dial = _deviceManager.GetDialByIndex(dialIndex);
-                            if (dial != null)
-                            {
-                                await SetDisplayImageAsync(dial.UID, imageData);
-                            }
+                            var dial = _deviceManager.GetDialByIndex(idx);
+                            if (dial != null) await SetDisplayImageAsync(dial.UID, img);
                         }
 
                         // Sleep before next update
-                        await Task.Delay(500, cancellationToken);
+                        await Task.Delay(500, ct);
                     }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
+                    catch (OperationCanceledException) { break; }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Periodic update error: {ex.Message}");
-                        await Task.Delay(1000, cancellationToken);
+                        await Task.Delay(1000, ct);
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Periodic update loop failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Periodic loop failure: {ex.Message}");
             }
         }
 
@@ -295,23 +261,14 @@ namespace VUWare.Lib
         /// </summary>
         public void QueueImageUpdate(string uid, byte[] imageData)
         {
-            var dial = _deviceManager.GetDialByUID(uid);
-            if (dial == null)
-            {
-                throw new ArgumentException($"Dial with UID '{uid}' not found");
-            }
-
+            var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
             _imageQueue.QueueImageUpdate(dial.Index, imageData);
         }
 
         /// <summary>
         /// Sends a command directly to the hub (for advanced use).
         /// </summary>
-        private async Task<string> SendCommandAsync(string command, int timeoutMs)
-        {
-            return await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
-        }
-
+        private async Task<string> SendCommandAsync(string command, int timeoutMs) => await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
         /// <summary>
         /// Gets the number of dials discovered.
         /// </summary>

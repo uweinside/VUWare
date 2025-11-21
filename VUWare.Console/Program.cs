@@ -85,7 +85,7 @@ class Program
         Console.WriteLine("│ set <uid> <pct>  - Set dial position       │");
         Console.WriteLine("│ color <uid> <c>  - Set backlight color     │");
         Console.WriteLine("│ colors           - Show available colors   │");
-        Console.WriteLine("│ image <uid> <f>  - Set dial image from BMP │");
+        Console.WriteLine("│ image <uid> <f>  - Set dial image (PNG/BMP/JPEG) │");
         Console.WriteLine("│ test             - Test all dials          │");
         Console.WriteLine("│ help             - Show detailed help      │");
         Console.WriteLine("│ exit             - Exit program            │");
@@ -727,8 +727,8 @@ class Program
                 Console.WriteLine();
                 LogDetail("Upload Details:");
                 LogDetail($"  • Dial: {dial.Name} ({uid})");
-                LogDetail($"  • Image Size: {imageData.Length} bytes");
-                LogDetail($"  • Expected Size: {ImageProcessor.BYTES_PER_IMAGE} bytes");
+                LogDetail($"  • Image Size: {imageData.Length} bytes (expected {ImageProcessor.BYTES_PER_IMAGE})");
+                LogDetail($"  • Dimensions: 200x144 px (1-bit vertical packed)");
                 LogDetail($"  • Load Time: {loadTimer.ElapsedMilliseconds}ms");
                 LogDetail($"  • Upload Time: {uploadTimer.ElapsedMilliseconds}ms");
                 LogDetail($"  • Total Time: {loadTimer.ElapsedMilliseconds + uploadTimer.ElapsedMilliseconds}ms");
@@ -740,14 +740,12 @@ class Program
                 LogError("✗ Failed to upload image to dial");
                 LogDetail("Upload Details:");
                 LogDetail($"  • Dial: {dial.Name} ({uid})");
-                LogDetail($"  • Image Size: {imageData.Length} bytes");
-                LogDetail($"  • Load Time: {loadTimer.ElapsedMilliseconds}ms");
-                LogDetail($"  • Upload Time: {uploadTimer.ElapsedMilliseconds}ms");
+                LogDetail($"  • Image Size: {imageData.Length} bytes (expected {ImageProcessor.BYTES_PER_IMAGE})");
                 LogDetail("Troubleshooting:");
-                LogDetail($"  1. Verify image is exactly 5000 bytes (200x200 1-bit)");
-                LogDetail($"  2. Check dial is connected to hub");
-                LogDetail($"  3. Ensure I2C cables are properly seated");
-                LogDetail($"  4. Try again with 'image' command");
+                LogDetail("  1. Ensure source image converts/scales to 200x144 pixels");
+                LogDetail("  2. Confirm resulting packed size is 3600 bytes");
+                LogDetail("  3. Verify hub connection and dial index is valid");
+                LogDetail("  4. Try a blank image: 'image <uid> ./etc/image_pack/blank.png'");
             }
         }
         catch (Exception ex)
@@ -919,30 +917,36 @@ class Program
         Console.WriteLine("║ CONTROLLING DIALS:                                         ║");
         Console.WriteLine("║ set <uid> <0-100>       - Set dial position (percentage)   ║");
         Console.WriteLine("║ color <uid> <name>      - Set backlight color              ║");
-        Console.WriteLine("║ image <uid> <filepath>  - Load 1-bit BMP image (200x200)   ║");
+        Console.WriteLine("║ image <uid> <filepath>  - Load PNG/BMP/JPG (auto -> 200x144 / 3600B) ║");
+        Console.WriteLine("║                                                            ║");
+        Console.WriteLine("║ DISPLAY IMAGE FORMAT:                                      ║");
+        Console.WriteLine("║ • Resolution: 200x144 px                                   ║");
+        Console.WriteLine("║ • Color Depth: 1-bit (vertical pack, 8 pixels/byte)        ║");
+        Console.WriteLine("║ • Total Bytes: 3600                                        ║");
+        Console.WriteLine("║ • Bit: 1 = light (>127), 0 = dark (<=127)                  ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("║ TESTING:                                                   ║");
-        Console.WriteLine("║ test                    - Run automated test on all dials   ║");
+        Console.WriteLine("║ test                    - Run automated test on all dials  ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("║ QUERYING:                                                  ║");
-        Console.WriteLine("║ dial <uid>              - Show detailed info for one dial   ║");
-        Console.WriteLine("║ dials                   - List all dials with status        ║");
-        Console.WriteLine("║ colors                  - Show available backlight colors   ║");
-        Console.WriteLine("║ status                  - Show connection status            ║");
+        Console.WriteLine("║ dial <uid>              - Show detailed info for one dial  ║");
+        Console.WriteLine("║ dials                   - List all dials with status       ║");
+        Console.WriteLine("║ colors                  - Show available backlight colors  ║");
+        Console.WriteLine("║ status                  - Show connection status           ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("║ CONNECTION:                                                ║");
         Console.WriteLine("║ connect                 - Auto-detect VU1 hub              ║");
-        Console.WriteLine("║ connect <port>          - Connect to specific COM port      ║");
+        Console.WriteLine("║ connect <port>          - Connect to specific COM port     ║");
         Console.WriteLine("║ disconnect              - Disconnect from hub              ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("║ EXAMPLES:                                                  ║");
         Console.WriteLine("║ > connect                                                  ║");
         Console.WriteLine("║ > init                                                     ║");
         Console.WriteLine("║ > dials                                                    ║");
-        Console.WriteLine("║ > set 3A4B5C6D7E8F0123 75                                  ║");
-        Console.WriteLine("║ > color 3A4B5C6D7E8F0123 red                               ║");
-        Console.WriteLine("║ > image 3A4B5C6D7E8F0123 ./test.bmp                         ║");
-        Console.WriteLine("║ > test                  - Test all dials                    ║");
+        Console.WriteLine("║ > set 3A4B... 75                                           ║");
+        Console.WriteLine("║ > color 3A4B... red                                        ║");
+        Console.WriteLine("║ > image 3A4B... ./etc/image_pack/cpu-temp.png              ║");
+        Console.WriteLine("║ > test                                                     ║");
         Console.WriteLine("║                                                            ║");
         Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
     }

@@ -14,6 +14,20 @@ This document describes the serial protocol used to communicate with the VU1 Gau
 - **Stop Bits**: 1
 - **Timeout**: 2 seconds (configurable)
 
+## E-Paper Display Specs (Confirmed)
+
+| Property | Value |
+|----------|-------|
+| Resolution | 200 x 144 pixels |
+| Bit Depth | 1-bit (black/white) |
+| Packed Size | 3600 bytes ((200*144)/8) |
+| Packing | Vertical (8 pixels per byte, MSB=top) |
+| Threshold | Gray > 127 → bit 1 (light), ≤127 → bit 0 (dark) |
+| Transfer Chunk | Up to 1000 bytes per packet |
+| Typical Chunk Count | 4 (1000 + 1000 + 1000 + 600) |
+
+Earlier reverse-engineered notes suggested 200x200 (5000 bytes). Firmware RX upper limit (5000) is larger than needed; only 3600 bytes are required for full frame.
+
 ## Protocol Format
 
 ### Message Structure
@@ -22,45 +36,63 @@ All messages follow a fixed format with ASCII-encoded hexadecimal values.
 
 #### Request Format (Host → Hub)
 ```
->CCDDLLLL[DATA]<CR><LF>
+>CCDDLLLL[DATA]\r\n
 ```
-
-- `>` - Start character (0x3E)
-- `CC` - Command byte (2 hex digits)
-- `DD` - Data type byte (2 hex digits)
-- `LLLL` - Data length (4 hex digits, big-endian)
-- `[DATA]` - Optional data payload (variable length, hex-encoded)
-- `<CR><LF>` - Line terminator (0x0D 0x0A)
+- `>` start char
+- `CC` command byte (2 hex digits)
+- `DD` data type (2 hex digits)
+- `LLLL` data length (4 hex digits)
+- `[DATA]` hex payload (optional)
+- `\r\n` terminator
 
 #### Response Format (Hub → Host)
 ```
-<CCDDLLLL[DATA]<CR><LF>
+<CCDDLLLL[DATA]\r\n
 ```
-
-- `<` - Start character (0x3C)
-- `CC` - Command byte (2 hex digits)
-- `DD` - Data type byte (2 hex digits)
-- `LLLL` - Data length (4 hex digits, big-endian)
-- `[DATA]` - Response data (variable length, hex-encoded)
-- `<CR><LF>` - Line terminator (0x0D 0x0A)
+- `<` start char
+- Remaining fields mirror request
 
 ### Configuration Constants
-
 ```
 GAUGE_COMM_HEADER_LEN = 9
 GAUGE_COMM_MAX_TX_DATA_LEN = 1000
-GAUGE_COMM_MAX_RX_DATA_LEN = 5000
+GAUGE_COMM_MAX_RX_DATA_LEN = 5000  // Upper bound, not required size
 GAUGE_COMM_START_CHAR = '>'
 ```
+
+## Image Transfer Sequence (200x144 / 3600B)
+
+1. Clear display (`COMM_CMD_DISPLAY_CLEAR`) – set white background
+2. Set cursor origin (`COMM_CMD_DISPLAY_GOTO_XY`, x=0,y=0)
+3. Send image data in ≤1000-byte chunks (`COMM_CMD_DISPLAY_IMG_DATA`), 200ms pause between chunks
+4. Trigger refresh (`COMM_CMD_DISPLAY_SHOW_IMG`)
+
+Example chunk distribution: 1000 + 1000 + 1000 + 600 bytes.
+
+## Image Data Format
+
+- Each byte represents 8 vertically stacked pixels in a column.
+- Columns processed left→right (x=0..199).
+- Within each column, pixels processed top→bottom in 8-pixel groups.
+- Bit 7 (MSB) = top pixel of group, bit 0 (LSB) = bottom pixel.
+- Threshold mapping: gray > 127 → 1 (light), ≤127 → 0 (dark).
+
+## Command Adjustments Note
+
+Any tooling or scripts expecting 5000-byte frames must be updated to validate 3600 bytes instead.
+
+*Remaining protocol documentation unchanged below.*
+
+---
 
 ## Data Types
 
 | Code | Name | Description |
 |------|------|-------------|
 | 0x01 | COMM_DATA_NONE | No data payload |
-| 0x02 | COMM_DATA_SINGLE_VALUE | Single value (1-4 bytes) |
+| 0x02 | COMM_DATA_SINGLE_VALUE | Single value |
 | 0x03 | COMM_DATA_MULTIPLE_VALUE | Multiple values |
-| 0x04 | COMM_DATA_KEY_VALUE_PAIR | Key-value pair(s) |
+| 0x04 | COMM_DATA_KEY_VALUE_PAIR | Key-value pairs |
 | 0x05 | COMM_DATA_STATUS_CODE | Status code response |
 
 ## Status Codes
