@@ -8,4 +8,9 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VUWare.HWInfo64\VUWare.HWInfo64.csproj" />
+    <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
+  </ItemGroup>
+
 </Project>

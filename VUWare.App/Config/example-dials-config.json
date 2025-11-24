@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "appSettings": {
+    "autoConnect": true,
+    "enablePolling": true,
+    "globalUpdateIntervalMs": 1000,
+    "logFilePath": "",
+    "debugMode": false
+  },
+  "dials": [
+    {
+      "dialUid": "DIAL_001",
+      "displayName": "CPU Temperature",
+      "sensorName": "CPU Package",
+      "entryName": "Temperature",
+      "minValue": 20,
+      "maxValue": 100,
+      "warningThreshold": 80,
+      "criticalThreshold": 95,
+      "colorConfig": {
+        "normalColor": "Cyan",
+        "warningColor": "Yellow",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 1000
+    },
+    {
+      "dialUid": "DIAL_002",
+      "displayName": "GPU Temperature",
+      "sensorName": "GPU 1",
+      "entryName": "Temperature",
+      "minValue": 20,
+      "maxValue": 100,
+      "warningThreshold": 85,
+      "criticalThreshold": 100,
+      "colorConfig": {
+        "normalColor": "Green",
+        "warningColor": "Orange",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 1000
+    },
+    {
+      "dialUid": "DIAL_003",
+      "displayName": "CPU Load",
+      "sensorName": "CPU Package",
+      "entryName": "Load",
+      "minValue": 0,
+      "maxValue": 100,
+      "warningThreshold": 80,
+      "criticalThreshold": null,
+      "colorConfig": {
+        "normalColor": "Blue",
+        "warningColor": "Yellow",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 500
+    },
+    {
+      "dialUid": "DIAL_004",
+      "displayName": "Memory Usage",
+      "sensorName": "Memory",
+      "entryName": "Used",
+      "minValue": 0,
+      "maxValue": 100,
+      "warningThreshold": 85,
+      "criticalThreshold": 95,
+      "colorConfig": {
+        "normalColor": "Magenta",
+        "warningColor": "Orange",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 2000
+    }
+  ]
+}
