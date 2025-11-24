@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,6 +22,8 @@ namespace VUWare.App
     {
         private DialsConfiguration? _config;
         private AppInitializationService? _initService;
+        private SensorMonitoringService? _monitoringService;
+        private readonly Dictionary<string, Button> _dialButtons = new();
 
         public MainWindow()
         {
@@ -31,13 +34,59 @@ namespace VUWare.App
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Map dial UIDs to buttons for quick access
+            MapDialButtons();
             LoadConfiguration();
             StartInitialization();
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            _monitoringService?.Dispose();
             _initService?.Dispose();
+        }
+
+        /// <summary>
+        /// Maps dial configuration UIDs to their corresponding UI buttons.
+        /// </summary>
+        private void MapDialButtons()
+        {
+            _dialButtons.Clear();
+            _dialButtons["DIAL_001"] = Dial1Button;
+            _dialButtons["DIAL_002"] = Dial2Button;
+            _dialButtons["DIAL_003"] = Dial3Button;
+            _dialButtons["DIAL_004"] = Dial4Button;
+        }
+
+        /// <summary>
+        /// Gets the button for a dial UID, or null if not found.
+        /// </summary>
+        private Button? GetDialButton(string dialUid)
+        {
+            // Try exact match first
+            if (_dialButtons.TryGetValue(dialUid, out var button))
+                return button;
+
+            // If not found by configured ID, try matching by position in config
+            if (_config != null)
+            {
+                for (int i = 0; i < _config.Dials.Count && i < 4; i++)
+                {
+                    if (_config.Dials[i].DialUid == dialUid)
+                    {
+                        return i switch
+                        {
+                            0 => Dial1Button,
+                            1 => Dial2Button,
+                            2 => Dial3Button,
+                            3 => Dial4Button,
+                            _ => null
+                        };
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -171,7 +220,9 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
-                // Initialization complete - UI is now ready for monitoring
+                // Start monitoring
+                StartMonitoring();
+
                 if (_config?.AppSettings.DebugMode ?? false)
                 {
                     MessageBox.Show(
@@ -182,6 +233,106 @@ namespace VUWare.App
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                 }
+            });
+        }
+
+        /// <summary>
+        /// Starts the sensor monitoring service.
+        /// </summary>
+        private void StartMonitoring()
+        {
+            if (_initService == null || _config == null)
+                return;
+
+            try
+            {
+                var vu1 = _initService.GetVU1Controller();
+                var hwInfo = _initService.GetHWInfo64Controller();
+
+                // Log diagnostics if debug mode is enabled
+                if (_config.AppSettings.DebugMode)
+                {
+                    var diagnostics = new DiagnosticsService(hwInfo);
+                    var report = diagnostics.GetDiagnosticsReport();
+                    System.Diagnostics.Debug.WriteLine(report);
+                    System.Diagnostics.Debug.WriteLine("=== Starting Monitoring Service ===");
+                }
+
+                // Create and start monitoring service
+                _monitoringService = new SensorMonitoringService(vu1, hwInfo, _config);
+                _monitoringService.OnDialUpdated += MonitoringService_OnDialUpdated;
+                _monitoringService.OnError += MonitoringService_OnError;
+                _monitoringService.Start();
+
+                if (_config.AppSettings.DebugMode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"✓ Monitoring service started");
+                    System.Diagnostics.Debug.WriteLine($"  IsMonitoring: {_monitoringService.IsMonitoring}");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to start monitoring: {ex.Message}\n\n" +
+                    $"{ex.StackTrace}",
+                    "Monitoring Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                
+                System.Diagnostics.Debug.WriteLine($"Error starting monitoring: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Handles dial updates from the monitoring service.
+        /// </summary>
+        private void MonitoringService_OnDialUpdated(string dialUid, DialSensorUpdate update)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                var button = GetDialButton(dialUid);
+                if (button == null)
+                    return;
+
+                // Update button appearance based on status
+                if (update.IsCritical)
+                {
+                    // Red for critical
+                    button.Background = new SolidColorBrush(Colors.Red);
+                    button.Foreground = new SolidColorBrush(Colors.White);
+                }
+                else if (update.IsWarning)
+                {
+                    // Orange for warning
+                    button.Background = new SolidColorBrush(Color.FromRgb(255, 165, 0));
+                    button.Foreground = new SolidColorBrush(Colors.Black);
+                }
+                else
+                {
+                    // Green for normal
+                    button.Background = new SolidColorBrush(Color.FromRgb(0, 200, 0));
+                    button.Foreground = new SolidColorBrush(Colors.White);
+                }
+
+                // Set tooltip with sensor information
+                button.ToolTip = update.GetTooltip();
+
+                // Update button content with percentage
+                button.Content = $"{update.DialPercentage}%";
+            });
+        }
+
+        /// <summary>
+        /// Handles errors from the monitoring service.
+        /// </summary>
+        private void MonitoringService_OnError(string errorMessage)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatusButton.Content = $"Error: {errorMessage}";
+                StatusButton.Background = new SolidColorBrush(Colors.Red);
+                StatusButton.Foreground = new SolidColorBrush(Colors.White);
             });
         }
 

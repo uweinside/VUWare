@@ -8,11 +8,11 @@
         Title="VU1 Dial Sensor Monitor" Height="135" Width="260" SizeToContent="WidthAndHeight">
     <Grid>
         <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10">
-            <StackPanel Orientation="Horizontal" >
-                <Button x:Name="Dial1Button" Content="1" Width="50" Height="40" Margin="5"/>
-                <Button x:Name="Dial2Button" Content="2" Width="50" Height="40" Margin="5"/>
-                <Button x:Name="Dial3Button" Content="3" Width="50" Height="40" Margin="5"/>
-                <Button x:Name="Dial4Button" Content="4" Width="50" Height="40" Margin="5"/>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="Dial1Button" Content="1" Width="50" Height="40" Margin="5" Background="#CCCCCC"/>
+                <Button x:Name="Dial2Button" Content="2" Width="50" Height="40" Margin="5" Background="#CCCCCC"/>
+                <Button x:Name="Dial3Button" Content="3" Width="50" Height="40" Margin="5" Background="#CCCCCC"/>
+                <Button x:Name="Dial4Button" Content="4" Width="50" Height="40" Margin="5" Background="#CCCCCC"/>
             </StackPanel>
             <Button x:Name="StatusButton" Content="Initializing" Height="40" Margin="5" Width="230"/>
         </StackPanel>
