@@ -9,11 +9,11 @@
   },
   "dials": [
     {
-      "dialUid": "DIAL_001",
-      "displayName": "CPU Temperature",
-      "sensorName": "CPU Package",
-      "entryName": "Temperature",
-      "minValue": 20,
+      "dialUid": "290063000750524834313020",
+      "displayName": "CPU Usage",
+      "sensorName": "CPU [#0]: AMD Ryzen 7 9700X",
+      "entryName": "Total CPU Usage",
+      "minValue": 0,
       "maxValue": 100,
       "warningThreshold": 80,
       "criticalThreshold": 95,
@@ -23,17 +23,17 @@
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 1000
+      "updateIntervalMs": 500
     },
     {
-      "dialUid": "DIAL_002",
-      "displayName": "GPU Temperature",
-      "sensorName": "GPU 1",
-      "entryName": "Temperature",
+      "dialUid": "870056000650564139323920",
+      "displayName": "CPU Temperature",
+      "sensorName": "CPU [#0]: AMD Ryzen 7 9700X: Enhanced",
+      "entryName": "CPU (Tctl/Tdie)",
       "minValue": 20,
-      "maxValue": 100,
-      "warningThreshold": 85,
-      "criticalThreshold": 100,
+      "maxValue": 95,
+      "warningThreshold": 75,
+      "criticalThreshold": 88,
       "colorConfig": {
         "normalColor": "Green",
         "warningColor": "Orange",
@@ -43,14 +43,14 @@
       "updateIntervalMs": 1000
     },
     {
-      "dialUid": "DIAL_003",
-      "displayName": "CPU Load",
-      "sensorName": "CPU Package",
-      "entryName": "Load",
+      "dialUid": "7B006B000650564139323920",
+      "displayName": "GPU Load",
+      "sensorName": "GPU [#0]: AMD Radeon RX 9070: GIGABYTE Radeon RX 9070 GAMING OC 16G (GV-R9070GAMING OC-16GD)",
+      "entryName": "GPU Utilization",
       "minValue": 0,
       "maxValue": 100,
       "warningThreshold": 80,
-      "criticalThreshold": null,
+      "criticalThreshold": 95,
       "colorConfig": {
         "normalColor": "Blue",
         "warningColor": "Yellow",
@@ -60,21 +60,21 @@
       "updateIntervalMs": 500
     },
     {
-      "dialUid": "DIAL_004",
-      "displayName": "Memory Usage",
-      "sensorName": "Memory",
-      "entryName": "Used",
-      "minValue": 0,
-      "maxValue": 100,
+      "dialUid": "31003F000650564139323920",
+      "displayName": "GPU Temperature",
+      "sensorName": "GPU [#0]: AMD Radeon RX 9070: GIGABYTE Radeon RX 9070 GAMING OC 16G (GV-R9070GAMING OC-16GD)",
+      "entryName": "GPU Temperature",
+      "minValue": 20,
+      "maxValue": 110,
       "warningThreshold": 85,
-      "criticalThreshold": 95,
+      "criticalThreshold": 100,
       "colorConfig": {
         "normalColor": "Magenta",
         "warningColor": "Orange",
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 2000
+      "updateIntervalMs": 1000
     }
   ]
 }

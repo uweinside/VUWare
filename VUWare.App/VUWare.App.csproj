@@ -13,4 +13,11 @@
     <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copy configuration files to output directory -->
+    <None Update="Config\dials-config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -121,13 +121,49 @@ namespace VUWare.App.Services
         }
 
         /// <summary>
-        /// Gets the path to the default configuration file in the application directory.
+        /// Gets the path to the default configuration file.
+        /// Checks AppData first, then falls back to local Config directory.
         /// </summary>
-        /// <returns>Path like "AppData/VUWare/dials-config.json"</returns>
+        /// <returns>Path to dials-config.json</returns>
         public static string GetDefaultConfigPath()
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appDataPath, "VUWare", "dials-config.json");
+            string appDataConfig = Path.Combine(appDataPath, "VUWare", "dials-config.json");
+            
+            // If file exists in AppData, use it; otherwise use local Config directory
+            if (File.Exists(appDataConfig))
+            {
+                return appDataConfig;
+            }
+
+            // Fallback to local Config directory (for development/bundled configs)
+            string localConfig = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "Config",
+                "dials-config.json");
+            
+            return localConfig;
+        }
+
+        /// <summary>
+        /// Tries to load config from the default location, with fallback logic.
+        /// Checks AppData first, then local Config directory.
+        /// </summary>
+        /// <returns>Loaded configuration or null if not found</returns>
+        public static DialsConfiguration? LoadDefault()
+        {
+            var manager = new ConfigManager(GetDefaultConfigPath());
+            return manager.Load();
+        }
+
+        /// <summary>
+        /// Asynchronously tries to load config from the default location, with fallback logic.
+        /// </summary>
+        /// <returns>Loaded configuration or null if not found</returns>
+        public static async Task<DialsConfiguration?> LoadDefaultAsync()
+        {
+            var manager = new ConfigManager(GetDefaultConfigPath());
+            return await manager.LoadAsync();
         }
 
         /// <summary>
