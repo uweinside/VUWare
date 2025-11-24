@@ -201,6 +201,10 @@ namespace VUWare.App.Services
             if (!_dialStates.TryGetValue(dialUid, out var state) || state.LastReading == null)
                 return null;
 
+            // Debug output
+            System.Diagnostics.Debug.WriteLine(
+                $"GetDialStatus: {state.Config.DisplayName} ? {state.LastPercentage}% ({state.LastColor})");
+
             return new DialSensorUpdate
             {
                 DialUid = dialUid,
