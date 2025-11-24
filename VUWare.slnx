@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="VUWare.App/VUWare.App.csproj" Id="b77f28d3-f9a3-47fa-87ae-d677c70b9f37" />
   <Project Path="VUWare.Console/VUWare.Console.csproj" />
   <Project Path="VUWare.HWInfo64/VUWare.HWInfo64.csproj" Id="249a065c-579a-45f0-9321-1f6ee46fc784" />
   <Project Path="VUWare.Lib/VUWare.Lib.csproj" />

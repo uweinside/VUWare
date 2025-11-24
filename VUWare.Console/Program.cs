@@ -4,6 +4,7 @@ using VUWare.HWInfo64;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Text;
 
 class Program
 {
@@ -57,7 +58,8 @@ class Program
                 if (string.IsNullOrWhiteSpace(input))
                     continue;
 
-                string[] parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                // Parse command line respecting quotes
+                string[] parts = ParseCommandLine(input);
                 string command = parts[0].ToLower();
 
                 _commandCount++;
@@ -78,6 +80,42 @@ class Program
         }
     }
 
+    private static string[] ParseCommandLine(string input)
+    {
+        var args = new List<string>();
+        var currentArg = new StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (c == ' ' && !inQuotes)
+            {
+                if (currentArg.Length > 0)
+                {
+                    args.Add(currentArg.ToString());
+                    currentArg.Clear();
+                }
+            }
+            else
+            {
+                currentArg.Append(c);
+            }
+        }
+
+        if (currentArg.Length > 0)
+        {
+            args.Add(currentArg.ToString());
+        }
+
+        return args.ToArray();
+    }
+
     private static void PrintMenu()
     {
         Console.WriteLine();
@@ -95,7 +133,8 @@ class Program
         Console.WriteLine("│ image <uid> <f>  - Set dial image           │");
         Console.WriteLine("│                    (PNG/BMP/JPEG,200x144px) │");
         Console.WriteLine("│ sensors          - List HWInfo64 sensors    │");
-        Console.WriteLine("│ monitor <uid> <s>- Monitor sensor on dial   │");
+        Console.WriteLine("│ monitor <u> <s>  - Monitor sensor on dial   │");
+        Console.WriteLine("│                    <s> <e> entry (key exit) │");
         Console.WriteLine("│ test             - Test all dials           │");
         Console.WriteLine("│ help             - Show detailed help       │");
         Console.WriteLine("│ exit             - Exit program             │");
@@ -959,14 +998,14 @@ class Program
         Console.WriteLine("║                                                                  ║");
         Console.WriteLine("║ HWINFO64 INTEGRATION:                                             ║");
         Console.WriteLine("║ sensors                 - List all available HWInfo64 sensors    ║");
-        Console.WriteLine("║ monitor <uid> <s:e>     - Monitor sensor on dial (press key exit)║");
-        Console.WriteLine("║                          <s:e> format: \"SensorName:EntryName\"   ║");
+        Console.WriteLine("║ monitor <uid> <s> <e>   - Monitor sensor on dial (press key exit)║");
+        Console.WriteLine("║                          <s> = sensor name, <e> = entry name     ║");
         Console.WriteLine("║                                                                  ║");
         Console.WriteLine("║ EXAMPLES:                                                        ║");
         Console.WriteLine("║ > connect                                                        ║");
         Console.WriteLine("║ > init                                                           ║");
         Console.WriteLine("║ > sensors                                                        ║");
-        Console.WriteLine("║ > monitor ABC123 \"CPU Package:Temperature\"                      ║");
+        Console.WriteLine("║ > monitor 290063... \"CPU Package\" \"Temperature\"                ║");
         Console.WriteLine("║ > dials                                                          ║");
         Console.WriteLine("║ > set 3A4B... 75                                                 ║");
         Console.WriteLine("║ > color 3A4B... red                                              ║");
@@ -1060,20 +1099,23 @@ class Program
             return;
         }
 
-        if (args.Length < 2)
+        if (args.Length < 4)
         {
-            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name> [poll_interval_ms]");
-            PrintError("Example: monitor ABC123 \"CPU Package:Temperature\" 500");
+            PrintError("Usage: monitor <dial_uid> <sensor_name> <entry_name> [poll_interval_ms]");
+            PrintError("Example: monitor 290063000750524834313020 \"CPU Package\" \"Temperature\"");
             LogWarning("Monitor command missing required arguments");
             return;
         }
 
         string dialUID = args[1];
-        if (args.Length < 3)
+        string sensorName = args[2];  // Already unquoted by parser
+        string entryName = args[3];   // Already unquoted by parser
+        int pollInterval = 500; // Default 500ms
+
+        if (args.Length > 4 && !int.TryParse(args[4], out pollInterval))
         {
-            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name> [poll_interval_ms]");
-            LogWarning("Monitor command missing sensor name");
-            return;
+            PrintError("Invalid poll interval. Using default 500ms");
+            pollInterval = 500;
         }
 
         var dial = _controller.GetDial(dialUID);
@@ -1082,25 +1124,6 @@ class Program
             PrintError($"Dial '{dialUID}' not found.");
             LogError($"Monitor dial not found with UID: {dialUID}");
             return;
-        }
-
-        string[] sensorParts = args[2].Split(':');
-        if (sensorParts.Length != 2)
-        {
-            PrintError("Usage: monitor <dial_uid> <sensor_name:entry_name>");
-            PrintError("Example: monitor ABC123 \"CPU Package:Temperature\"");
-            LogWarning("Invalid sensor specification format");
-            return;
-        }
-
-        string sensorName = sensorParts[0];
-        string entryName = sensorParts[1];
-        int pollInterval = 500; // Default 500ms
-
-        if (args.Length > 3 && !int.TryParse(args[3], out pollInterval))
-        {
-            PrintError("Invalid poll interval. Using default 500ms");
-            pollInterval = 500;
         }
 
         LogInfo($"Starting sensor monitoring on dial '{dial.Name}'");
@@ -1148,9 +1171,19 @@ class Program
                     }
 
                     var readings = reader.ReadAllSensorReadings();
+                    
+                    // First try exact match (case-insensitive)
                     var matching = readings.FirstOrDefault(r =>
                         r.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase) &&
                         r.EntryName.Equals(entryName, StringComparison.OrdinalIgnoreCase));
+                    
+                    // If no exact match, try partial match (sensor name contains input)
+                    if (matching == null && !sensorName.Contains("ASUS") && !sensorName.Contains("ROG"))
+                    {
+                        matching = readings.FirstOrDefault(r =>
+                            r.SensorName.Contains(sensorName, StringComparison.OrdinalIgnoreCase) &&
+                            r.EntryName.Equals(entryName, StringComparison.OrdinalIgnoreCase));
+                    }
 
                     if (matching != null)
                     {
@@ -1159,42 +1192,72 @@ class Program
                         string unit = matching.Unit;
 
                         // Map sensor value to dial percentage (0-100)
-                        // Simple linear mapping - adjust min/max as needed for your sensors
                         byte percentage = 0;
 
                         // Auto-detect reasonable ranges based on sensor type
-                        if (matching.Type == SensorType.Temperature)
+                        // Check unit string first - it's the most reliable indicator
+                        if (unit.Contains("°", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Temperature: assume 0-100°C range
+                            // Temperature (has degree symbol): 0-100°C range
                             percentage = (byte)Math.Clamp((value / 100.0) * 100, 0, 100);
                         }
-                        else if (matching.Type == SensorType.Usage)
+                        else if (unit.Contains("%", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Usage: already percentage
+                            // Percentage: direct mapping
                             percentage = (byte)Math.Clamp(value, 0, 100);
                         }
-                        else if (matching.Type == SensorType.Voltage)
+                        else if (unit.Contains("V", StringComparison.OrdinalIgnoreCase) &&
+                                 !unit.Contains("VID", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Voltage: assume 0-5V range
+                            // Voltage: 0-5V range (exclude VID which is different)
                             percentage = (byte)Math.Clamp((value / 5.0) * 100, 0, 100);
                         }
-                        else if (matching.Type == SensorType.Fan)
+                        else if (unit.Contains("RPM", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Fan: assume 0-5000 RPM range
+                            // Fan RPM: 0-5000 RPM range
                             percentage = (byte)Math.Clamp((value / 5000.0) * 100, 0, 100);
                         }
-                        else if (matching.Type == SensorType.Power)
+                        else if (unit.Contains("W", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Power: assume 0-500W range
+                            // Power: 0-500W range
                             percentage = (byte)Math.Clamp((value / 500.0) * 100, 0, 100);
                         }
                         else
                         {
-                            // Default: use min/max from sensor data
-                            if (matching.ValueMax > matching.ValueMin)
+                            // Default: use type detection as fallback
+                            if (matching.Type == SensorType.Temperature)
                             {
-                                double range = matching.ValueMax - matching.ValueMin;
-                                percentage = (byte)Math.Clamp(((value - matching.ValueMin) / range) * 100, 0, 100);
+                                percentage = (byte)Math.Clamp((value / 100.0) * 100, 0, 100);
+                            }
+                            else if (matching.Type == SensorType.Usage)
+                            {
+                                percentage = (byte)Math.Clamp(value, 0, 100);
+                            }
+                            else if (matching.Type == SensorType.Voltage)
+                            {
+                                percentage = (byte)Math.Clamp((value / 5.0) * 100, 0, 100);
+                            }
+                            else if (matching.Type == SensorType.Fan)
+                            {
+                                percentage = (byte)Math.Clamp((value / 5000.0) * 100, 0, 100);
+                            }
+                            else if (matching.Type == SensorType.Power)
+                            {
+                                percentage = (byte)Math.Clamp((value / 500.0) * 100, 0, 100);
+                            }
+                            else
+                            {
+                                // Last resort: use min/max from sensor data only if range is reasonable
+                                if (matching.ValueMax > matching.ValueMin && (matching.ValueMax - matching.ValueMin) > 5)
+                                {
+                                    double range = matching.ValueMax - matching.ValueMin;
+                                    percentage = (byte)Math.Clamp(((value - matching.ValueMin) / range) * 100, 0, 100);
+                                }
+                                else
+                                {
+                                    // Final fallback: assume 0-100 range
+                                    percentage = (byte)Math.Clamp(value, 0, 100);
+                                }
                             }
                         }
 
@@ -1207,7 +1270,7 @@ class Program
                             // Log significant changes
                             if (Math.Abs(value - lastValue) > 0.5)
                             {
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Value: {value:F1} {unit,-6} │ Dial: {percentage:3}% │ Updates: {updateCount}");
+                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Value: {value:F1} {unit,-6} │ Dial: {percentage}% │ Updates: {updateCount}");
                                 lastValue = value;
                             }
                         }
@@ -1221,7 +1284,7 @@ class Program
                     {
                         PrintWarning($"Sensor not found: {sensorName} > {entryName}");
                         LogWarning($"Sensor not found in HWInfo64");
-                        LogDetail("Available sensors:");
+                        LogDetail("Available sensors (first 5):");
                         var allReadings = reader.ReadAllSensorReadings();
                         var availableSensors = allReadings.GroupBy(r => r.SensorName).Take(5);
                         foreach (var sensor in availableSensors)
