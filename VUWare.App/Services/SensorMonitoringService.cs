@@ -308,18 +308,19 @@ namespace VUWare.App.Services
                 return false;
             }
 
+            // Store previous values BEFORE updating state
+            byte previousPercentage = state.LastPercentage;
+            string previousColor = state.LastColor;
+            
+            // Update state with current values
             state.LastReading = status.SensorReading;
             state.LastPercentage = status.Percentage;
+            state.LastColor = state.Config.GetColorForValue(status.SensorReading.Value);
 
-            // Determine color based on thresholds
-            string newColor = state.Config.GetColorForValue(status.SensorReading.Value);
-
-            // Only update if significant change (avoid unnecessary serial communication)
-            bool needsUpdate = false;
-            if (Math.Abs(state.LastPercentage - status.Percentage) > 0) // Position changed
-                needsUpdate = true;
-            if (state.LastColor != newColor) // Color changed
-                needsUpdate = true;
+            // Check if values changed
+            bool positionChanged = previousPercentage != state.LastPercentage;
+            bool colorChanged = previousColor != state.LastColor;
+            bool needsUpdate = positionChanged || colorChanged;
 
             if (!needsUpdate)
             {
@@ -329,7 +330,7 @@ namespace VUWare.App.Services
             }
 
             // Update dial position
-            bool positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, status.Percentage);
+            bool positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
             if (!positionSuccess)
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to update dial position for {state.DialUid}");
@@ -337,7 +338,7 @@ namespace VUWare.App.Services
             }
 
             // Update backlight color
-            var color = GetColorFromName(newColor);
+            var color = GetColorFromName(state.LastColor);
             if (color != null)
             {
                 bool colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color);
@@ -348,13 +349,13 @@ namespace VUWare.App.Services
                 }
             }
 
-            // Update state
-            state.LastColor = newColor;
+            // Increment update count and timestamp
             state.LastUpdate = DateTime.Now;
             state.UpdateCount++;
 
             System.Diagnostics.Debug.WriteLine(
-                $"Dial updated: {state.Config.DisplayName} ? {status.Percentage}% ({newColor})");
+                $"Dial updated: {state.Config.DisplayName} ? {state.LastPercentage}% ({state.LastColor})" +
+                $"{(positionChanged ? " [position]" : "")}{(colorChanged ? " [color]" : "")}");
 
             // Raise event for UI update
             RaiseDialUpdated(state);

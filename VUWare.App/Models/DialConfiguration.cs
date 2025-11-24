@@ -88,6 +88,14 @@ namespace VUWare.App.Models
         [JsonPropertyName("updateIntervalMs")]
         public int UpdateIntervalMs { get; set; } = 1000;
 
+        /// <summary>Display format: "percentage" for %, "value" for actual sensor value (default: "percentage")</summary>
+        [JsonPropertyName("displayFormat")]
+        public string DisplayFormat { get; set; } = "percentage";
+
+        /// <summary>Unit suffix for value display (e.g., "°C", "MHz") - only used when displayFormat is "value"</summary>
+        [JsonPropertyName("displayUnit")]
+        public string DisplayUnit { get; set; } = string.Empty;
+
         /// <summary>Gets the appropriate color based on the current sensor value.</summary>
         public string GetColorForValue(double sensorValue)
         {

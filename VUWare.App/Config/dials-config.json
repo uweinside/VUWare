@@ -23,7 +23,8 @@
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 500
+      "updateIntervalMs": 500,
+      "displayFormat": "percentage"
     },
     {
       "dialUid": "870056000650564139323920",
@@ -40,7 +41,9 @@
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 1000
+      "updateIntervalMs": 1000,
+      "displayFormat": "value",
+      "displayUnit": "°C"
     },
     {
       "dialUid": "7B006B000650564139323920",
@@ -57,7 +60,8 @@
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 500
+      "updateIntervalMs": 500,
+      "displayFormat": "percentage"
     },
     {
       "dialUid": "31003F000650564139323920",
@@ -74,7 +78,9 @@
         "criticalColor": "Red"
       },
       "enabled": true,
-      "updateIntervalMs": 1000
+      "updateIntervalMs": 1000,
+      "displayFormat": "value",
+      "displayUnit": "°C"
     }
   ]
 }

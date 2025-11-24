@@ -318,8 +318,27 @@ namespace VUWare.App
                 // Set tooltip with sensor information
                 button.ToolTip = update.GetTooltip();
 
-                // Update button content with percentage
-                button.Content = $"{update.DialPercentage}%";
+                // Get dial configuration for this UID
+                var dialConfig = _config?.Dials.FirstOrDefault(d => d.DialUid == dialUid);
+                string displayValue;
+
+                if (dialConfig?.DisplayFormat == "value")
+                {
+                    // Display actual sensor value with unit
+                    displayValue = $"{update.SensorValue:F1}{dialConfig.DisplayUnit}";
+                }
+                else
+                {
+                    // Display percentage (default)
+                    displayValue = $"{update.DialPercentage}%";
+                }
+
+                // Update button content with value and display name
+                button.Content = new DialButtonContent
+                {
+                    Percentage = displayValue,
+                    DisplayName = update.DisplayName
+                };
             });
         }
 
@@ -370,5 +389,14 @@ namespace VUWare.App
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Data model for dial button content binding.
+    /// </summary>
+    public class DialButtonContent
+    {
+        public string Percentage { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
     }
 }
