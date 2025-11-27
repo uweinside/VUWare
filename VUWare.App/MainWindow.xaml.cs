@@ -295,29 +295,72 @@ namespace VUWare.App
                 percentageBlock.Text = displayValue;
                 displayNameBlock.Text = update.DisplayName;
 
-                // Update panel background color based on status
-                if (update.IsCritical)
+                // Determine color based on dial configuration's color mode
+                Color panelColor = Color.FromRgb(204, 204, 204); // Default light gray
+                Color textColor = Colors.Black;
+                Color subtextColor = Color.FromRgb(102, 102, 102);
+
+                if (dialConfig?.ColorConfig.ColorMode == "off")
                 {
-                    // Red for critical
-                    dialPanel.Background = new SolidColorBrush(Colors.Red);
-                    percentageBlock.Foreground = new SolidColorBrush(Colors.White);
-                    displayNameBlock.Foreground = new SolidColorBrush(Colors.White);
+                    // Off mode: keep default colors
+                    panelColor = Color.FromRgb(204, 204, 204);
+                    textColor = Colors.Black;
+                    subtextColor = Color.FromRgb(102, 102, 102);
                 }
-                else if (update.IsWarning)
+                else if (dialConfig?.ColorConfig.ColorMode == "static")
                 {
-                    // Orange for warning
-                    dialPanel.Background = new SolidColorBrush(Color.FromRgb(255, 165, 0));
-                    percentageBlock.Foreground = new SolidColorBrush(Colors.Black);
-                    displayNameBlock.Foreground = new SolidColorBrush(Colors.Black);
+                    // Static mode: use staticColor from config
+                    panelColor = GetColorFromString(dialConfig.ColorConfig.StaticColor);
+                    textColor = GetContrastingTextColor(panelColor);
+                    subtextColor = GetContrastingSubtextColor(panelColor);
                 }
-                else
+                else // threshold mode (default)
                 {
-                    // Light gray for normal
-                    dialPanel.Background = new SolidColorBrush(Color.FromRgb(204, 204, 204));
-                    percentageBlock.Foreground = new SolidColorBrush(Colors.Black);
-                    displayNameBlock.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+                    // Threshold mode: change color based on sensor status
+                    if (update.IsCritical)
+                    {
+                        panelColor = Colors.Red;
+                        textColor = Colors.White;
+                        subtextColor = Colors.White;
+                    }
+                    else if (update.IsWarning)
+                    {
+                        panelColor = Color.FromRgb(255, 165, 0);
+                        textColor = Colors.Black;
+                        subtextColor = Colors.Black;
+                    }
+                    else
+                    {
+                        panelColor = Color.FromRgb(204, 204, 204);
+                        textColor = Colors.Black;
+                        subtextColor = Color.FromRgb(102, 102, 102);
+                    }
                 }
+
+                // Apply colors
+                dialPanel.Background = new SolidColorBrush(panelColor);
+                percentageBlock.Foreground = new SolidColorBrush(textColor);
+                displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
             });
+        }
+
+        /// <summary>
+        /// Determines if text should be white or black based on background color brightness.
+        /// </summary>
+        private Color GetContrastingTextColor(Color backgroundColor)
+        {
+            // Calculate luminance
+            double luminance = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
+            return luminance > 0.5 ? Colors.Black : Colors.White;
+        }
+
+        /// <summary>
+        /// Determines the contrasting color for subtext (slightly more opacity).
+        /// </summary>
+        private Color GetContrastingSubtextColor(Color backgroundColor)
+        {
+            double luminance = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
+            return luminance > 0.5 ? Color.FromRgb(102, 102, 102) : Color.FromRgb(200, 200, 200);
         }
 
         /// <summary>
@@ -366,6 +409,28 @@ namespace VUWare.App
                     StatusButton.Foreground = new SolidColorBrush(Colors.Black);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Converts a color name string to a WPF Color.
+        /// </summary>
+        private Color GetColorFromString(string colorName)
+        {
+            return colorName switch
+            {
+                "Red" => Color.FromRgb(255, 0, 0),
+                "Green" => Color.FromRgb(0, 255, 0),
+                "Blue" => Color.FromRgb(0, 0, 255),
+                "Yellow" => Color.FromRgb(255, 255, 0),
+                "Cyan" => Color.FromRgb(0, 255, 255),
+                "Magenta" => Color.FromRgb(255, 0, 255),
+                "Orange" => Color.FromRgb(255, 165, 0),
+                "Purple" => Color.FromRgb(128, 0, 128),
+                "Pink" => Color.FromRgb(255, 192, 203),
+                "White" => Color.FromRgb(255, 255, 255),
+                "Off" => Color.FromRgb(0, 0, 0),
+                _ => Color.FromRgb(204, 204, 204) // Default gray
+            };
         }
     }
 }

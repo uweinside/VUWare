@@ -10,6 +10,14 @@ namespace VUWare.App.Models
     /// </summary>
     public class DialColorConfig
     {
+        /// <summary>Color mode: "threshold" (uses thresholds), "static" (fixed color), or "off" (no color/hidden)</summary>
+        [JsonPropertyName("colorMode")]
+        public string ColorMode { get; set; } = "threshold";
+
+        /// <summary>Static color when colorMode is "static" (e.g., "Green", "Cyan", "Blue")</summary>
+        [JsonPropertyName("staticColor")]
+        public string StaticColor { get; set; } = "Cyan";
+
         /// <summary>Normal operating color (e.g., "Green", "Cyan", "Blue")</summary>
         [JsonPropertyName("normalColor")]
         public string NormalColor { get; set; } = "Cyan";
@@ -36,6 +44,18 @@ namespace VUWare.App.Models
                 return WarningColor;
 
             return NormalColor;
+        }
+
+        /// <summary>Gets the color based on the configured color mode.</summary>
+        public string GetColor(double sensorValue, double? criticalThreshold, double? warningThreshold)
+        {
+            return ColorMode switch
+            {
+                "static" => StaticColor,
+                "off" => string.Empty,
+                "threshold" => GetColorForValue(sensorValue, criticalThreshold, warningThreshold),
+                _ => NormalColor
+            };
         }
     }
 
@@ -99,7 +119,7 @@ namespace VUWare.App.Models
         /// <summary>Gets the appropriate color based on the current sensor value.</summary>
         public string GetColorForValue(double sensorValue)
         {
-            return ColorConfig.GetColorForValue(sensorValue, CriticalThreshold, WarningThreshold);
+            return ColorConfig.GetColor(sensorValue, CriticalThreshold, WarningThreshold);
         }
     }
 

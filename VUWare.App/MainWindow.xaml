@@ -10,7 +10,7 @@
         Width="637"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
-        Background="#2a2aa ">
+        Background="#2a2a2a">
     <Window.Resources>
         <Style x:Key="DialPanelStyle" TargetType="Border">
             <Setter Property="Background" Value="#CCCCCC"/>
