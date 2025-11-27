@@ -6,13 +6,28 @@
         xmlns:local="clr-namespace:VUWare.App"
         mc:Ignorable="d"
         Title="VU1 Dial Sensor Monitor"
-        Height="161"
-        Width="282"
+        Height="406"
+        Width="700"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
         Background="White">
     <Window.Resources>
         <Style x:Key="DialButtonStyle" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter Content="{TemplateBinding Content}" 
+                                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Setter Property="ContentTemplate">
                 <Setter.Value>
                     <DataTemplate>
@@ -26,14 +41,24 @@
         </Style>
     </Window.Resources>
     <Grid VerticalAlignment="Top">
-        <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10">
-            <StackPanel Orientation="Horizontal" Width="265">
-                <Button x:Name="Dial1Button" Style="{StaticResource DialButtonStyle}" Width="55" Height="40" Margin="5" Background="#CCCCCC"/>
-                <Button x:Name="Dial2Button" Style="{StaticResource DialButtonStyle}" Width="55" Height="40" Margin="5" Background="#CCCCCC"/>
-                <Button x:Name="Dial3Button" Style="{StaticResource DialButtonStyle}" Width="55" Height="40" Margin="5" Background="#CCCCCC"/>
-                <Button x:Name="Dial4Button" Style="{StaticResource DialButtonStyle}" Width="55" Height="40" Margin="5" Background="#CCCCCC"/>
-            </StackPanel>
-            <Button x:Name="StatusButton" Content="Initializing" Height="40" Margin="5" Width="250"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Margin="5" Grid.Row="0" HorizontalAlignment="Center">
+            <Border Background="#000000" CornerRadius="10" Padding="10" Margin="5" Width="140" Height="140">
+                <Button x:Name="Dial1Button" Style="{StaticResource DialButtonStyle}" Width="120" Height="60" Background="#CCCCCC"/>
+            </Border>
+            <Border Background="#000000" CornerRadius="10" Padding="10" Margin="5" Width="140" Height="140">
+                <Button x:Name="Dial2Button" Style="{StaticResource DialButtonStyle}" Width="120" Height="60" Background="#CCCCCC"/>
+            </Border>
+            <Border Background="#000000" CornerRadius="10" Padding="10" Margin="5" Width="140" Height="140">
+                <Button x:Name="Dial3Button" Style="{StaticResource DialButtonStyle}" Width="120" Height="60" Background="#CCCCCC"/>
+            </Border>
+            <Border Background="#000000" CornerRadius="10" Padding="10" Margin="5" Width="140" Height="140">
+                <Button x:Name="Dial4Button" Style="{StaticResource DialButtonStyle}" Width="120" Height="60" Background="#CCCCCC"/>
+            </Border>
         </StackPanel>
+        <Button x:Name="StatusButton" Content="Initializing" Height="40" Width="250" Grid.Row="1" HorizontalAlignment="Center" Margin="5"/>
     </Grid>
 </Window>
