@@ -39,8 +39,69 @@ namespace VUWare.App
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // Stop monitoring FIRST to prevent interference
+            _monitoringService?.Stop();
             _monitoringService?.Dispose();
+            
+            // Now turn off all dial lights with enough time for serial transmission
+            TurnOffAllDialLights();
+            
+            // Dispose init service last
             _initService?.Dispose();
+        }
+
+        /// <summary>
+        /// Turns off all dial backlights when the application closes.
+        /// </summary>
+        private void TurnOffAllDialLights()
+        {
+            try
+            {
+                if (_initService == null)
+                    return;
+
+                var vu1 = _initService.GetVU1Controller();
+                
+                if (!vu1.IsConnected || !vu1.IsInitialized)
+                {
+                    System.Diagnostics.Debug.WriteLine("VU1 not connected or initialized, skipping light shutdown");
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine("Starting dial light shutdown sequence...");
+
+                var dials = vu1.GetAllDials();
+                System.Diagnostics.Debug.WriteLine($"Found {dials.Count} dials to turn off");
+
+                // Queue all backlight-off commands
+                foreach (var dial in dials.Values)
+                {
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Queuing backlight off for: {dial.Name}");
+                        
+                        // Queue the command - don't wait, just schedule it
+                        _ = vu1.SetBacklightAsync(dial.UID, 0, 0, 0, 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error queueing command for {dial.Name}: {ex.Message}");
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine("All commands queued. Waiting for serial transmission...");
+                
+                // Wait for commands to be transmitted through the serial port
+                // The DeviceManager queues commands which get sent by SetBacklightAsync
+                // We need to give the serial port enough time to actually send these
+                System.Threading.Thread.Sleep(300);
+                
+                System.Diagnostics.Debug.WriteLine("Shutdown sequence complete.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Critical error during dial light shutdown: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -377,15 +438,17 @@ namespace VUWare.App
                     // Threshold mode: change color based on sensor status
                     if (update.IsCritical)
                     {
-                        panelColor = Colors.Red;
-                        textColor = Colors.White;
-                        subtextColor = Colors.White;
+                        // Critical state: use the configured critical color
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.CriticalColor);
+                        textColor = GetContrastingTextColor(panelColor);
+                        subtextColor = GetContrastingSubtextColor(panelColor);
                     }
                     else if (update.IsWarning)
                     {
-                        panelColor = Color.FromRgb(255, 165, 0);
-                        textColor = Colors.Black;
-                        subtextColor = Colors.Black;
+                        // Warning state: use the configured warning color
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.WarningColor);
+                        textColor = GetContrastingTextColor(panelColor);
+                        subtextColor = GetContrastingSubtextColor(panelColor);
                     }
                     else
                     {

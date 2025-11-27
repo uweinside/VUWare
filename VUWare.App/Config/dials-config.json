@@ -62,8 +62,8 @@
         "colorMode": "threshold",
         "staticColor": "Cyan",
         "normalColor": "Cyan",
-        "warningColor": "Yellow",
-        "criticalColor": "Red"
+        "warningColor": "Blue",
+        "criticalColor": "Purple"
       },
       "enabled": true,
       "updateIntervalMs": 500,
