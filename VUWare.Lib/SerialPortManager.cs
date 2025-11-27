@@ -165,7 +165,7 @@ namespace VUWare.Lib
 
             while (timeout.ElapsedMilliseconds < timeoutMs)
             {
-                if (_serialPort.BytesToRead > 0)
+                if (_serialPort?.BytesToRead > 0)
                 {
                     try
                     {

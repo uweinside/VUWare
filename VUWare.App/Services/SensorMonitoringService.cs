@@ -146,7 +146,7 @@ namespace VUWare.App.Services
                         if (color != null)
                         {
                             bool colorSuccess = await _vuController.SetBacklightColorAsync(
-                                state.DialUid, color);
+                                state.DialUid, color!);
                             if (!colorSuccess)
                             {
                                 System.Diagnostics.Debug.WriteLine(
@@ -341,7 +341,7 @@ namespace VUWare.App.Services
             var color = GetColorFromName(state.LastColor);
             if (color != null)
             {
-                bool colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color);
+                bool colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color!);
                 if (!colorSuccess)
                 {
                     System.Diagnostics.Debug.WriteLine($"Failed to update dial color for {state.DialUid}");

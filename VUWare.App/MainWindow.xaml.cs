@@ -37,7 +37,7 @@ namespace VUWare.App
             StartInitialization();
         }
 
-        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
             // Stop monitoring FIRST to prevent interference
             _monitoringService?.Stop();
@@ -402,7 +402,7 @@ namespace VUWare.App
                 if (dialConfig?.DisplayFormat == "value")
                 {
                     // Display actual sensor value with unit
-                    displayValue = $"{update.SensorValue:F1}{dialConfig.DisplayUnit}";
+                    displayValue = $"{update.SensorValue:F1}{dialConfig!.DisplayUnit}";
                 }
                 else
                 {
@@ -429,7 +429,7 @@ namespace VUWare.App
                 else if (dialConfig?.ColorConfig.ColorMode == "static")
                 {
                     // Static mode: use staticColor from config
-                    panelColor = GetColorFromString(dialConfig.ColorConfig.StaticColor);
+                    panelColor = GetColorFromString(dialConfig!.ColorConfig.StaticColor);
                     textColor = GetContrastingTextColor(panelColor);
                     subtextColor = GetContrastingSubtextColor(panelColor);
                 }
@@ -439,21 +439,21 @@ namespace VUWare.App
                     if (update.IsCritical)
                     {
                         // Critical state: use the configured critical color
-                        panelColor = GetColorFromString(dialConfig.ColorConfig.CriticalColor);
+                        panelColor = GetColorFromString(dialConfig!.ColorConfig.CriticalColor);
                         textColor = GetContrastingTextColor(panelColor);
                         subtextColor = GetContrastingSubtextColor(panelColor);
                     }
                     else if (update.IsWarning)
                     {
                         // Warning state: use the configured warning color
-                        panelColor = GetColorFromString(dialConfig.ColorConfig.WarningColor);
+                        panelColor = GetColorFromString(dialConfig!.ColorConfig.WarningColor);
                         textColor = GetContrastingTextColor(panelColor);
                         subtextColor = GetContrastingSubtextColor(panelColor);
                     }
                     else
                     {
                         // Normal state: use the configured normal color
-                        panelColor = GetColorFromString(dialConfig.ColorConfig.NormalColor);
+                        panelColor = GetColorFromString(dialConfig!.ColorConfig.NormalColor);
                         textColor = GetContrastingTextColor(panelColor);
                         subtextColor = GetContrastingSubtextColor(panelColor);
                     }
