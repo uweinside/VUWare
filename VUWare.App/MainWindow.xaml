@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:VUWare.App"
         mc:Ignorable="d"
         Title="VU1 Dial Sensor Monitor"
-        Height="397"
+        Height="250"
         Width="656"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
@@ -21,7 +21,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <StackPanel Orientation="Horizontal" Margin="20" Grid.Row="0" HorizontalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,5" Grid.Row="0" HorizontalAlignment="Center">
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                     <Grid>
@@ -30,7 +30,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                        <TextBlock x:Name="Dial1DisplayName" Text="CPU Usage" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                        <TextBlock x:Name="Dial1DisplayName" Text="CPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
                     </Grid>
                 </Border>
             </Border>
@@ -71,6 +71,6 @@
                 </Border>
             </Border>
         </StackPanel>
-        <Button x:Name="StatusButton" Content="Initializing" Height="40" Width="250" Grid.Row="1" HorizontalAlignment="Center" Margin="5"/>
+        <TextBlock x:Name="StatusText" Text="Initializing" FontSize="16" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20,5" Grid.Row="1"/>
     </Grid>
 </Window>

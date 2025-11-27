@@ -64,8 +64,8 @@ namespace VUWare.App
                         "Configuration Not Found",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
-                    StatusButton.Content = "Configuration Error";
-                    StatusButton.IsEnabled = false;
+                    StatusText.Text = "Configuration Error";
+                    StatusText.Foreground = new SolidColorBrush(Colors.Red);
                     return;
                 }
 
@@ -78,8 +78,8 @@ namespace VUWare.App
                         "Configuration Invalid",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
-                    StatusButton.Content = "Configuration Error";
-                    StatusButton.IsEnabled = false;
+                    StatusText.Text = "Configuration Error";
+                    StatusText.Foreground = new SolidColorBrush(Colors.Red);
                     return;
                 }
 
@@ -105,8 +105,8 @@ namespace VUWare.App
                     "Configuration Error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
-                StatusButton.Content = "Configuration Error";
-                StatusButton.IsEnabled = false;
+                StatusText.Text = "Configuration Error";
+                StatusText.Foreground = new SolidColorBrush(Colors.Red);
             }
         }
 
@@ -195,7 +195,7 @@ namespace VUWare.App
             // Update UI on main thread
             Dispatcher.Invoke(() =>
             {
-                StatusButton.Content = status switch
+                StatusText.Text = status switch
                 {
                     AppInitializationService.InitializationStatus.ConnectingDials => "Connecting Dials",
                     AppInitializationService.InitializationStatus.InitializingDials => "Initializing Dials",
@@ -429,45 +429,27 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
-                StatusButton.Content = $"Error: {errorMessage}";
-                StatusButton.Background = new SolidColorBrush(Colors.Red);
-                StatusButton.Foreground = new SolidColorBrush(Colors.White);
+                StatusText.Text = $"Error: {errorMessage}";
+                StatusText.Foreground = new SolidColorBrush(Colors.Red);
             });
         }
 
         /// <summary>
-        /// Updates the status button color based on current initialization state.
+        /// Updates the status text and color based on current initialization state.
         /// </summary>
         private void UpdateStatusButtonColor(AppInitializationService.InitializationStatus status)
         {
-            switch (status)
+            Color textColor = status switch
             {
-                case AppInitializationService.InitializationStatus.ConnectingDials:
-                case AppInitializationService.InitializationStatus.InitializingDials:
-                case AppInitializationService.InitializationStatus.ConnectingHWInfo:
-                    // Yellow for in-progress
-                    StatusButton.Background = new SolidColorBrush(Color.FromRgb(255, 200, 0));
-                    StatusButton.Foreground = new SolidColorBrush(Colors.Black);
-                    break;
+                AppInitializationService.InitializationStatus.ConnectingDials => Color.FromRgb(255, 200, 0),    // Yellow
+                AppInitializationService.InitializationStatus.InitializingDials => Color.FromRgb(255, 200, 0),  // Yellow
+                AppInitializationService.InitializationStatus.ConnectingHWInfo => Color.FromRgb(255, 200, 0),   // Yellow
+                AppInitializationService.InitializationStatus.Monitoring => Color.FromRgb(0, 200, 0),           // Green
+                AppInitializationService.InitializationStatus.Failed => Colors.Red,                             // Red
+                _ => Color.FromRgb(200, 200, 200)                                                               // Gray
+            };
 
-                case AppInitializationService.InitializationStatus.Monitoring:
-                    // Green for ready
-                    StatusButton.Background = new SolidColorBrush(Color.FromRgb(0, 200, 0));
-                    StatusButton.Foreground = new SolidColorBrush(Colors.White);
-                    break;
-
-                case AppInitializationService.InitializationStatus.Failed:
-                    // Red for error
-                    StatusButton.Background = new SolidColorBrush(Colors.Red);
-                    StatusButton.Foreground = new SolidColorBrush(Colors.White);
-                    break;
-
-                default:
-                    // Gray for idle
-                    StatusButton.Background = new SolidColorBrush(Color.FromRgb(200, 200, 200));
-                    StatusButton.Foreground = new SolidColorBrush(Colors.Black);
-                    break;
-            }
+            StatusText.Foreground = new SolidColorBrush(textColor);
         }
 
         /// <summary>
