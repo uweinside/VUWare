@@ -10,7 +10,7 @@
   "dials": [
     {
       "dialUid": "290063000750524834313020",
-      "displayName": "CPU Usage",
+      "displayName": "CPU Load",
       "sensorName": "CPU [#0]: AMD Ryzen 7 9700X",
       "entryName": "Total CPU Usage",
       "minValue": 0,

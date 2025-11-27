@@ -83,6 +83,9 @@ namespace VUWare.App
                     return;
                 }
 
+                // Initialize dial panel colors based on configuration
+                InitializeDialPanelColors();
+
                 if (_config.AppSettings.DebugMode)
                 {
                     MessageBox.Show(
@@ -104,6 +107,61 @@ namespace VUWare.App
                     MessageBoxImage.Error);
                 StatusButton.Content = "Configuration Error";
                 StatusButton.IsEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Initializes dial panel colors based on their configuration color modes.
+        /// </summary>
+        private void InitializeDialPanelColors()
+        {
+            if (_config == null)
+                return;
+
+            // Map dial UIDs to UI elements
+            var dialPanels = new Dictionary<string, (Border panel, TextBlock percentage, TextBlock displayName)>
+            {
+                { "290063000750524834313020", (Dial1Button, Dial1Percentage, Dial1DisplayName) },
+                { "870056000650564139323920", (Dial2Button, Dial2Percentage, Dial2DisplayName) },
+                { "7B006B000650564139323920", (Dial3Button, Dial3Percentage, Dial3DisplayName) },
+                { "31003F000650564139323920", (Dial4Button, Dial4Percentage, Dial4DisplayName) }
+            };
+
+            foreach (var dial in _config.Dials)
+            {
+                if (!dialPanels.TryGetValue(dial.DialUid, out var elements))
+                    continue;
+
+                var (panel, percentageBlock, displayNameBlock) = elements;
+                Color panelColor;
+                Color textColor;
+                Color subtextColor;
+
+                // Determine initial color based on color mode
+                if (dial.ColorConfig.ColorMode == "off")
+                {
+                    panelColor = Color.FromRgb(204, 204, 204);
+                    textColor = Colors.Black;
+                    subtextColor = Color.FromRgb(102, 102, 102);
+                }
+                else if (dial.ColorConfig.ColorMode == "static")
+                {
+                    panelColor = GetColorFromString(dial.ColorConfig.StaticColor);
+                    textColor = GetContrastingTextColor(panelColor);
+                    subtextColor = GetContrastingSubtextColor(panelColor);
+                }
+                else // threshold mode (default)
+                {
+                    // Default to normal color
+                    panelColor = GetColorFromString(dial.ColorConfig.NormalColor);
+                    textColor = GetContrastingTextColor(panelColor);
+                    subtextColor = GetContrastingSubtextColor(panelColor);
+                }
+
+                // Apply colors
+                panel.Background = new SolidColorBrush(panelColor);
+                percentageBlock.Foreground = new SolidColorBrush(textColor);
+                displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
             }
         }
 
@@ -331,9 +389,10 @@ namespace VUWare.App
                     }
                     else
                     {
-                        panelColor = Color.FromRgb(204, 204, 204);
-                        textColor = Colors.Black;
-                        subtextColor = Color.FromRgb(102, 102, 102);
+                        // Normal state: use the configured normal color
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.NormalColor);
+                        textColor = GetContrastingTextColor(panelColor);
+                        subtextColor = GetContrastingSubtextColor(panelColor);
                     }
                 }
 
