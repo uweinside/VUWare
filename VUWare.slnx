@@ -1,6 +1,18 @@
 <Solution>
-  <Project Path="VUWare.App/VUWare.App.csproj" Id="b77f28d3-f9a3-47fa-87ae-d677c70b9f37" />
-  <Project Path="VUWare.Console/VUWare.Console.csproj" />
-  <Project Path="VUWare.HWInfo64/VUWare.HWInfo64.csproj" Id="249a065c-579a-45f0-9321-1f6ee46fc784" />
-  <Project Path="VUWare.Lib/VUWare.Lib.csproj" />
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="VUWare.App/VUWare.App.csproj" Id="b77f28d3-f9a3-47fa-87ae-d677c70b9f37">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="VUWare.Console/VUWare.Console.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="VUWare.HWInfo64/VUWare.HWInfo64.csproj" Id="249a065c-579a-45f0-9321-1f6ee46fc784">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="VUWare.Lib/VUWare.Lib.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
 </Solution>
