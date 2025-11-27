@@ -473,5 +473,37 @@ namespace VUWare.App
                 _ => Color.FromRgb(204, 204, 204) // Default gray
             };
         }
+
+        /// <summary>
+        /// Handles title bar drag to move the window.
+        /// </summary>
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                // Double-click to maximize/restore (not applicable here since we don't allow maximize)
+            }
+            else
+            {
+                // Single click and drag to move window
+                DragMove();
+            }
+        }
+
+        /// <summary>
+        /// Minimizes the window.
+        /// </summary>
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        /// <summary>
+        /// Closes the window.
+        /// </summary>
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
     }
 }

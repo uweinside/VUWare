@@ -6,11 +6,13 @@
         xmlns:local="clr-namespace:VUWare.App"
         mc:Ignorable="d"
         Title="VU1 Dial Sensor Monitor"
-        Height="250"
+        Height="247"
         Width="656"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
-        Background="#2a2a2a">
+        Background="#2a2a2a"
+        WindowStyle="None"
+        AllowsTransparency="False">
     <Window.Resources>
         <Style x:Key="DialPanelStyle" TargetType="Border">
             <Setter Property="CornerRadius" Value="4"/>
@@ -20,8 +22,24 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <StackPanel Orientation="Horizontal" Margin="0,10,0,5" Grid.Row="0" HorizontalAlignment="Center">
+        <!-- Custom Title Bar -->
+        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,0,0,1" Height="30" Grid.Row="0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="VU1 Dial Sensor Monitor" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
+                <StackPanel Orientation="Horizontal" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,5,0">
+                    <Button x:Name="MinimizeButton" Click="MinimizeButton_Click" Width="30" Height="30" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="−" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="30" Height="30" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="✕" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <!-- Dials Row -->
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,5" Grid.Row="1" HorizontalAlignment="Center">
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                     <Grid>
@@ -71,6 +89,7 @@
                 </Border>
             </Border>
         </StackPanel>
-        <TextBlock x:Name="StatusText" Text="Initializing" FontSize="16" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20,5" Grid.Row="1"/>
+        <!-- Status Row -->
+        <TextBlock x:Name="StatusText" Text="Initializing" FontSize="16" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20,5" Grid.Row="2"/>
     </Grid>
 </Window>
