@@ -24,7 +24,9 @@ namespace VUWare.Lib
         private readonly object _lockObj = new object();
         private bool _isConnected;
         private byte[] _responseBuffer = new byte[RESPONSE_BUFFER_SIZE];
+#pragma warning disable CS0414
         private int _bufferIndex = 0;
+#pragma warning restore CS0414
 
         public bool IsConnected => _isConnected;
 
@@ -35,7 +37,9 @@ namespace VUWare.Lib
         {
             try
             {
+#pragma warning disable CS8600
                 string portName = FindVU1Port();
+#pragma warning restore CS8600
                 if (string.IsNullOrEmpty(portName))
                 {
                     return false;
@@ -268,7 +272,9 @@ namespace VUWare.Lib
                 if (ports.Length > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"[SerialPort] Attempting fallback connection to first port: {ports[0]}");
+#pragma warning disable CS8600
                     return ports[0];
+#pragma warning restore CS8600
                 }
 
                 return null;

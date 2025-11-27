@@ -111,7 +111,9 @@ namespace VUWare.Lib
         /// </summary>
         public DialState GetDial(string uid)
         {
+#pragma warning disable CS8603
             return _deviceManager.GetDialByUID(uid);
+#pragma warning restore CS8603
         }
 
         /// <summary>
@@ -154,7 +156,7 @@ namespace VUWare.Lib
         /// <summary>
         /// Sets the e-paper display image. Expects a 3600-byte packed buffer (200x144 1-bit). Use ImageProcessor.LoadImageFile.
         /// </summary>
-        public async Task<bool> SetDisplayImageAsync(string uid, byte[] imageData)
+        public async Task<bool> SetDisplayImageAsync(string uid, byte[]? imageData)
         {
             if (imageData == null || imageData.Length == 0)
                 throw new ArgumentException("Image data cannot be empty", nameof(imageData));
@@ -163,7 +165,9 @@ namespace VUWare.Lib
 
             try
             {
+#pragma warning disable CS8600
                 var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
+#pragma warning restore CS8600
 
                 // Clear (white) then origin
                 string clearCmd = CommandBuilder.DisplayClear(dial.Index, false);
@@ -257,18 +261,21 @@ namespace VUWare.Lib
         }
 
         /// <summary>
+        /// Sends a command directly to the hub (for advanced use).
+        /// </summary>
+        private async Task<string> SendCommandAsync(string command, int timeoutMs) => await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
+        
+        /// <summary>
         /// Queues an image update for a dial (processed by periodic update loop).
         /// </summary>
+#pragma warning disable CS8600
         public void QueueImageUpdate(string uid, byte[] imageData)
         {
             var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
             _imageQueue.QueueImageUpdate(dial.Index, imageData);
         }
-
-        /// <summary>
-        /// Sends a command directly to the hub (for advanced use).
-        /// </summary>
-        private async Task<string> SendCommandAsync(string command, int timeoutMs) => await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
+#pragma warning restore CS8600
+        
         /// <summary>
         /// Gets the number of dials discovered.
         /// </summary>
