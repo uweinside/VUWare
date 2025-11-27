@@ -23,7 +23,6 @@ namespace VUWare.App
         private DialsConfiguration? _config;
         private AppInitializationService? _initService;
         private SensorMonitoringService? _monitoringService;
-        private readonly Dictionary<string, Button> _dialButtons = new();
 
         public MainWindow()
         {
@@ -34,8 +33,6 @@ namespace VUWare.App
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Map dial UIDs to buttons for quick access
-            MapDialButtons();
             LoadConfiguration();
             StartInitialization();
         }
@@ -44,49 +41,6 @@ namespace VUWare.App
         {
             _monitoringService?.Dispose();
             _initService?.Dispose();
-        }
-
-        /// <summary>
-        /// Maps dial configuration UIDs to their corresponding UI buttons.
-        /// </summary>
-        private void MapDialButtons()
-        {
-            _dialButtons.Clear();
-            _dialButtons["DIAL_001"] = Dial1Button;
-            _dialButtons["DIAL_002"] = Dial2Button;
-            _dialButtons["DIAL_003"] = Dial3Button;
-            _dialButtons["DIAL_004"] = Dial4Button;
-        }
-
-        /// <summary>
-        /// Gets the button for a dial UID, or null if not found.
-        /// </summary>
-        private Button? GetDialButton(string dialUid)
-        {
-            // Try exact match first
-            if (_dialButtons.TryGetValue(dialUid, out var button))
-                return button;
-
-            // If not found by configured ID, try matching by position in config
-            if (_config != null)
-            {
-                for (int i = 0; i < _config.Dials.Count && i < 4; i++)
-                {
-                    if (_config.Dials[i].DialUid == dialUid)
-                    {
-                        return i switch
-                        {
-                            0 => Dial1Button,
-                            1 => Dial2Button,
-                            2 => Dial3Button,
-                            3 => Dial4Button,
-                            _ => null
-                        };
-                    }
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -291,32 +245,36 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
-                var button = GetDialButton(dialUid);
-                if (button == null)
+                // Map dial UID to TextBlocks
+                TextBlock? percentageBlock = dialUid switch
+                {
+                    "290063000750524834313020" => Dial1Percentage,
+                    "870056000650564139323920" => Dial2Percentage,
+                    "7B006B000650564139323920" => Dial3Percentage,
+                    "31003F000650564139323920" => Dial4Percentage,
+                    _ => null
+                };
+
+                TextBlock? displayNameBlock = dialUid switch
+                {
+                    "290063000750524834313020" => Dial1DisplayName,
+                    "870056000650564139323920" => Dial2DisplayName,
+                    "7B006B000650564139323920" => Dial3DisplayName,
+                    "31003F000650564139323920" => Dial4DisplayName,
+                    _ => null
+                };
+
+                Border? dialPanel = dialUid switch
+                {
+                    "290063000750524834313020" => Dial1Button,
+                    "870056000650564139323920" => Dial2Button,
+                    "7B006B000650564139323920" => Dial3Button,
+                    "31003F000650564139323920" => Dial4Button,
+                    _ => null
+                };
+
+                if (percentageBlock == null || displayNameBlock == null || dialPanel == null)
                     return;
-
-                // Update button appearance based on status
-                if (update.IsCritical)
-                {
-                    // Red for critical
-                    button.Background = new SolidColorBrush(Colors.Red);
-                    button.Foreground = new SolidColorBrush(Colors.White);
-                }
-                else if (update.IsWarning)
-                {
-                    // Orange for warning
-                    button.Background = new SolidColorBrush(Color.FromRgb(255, 165, 0));
-                    button.Foreground = new SolidColorBrush(Colors.Black);
-                }
-                else
-                {
-                    // Green for normal
-                    button.Background = new SolidColorBrush(Color.FromRgb(0, 200, 0));
-                    button.Foreground = new SolidColorBrush(Colors.White);
-                }
-
-                // Set tooltip with sensor information
-                button.ToolTip = update.GetTooltip();
 
                 // Get dial configuration for this UID
                 var dialConfig = _config?.Dials.FirstOrDefault(d => d.DialUid == dialUid);
@@ -333,12 +291,32 @@ namespace VUWare.App
                     displayValue = $"{update.DialPercentage}%";
                 }
 
-                // Update button content with value and display name
-                button.Content = new DialButtonContent
+                // Update text blocks
+                percentageBlock.Text = displayValue;
+                displayNameBlock.Text = update.DisplayName;
+
+                // Update panel background color based on status
+                if (update.IsCritical)
                 {
-                    Percentage = displayValue,
-                    DisplayName = update.DisplayName
-                };
+                    // Red for critical
+                    dialPanel.Background = new SolidColorBrush(Colors.Red);
+                    percentageBlock.Foreground = new SolidColorBrush(Colors.White);
+                    displayNameBlock.Foreground = new SolidColorBrush(Colors.White);
+                }
+                else if (update.IsWarning)
+                {
+                    // Orange for warning
+                    dialPanel.Background = new SolidColorBrush(Color.FromRgb(255, 165, 0));
+                    percentageBlock.Foreground = new SolidColorBrush(Colors.Black);
+                    displayNameBlock.Foreground = new SolidColorBrush(Colors.Black);
+                }
+                else
+                {
+                    // Light gray for normal
+                    dialPanel.Background = new SolidColorBrush(Color.FromRgb(204, 204, 204));
+                    percentageBlock.Foreground = new SolidColorBrush(Colors.Black);
+                    displayNameBlock.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+                }
             });
         }
 
@@ -389,14 +367,5 @@ namespace VUWare.App
                     break;
             }
         }
-    }
-
-    /// <summary>
-    /// Data model for dial button content binding.
-    /// </summary>
-    public class DialButtonContent
-    {
-        public string Percentage { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
     }
 }
