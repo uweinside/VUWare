@@ -25,34 +25,50 @@
         <StackPanel Orientation="Horizontal" Margin="20" Grid.Row="0" HorizontalAlignment="Center">
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center"/>
-                        <TextBlock x:Name="Dial1DisplayName" Text="CPU Usage" FontSize="9" TextAlignment="Center" Margin="0,2,0,0" Foreground="#666666" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                        <TextBlock x:Name="Dial1DisplayName" Text="CPU Usage" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                    </Grid>
                 </Border>
             </Border>
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial2Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center"/>
-                        <TextBlock x:Name="Dial2DisplayName" Text="CPU Temperature" FontSize="9" TextAlignment="Center" Margin="0,2,0,0" Foreground="#666666" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                        <TextBlock x:Name="Dial2DisplayName" Text="CPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                    </Grid>
                 </Border>
             </Border>
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial3Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center"/>
-                        <TextBlock x:Name="Dial3DisplayName" Text="GPU Load" FontSize="9" TextAlignment="Center" Margin="0,2,0,0" Foreground="#666666" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                        <TextBlock x:Name="Dial3DisplayName" Text="GPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                    </Grid>
                 </Border>
             </Border>
             <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                 <Border x:Name="Dial4Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center"/>
-                        <TextBlock x:Name="Dial4DisplayName" Text="GPU Temperature" FontSize="9" TextAlignment="Center" Margin="0,2,0,0" Foreground="#666666" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                        <TextBlock x:Name="Dial4DisplayName" Text="GPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                    </Grid>
                 </Border>
             </Border>
         </StackPanel>
