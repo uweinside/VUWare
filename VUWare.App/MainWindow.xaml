@@ -7,10 +7,10 @@
         mc:Ignorable="d"
         Title="VU1 Dial Sensor Monitor"
         Height="397"
-        Width="640"
+        Width="637"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
-        Background="White">
+        Background="#2a2aa ">
     <Window.Resources>
         <Style x:Key="DialButtonStyle" TargetType="Button">
             <Setter Property="Template">
