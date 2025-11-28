@@ -18,8 +18,8 @@
       "warningThreshold": 80,
       "criticalThreshold": 95,
       "colorConfig": {
-        "colorMode": "threshold",
-        "staticColor": "Cyan",
+        "colorMode": "static",
+        "staticColor": "Red",
         "normalColor": "Cyan",
         "warningColor": "Yellow",
         "criticalColor": "Red"
@@ -38,8 +38,8 @@
       "warningThreshold": 75,
       "criticalThreshold": 88,
       "colorConfig": {
-        "colorMode": "threshold",
-        "staticColor": "Cyan",
+        "colorMode": "static",
+        "staticColor": "Green",
         "normalColor": "Cyan",
         "warningColor": "Yellow",
         "criticalColor": "Red"
@@ -59,7 +59,7 @@
       "warningThreshold": 80,
       "criticalThreshold": 95,
       "colorConfig": {
-        "colorMode": "threshold",
+        "colorMode": "static",
         "staticColor": "Cyan",
         "normalColor": "Cyan",
         "warningColor": "Blue",
@@ -79,8 +79,8 @@
       "warningThreshold": 85,
       "criticalThreshold": 100,
       "colorConfig": {
-        "colorMode": "threshold",
-        "staticColor": "Cyan",
+        "colorMode": "static",
+        "staticColor": "Yellow",
         "normalColor": "Cyan",
         "warningColor": "Yellow",
         "criticalColor": "Red"

@@ -1,0 +1,107 @@
+<Window x:Class="VUWare.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:VUWare.App"
+        xmlns:converters="clr-namespace:VUWare.App.Converters"
+        mc:Ignorable="d"
+        Title="Settings"
+        Height="700"
+        Width="800"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#2a2a2a"
+        WindowStyle="None"
+        AllowsTransparency="True">
+    <Window.Resources>
+        <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
+    </Window.Resources>
+    <Border Background="#2a2a2a" CornerRadius="8" BorderBrush="#444444" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,0,0,1" Height="40" Grid.Row="0" CornerRadius="8,8,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Settings" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="16" FontWeight="Bold" Grid.Column="0"/>
+                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="X" FontSize="24" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1"/>
+                </Grid>
+            </Border>
+
+            <!-- Content Area -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20">
+                <StackPanel>
+                    <!-- General Settings Group -->
+                    <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+                    
+                    <!-- Debug Mode Toggle -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <TextBlock Text="Debug Mode:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="150"/>
+                        <CheckBox x:Name="DebugModeCheckBox" VerticalAlignment="Center" IsChecked="False"/>
+                    </StackPanel>
+
+                    <!-- Monitoring Interval -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <TextBlock Text="Monitoring Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Width="150"/>
+                        <TextBox x:Name="MonitoringIntervalTextBox" Width="100" Height="30" Padding="8" Background="#1a1a1a" Foreground="#CCCCCC" BorderBrush="#444444" Text="500"/>
+                    </StackPanel>
+
+                    <!-- Sensor Display Format -->
+                    <StackPanel Margin="0,0,0,15">
+                        <TextBlock Text="Sensor Display Format:" Foreground="#CCCCCC" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="DisplayFormatPercentage" Content="Percentage (%)" VerticalAlignment="Center" Foreground="#CCCCCC" Margin="0,0,20,0" IsChecked="True"/>
+                            <RadioButton x:Name="DisplayFormatValue" Content="Value (with unit)" VerticalAlignment="Center" Foreground="#CCCCCC"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Dial Settings Group -->
+                    <TextBlock Text="Dial Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,30,0,15"/>
+                    
+                    <!-- Auto-reset on Close -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <TextBlock Text="Auto-reset Dials on Close:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="150"/>
+                        <CheckBox x:Name="AutoResetCheckBox" VerticalAlignment="Center" IsChecked="True"/>
+                    </StackPanel>
+
+                    <!-- Auto-off Backlights -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,30">
+                        <TextBlock Text="Auto-off Backlights:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="150"/>
+                        <CheckBox x:Name="AutoOffBacklightsCheckBox" VerticalAlignment="Center" IsChecked="True"/>
+                    </StackPanel>
+
+                    <!-- Dial Configuration Group -->
+                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+                    <TextBlock Text="Configure each dial's sensor mapping, display format, thresholds, and colors." 
+                              Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,15" TextWrapping="Wrap"/>
+                    
+                    <!-- Dial Configuration Panels Container -->
+                    <StackPanel x:Name="DialConfigPanelsContainer" Margin="0,0,0,20"/>
+
+                    <!-- About Section -->
+                    <TextBlock Text="About" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,30,0,15"/>
+                    <TextBlock Text="VU1 Dial Sensor Monitor" Foreground="#CCCCCC" Margin="0,0,0,5"/>
+                    <TextBlock x:Name="VersionText" Text="Version: 1.0.0" Foreground="#888888" FontSize="12" Margin="0,0,0,15"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Button Bar -->
+            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,1,0,0" Height="50" Grid.Row="2" CornerRadius="0,0,8,8">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
+                    <Button x:Name="ApplyButton" Click="ApplyButton_Click" Width="80" Height="35" Background="#0078d4" Foreground="White" Content="Apply" FontSize="12" FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
+                    <Button x:Name="OKButton" Click="OKButton_Click" Width="80" Height="35" Background="#0078d4" Foreground="White" Content="OK" FontSize="12" FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
+                    <Button x:Name="CancelButton" Click="CancelButton_Click" Width="80" Height="35" Background="#404040" Foreground="White" Content="Cancel" FontSize="12" FontWeight="SemiBold" Padding="5"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
