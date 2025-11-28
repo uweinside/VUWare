@@ -85,11 +85,11 @@ namespace VUWare.App
         /// </summary>
         private void ResetAllDialValues()
         {
+            if (_initService == null)
+                return;
+
             try
             {
-                if (_initService == null)
-                    return;
-
                 var vu1 = _initService.GetVU1Controller();
 
                 if (!vu1.IsConnected || !vu1.IsInitialized)
@@ -137,11 +137,11 @@ namespace VUWare.App
         /// </summary>
         private void TurnOffAllDialLights()
         {
+            if (_initService == null)
+                return;
+
             try
             {
-                if (_initService == null)
-                    return;
-
                 var vu1 = _initService.GetVU1Controller();
                 
                 if (!vu1.IsConnected || !vu1.IsInitialized)
@@ -342,14 +342,14 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
+                StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
+                
                 if (isConnected)
                 {
-                    StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
                     System.Diagnostics.Debug.WriteLine($"[UI] HWInfo connected after {retryCount} attempts in {elapsedSeconds}s");
                 }
                 else
                 {
-                    StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
                     System.Diagnostics.Debug.WriteLine($"[UI] HWInfo retry #{retryCount} after {elapsedSeconds}s elapsed");
                 }
             });
@@ -380,12 +380,15 @@ namespace VUWare.App
                 // Start monitoring
                 StartMonitoring();
 
-                if (_config?.AppSettings.DebugMode ?? false)
+                if (_config?.AppSettings.DebugMode == true)
                 {
+                    var dialCount = _initService?.GetVU1Controller().DialCount ?? 0;
+                    var hwInfoConnected = _initService?.GetHWInfo64Controller().IsConnected ?? false;
+                    
                     MessageBox.Show(
                         $"✓ Initialization Complete\n\n" +
-                        $"Dials: {_initService?.GetVU1Controller().DialCount}\n" +
-                        $"HWInfo Connected: {_initService?.GetHWInfo64Controller().IsConnected}",
+                        $"Dials: {dialCount}\n" +
+                        $"HWInfo Connected: {hwInfoConnected}",
                         "Debug: Ready",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -448,6 +451,9 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
+                if (_config == null)
+                    return;
+
                 // Map dial UID to TextBlocks
                 TextBlock? percentageBlock = dialUid switch
                 {
@@ -480,7 +486,7 @@ namespace VUWare.App
                     return;
 
                 // Get dial configuration for this UID
-                var dialConfig = _config?.Dials.FirstOrDefault(d => d.DialUid == dialUid);
+                var dialConfig = _config.Dials.FirstOrDefault(d => d.DialUid == dialUid);
                 string displayValue;
 
                 if (dialConfig?.DisplayFormat == "value")
@@ -680,7 +686,7 @@ namespace VUWare.App
         /// <summary>
         /// Handles window state changes to manage tray minimize/restore.
         /// </summary>
-        private void MainWindow_StateChanged(object sender, EventArgs e)
+        private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
             if (_trayManager == null)
                 return;
