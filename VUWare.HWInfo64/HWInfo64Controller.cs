@@ -12,7 +12,7 @@ namespace VUWare.HWInfo64
     /// </summary>
     public class HWInfo64Controller : IDisposable
     {
-        private readonly HWiNFOReader _reader;
+        private HWiNFOReader _reader;
         private readonly Dictionary<string, DialSensorMapping> _dialMappings;
         private readonly Dictionary<string, SensorReading?> _currentReadings;
         private CancellationTokenSource? _pollingCancellation;
@@ -42,6 +42,18 @@ namespace VUWare.HWInfo64
         }
 
         /// <summary>
+        /// Internal constructor for accepting a pre-initialized reader.
+        /// </summary>
+        internal HWInfo64Controller(HWiNFOReader reader)
+        {
+            _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+            _dialMappings = new Dictionary<string, DialSensorMapping>();
+            _currentReadings = new Dictionary<string, SensorReading?>();
+            _pollIntervalMs = 500; // Default 500ms polling interval
+            _isInitialized = false;
+        }
+
+        /// <summary>
         /// Attempts to connect to HWInfo64 and initialize.
         /// HWInfo64 must be running in Sensors-only mode with Shared Memory Support enabled.
         /// </summary>
@@ -51,6 +63,26 @@ namespace VUWare.HWInfo64
             {
                 return false;
             }
+
+            _isInitialized = true;
+            StartPolling();
+            return true;
+        }
+
+        /// <summary>
+        /// Connects using an already-connected HWiNFOReader instance.
+        /// This is used when initialization has already succeeded and we have a reader.
+        /// </summary>
+        public bool ConnectWithReader(HWiNFOReader reader)
+        {
+            if (reader == null || !reader.IsConnected)
+            {
+                return false;
+            }
+
+            // Replace the reader
+            _reader?.Dispose();
+            _reader = reader;
 
             _isInitialized = true;
             StartPolling();

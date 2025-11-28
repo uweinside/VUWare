@@ -241,6 +241,7 @@ namespace VUWare.App
 
             // Subscribe to status change events
             _initService.OnStatusChanged += InitService_OnStatusChanged;
+            _initService.OnHWInfoRetryStatusChanged += InitService_OnHWInfoRetryStatusChanged;
             _initService.OnError += InitService_OnError;
             _initService.OnInitializationComplete += InitService_OnInitializationComplete;
 
@@ -268,6 +269,26 @@ namespace VUWare.App
 
                 // Change button color based on status
                 UpdateStatusButtonColor(status);
+            });
+        }
+
+        /// <summary>
+        /// Handles HWInfo connection retry status updates.
+        /// </summary>
+        private void InitService_OnHWInfoRetryStatusChanged(int retryCount, bool isConnected, int elapsedSeconds)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (isConnected)
+                {
+                    StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
+                    System.Diagnostics.Debug.WriteLine($"[UI] HWInfo connected after {retryCount} attempts in {elapsedSeconds}s");
+                }
+                else
+                {
+                    StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
+                    System.Diagnostics.Debug.WriteLine($"[UI] HWInfo retry #{retryCount} after {elapsedSeconds}s elapsed");
+                }
             });
         }
 

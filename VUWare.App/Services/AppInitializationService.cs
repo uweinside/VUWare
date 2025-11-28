@@ -21,6 +21,8 @@ namespace VUWare.App.Services
         private CancellationTokenSource? _initializationCts;
         private Task? _initializationTask;
         private bool _disposed;
+        private int _hwInfoRetryCount;
+        private int _hwInfoMaxRetries;
 
         /// <summary>
         /// Initialization status for UI display
@@ -41,6 +43,12 @@ namespace VUWare.App.Services
         public event Action<InitializationStatus>? OnStatusChanged;
 
         /// <summary>
+        /// Event fired when HWInfo connection retry status changes.
+        /// Arguments: (retryCount, isConnected, elapsedSeconds)
+        /// </summary>
+        public event Action<int, bool, int>? OnHWInfoRetryStatusChanged;
+
+        /// <summary>
         /// Event fired when an error occurs during initialization
         /// </summary>
         public event Action<string>? OnError;
@@ -53,6 +61,16 @@ namespace VUWare.App.Services
         public bool IsInitialized { get; private set; }
         public bool IsInitializing { get; private set; }
 
+        /// <summary>
+        /// Gets the current HWInfo retry count (for UI display).
+        /// </summary>
+        public int HWInfoRetryCount => _hwInfoRetryCount;
+
+        /// <summary>
+        /// Gets the maximum number of HWInfo retries before timeout (for UI display).
+        /// </summary>
+        public int HWInfoMaxRetries => _hwInfoMaxRetries;
+
         public AppInitializationService(DialsConfiguration config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -60,6 +78,8 @@ namespace VUWare.App.Services
             _hwInfoController = new HWInfo64Controller();
             IsInitialized = false;
             IsInitializing = false;
+            _hwInfoRetryCount = 0;
+            _hwInfoMaxRetries = 300; // 5 minutes at 1 second intervals
         }
 
         /// <summary>
@@ -242,7 +262,7 @@ namespace VUWare.App.Services
         }
 
         /// <summary>
-        /// Connects to HWInfo64 and registers sensor mappings.
+        /// Connects to HWInfo64 with retry logic and registers sensor mappings.
         /// </summary>
         private async Task<bool> ConnectHWInfoAsync(CancellationToken cancellationToken)
         {
@@ -250,8 +270,32 @@ namespace VUWare.App.Services
             {
                 try
                 {
-                    if (!_hwInfoController.Connect())
+                    // Create a new reader that will be used for initialization
+                    var hwInfoReader = new HWiNFOReader();
+                    
+                    // Create initialization service with retry logic
+                    var hwInfoInit = new HWiNFOInitializationService(
+                        reader: hwInfoReader,
+                        retryIntervalMs: 1000,      // Retry every 1 second
+                        maxTimeoutMs: 300000        // Timeout after 5 minutes
+                    );
+
+                    // Subscribe to retry status updates
+                    hwInfoInit.OnStatusChanged += (retryCount, isConnected, elapsedMs) =>
                     {
+                        _hwInfoRetryCount = retryCount;
+                        int elapsedSeconds = elapsedMs / 1000;
+                        System.Diagnostics.Debug.WriteLine($"[HWInfo] Retry {retryCount}: Connected={isConnected}, Elapsed={elapsedSeconds}s");
+                        RaiseHWInfoRetryStatusChanged(retryCount, isConnected, elapsedSeconds);
+                    };
+
+                    // Synchronously initialize (blocks until connection or timeout)
+                    bool connected = hwInfoInit.InitializeSync(cancellationToken);
+
+                    if (!connected)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[HWInfo] Failed to connect after {_hwInfoRetryCount} attempts");
+                        hwInfoInit.Dispose();
                         return false;
                     }
 
@@ -275,7 +319,12 @@ namespace VUWare.App.Services
 
                     // Set polling interval from config
                     _hwInfoController.PollIntervalMs = _config.AppSettings.GlobalUpdateIntervalMs;
+                    
+                    // Start polling with the successfully connected reader
+                    _hwInfoController.ConnectWithReader(hwInfoReader);
 
+                    System.Diagnostics.Debug.WriteLine($"[HWInfo] Successfully connected and configured after {_hwInfoRetryCount} attempts");
+                    
                     return true;
                 }
                 catch (Exception ex)
@@ -339,6 +388,24 @@ namespace VUWare.App.Services
             {
                 // Fallback if dispatcher not available
                 OnStatusChanged?.Invoke(status);
+            }
+        }
+
+        /// <summary>
+        /// Raises the HWInfo retry status changed event on the UI thread.
+        /// </summary>
+        private void RaiseHWInfoRetryStatusChanged(int retryCount, bool isConnected, int elapsedSeconds)
+        {
+            try
+            {
+                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    OnHWInfoRetryStatusChanged?.Invoke(retryCount, isConnected, elapsedSeconds);
+                });
+            }
+            catch
+            {
+                OnHWInfoRetryStatusChanged?.Invoke(retryCount, isConnected, elapsedSeconds);
             }
         }
 
