@@ -43,11 +43,66 @@ namespace VUWare.App
             _monitoringService?.Stop();
             _monitoringService?.Dispose();
             
+            // Set all dials to zero on the physical devices
+            ResetAllDialValues();
+            
             // Now turn off all dial lights with enough time for serial transmission
             TurnOffAllDialLights();
             
             // Dispose init service last
             _initService?.Dispose();
+        }
+
+        /// <summary>
+        /// Resets all dial needle positions to zero on the physical devices.
+        /// </summary>
+        private void ResetAllDialValues()
+        {
+            try
+            {
+                if (_initService == null)
+                    return;
+
+                var vu1 = _initService.GetVU1Controller();
+
+                if (!vu1.IsConnected || !vu1.IsInitialized)
+                {
+                    System.Diagnostics.Debug.WriteLine("VU1 not connected or initialized, skipping dial value reset");
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine("Resetting all dial values to zero...");
+
+                var dials = vu1.GetAllDials();
+                System.Diagnostics.Debug.WriteLine($"Sending zero command to {dials.Count} dials");
+
+                // Queue zero-value commands for all dials
+                foreach (var dial in dials.Values)
+                {
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Queuing zero value for dial: {dial.Name}");
+                        
+                        // Queue the command to set dial to 0%
+                        _ = vu1.SetDialPercentageAsync(dial.UID, 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error queueing zero command for {dial.Name}: {ex.Message}");
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine("All zero-value commands queued. Waiting for serial transmission...");
+                
+                // Wait for commands to be transmitted through the serial port
+                System.Threading.Thread.Sleep(300);
+                
+                System.Diagnostics.Debug.WriteLine("Dial reset sequence complete.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Critical error during dial value reset: {ex.Message}");
+            }
         }
 
         /// <summary>
