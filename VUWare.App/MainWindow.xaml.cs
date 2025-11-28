@@ -23,16 +23,22 @@ namespace VUWare.App
         private DialsConfiguration? _config;
         private AppInitializationService? _initService;
         private SensorMonitoringService? _monitoringService;
+        private SystemTrayManager? _trayManager;
 
         public MainWindow()
         {
             InitializeComponent();
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+            StateChanged += MainWindow_StateChanged;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Initialize tray manager with this window first
+            InitializeSystemTray();
+            
+            // Then load configuration and start monitoring
             LoadConfiguration();
             StartInitialization();
         }
@@ -634,6 +640,44 @@ namespace VUWare.App
             SettingsWindow settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.ShowDialog();
+        }
+
+        /// <summary>
+        /// Initializes the system tray manager with the main window.
+        /// </summary>
+        private void InitializeSystemTray()
+        {
+            // Get the tray manager from the application
+            if (Application.Current is App app && app.TrayManager != null)
+            {
+                _trayManager = app.TrayManager;
+                _trayManager.Initialize(this);
+                System.Diagnostics.Debug.WriteLine("[MainWindow] System tray initialized");
+            }
+        }
+
+        /// <summary>
+        /// Handles window state changes to manage tray minimize/restore.
+        /// </summary>
+        private void MainWindow_StateChanged(object sender, EventArgs e)
+        {
+            if (_trayManager == null)
+                return;
+
+            if (WindowState == WindowState.Minimized)
+            {
+                // Hide window to tray
+                _trayManager.HideToTray();
+                _trayManager.ShowIcon();
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized to tray");
+            }
+            else if (WindowState == WindowState.Normal)
+            {
+                // Restore window from tray
+                _trayManager.HideIcon();
+                ShowInTaskbar = true;
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Window restored from tray");
+            }
         }
     }
 }
