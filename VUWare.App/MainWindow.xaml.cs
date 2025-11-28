@@ -249,32 +249,13 @@ namespace VUWare.App
                     continue;
 
                 var (panel, percentageBlock, displayNameBlock) = elements;
-                Color panelColor;
-                Color textColor;
-                Color subtextColor;
+                
+                // Use neutral dark gray for all dials until monitoring starts
+                Color panelColor = Color.FromRgb(80, 80, 80);
+                Color textColor = Colors.White;
+                Color subtextColor = Color.FromRgb(150, 150, 150);
 
-                // Determine initial color based on color mode
-                if (dial.ColorConfig.ColorMode == "off")
-                {
-                    panelColor = Color.FromRgb(204, 204, 204);
-                    textColor = Colors.Black;
-                    subtextColor = Color.FromRgb(102, 102, 102);
-                }
-                else if (dial.ColorConfig.ColorMode == "static")
-                {
-                    panelColor = GetColorFromString(dial.ColorConfig.StaticColor);
-                    textColor = GetContrastingTextColor(panelColor);
-                    subtextColor = GetContrastingSubtextColor(panelColor);
-                }
-                else // threshold mode (default)
-                {
-                    // Default to normal color
-                    panelColor = GetColorFromString(dial.ColorConfig.NormalColor);
-                    textColor = GetContrastingTextColor(panelColor);
-                    subtextColor = GetContrastingSubtextColor(panelColor);
-                }
-
-                // Apply colors
+                // Apply neutral colors
                 panel.Background = new SolidColorBrush(panelColor);
                 percentageBlock.Foreground = new SolidColorBrush(textColor);
                 displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
