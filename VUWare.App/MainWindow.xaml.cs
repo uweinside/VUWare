@@ -644,5 +644,15 @@ namespace VUWare.App
         {
             Close();
         }
+
+        /// <summary>
+        /// Opens the settings dialog.
+        /// </summary>
+        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsWindow settingsWindow = new SettingsWindow();
+            settingsWindow.Owner = this;
+            settingsWindow.ShowDialog();
+        }
     }
 }
