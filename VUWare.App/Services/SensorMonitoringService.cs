@@ -23,6 +23,7 @@ namespace VUWare.App.Services
         private Task? _monitoringTask;
         private bool _disposed;
         private bool _isMonitoring;
+        private bool _enableUIUpdates = true; // New: Control UI update behavior
 
         /// <summary>
         /// Tracks the state of a single dial during monitoring.
@@ -36,6 +37,7 @@ namespace VUWare.App.Services
             public string LastColor { get; set; } = string.Empty;
             public DateTime LastUpdate { get; set; }
             public int UpdateCount { get; set; }
+            public DateTime LastPhysicalUpdate { get; set; } = DateTime.MinValue; // New: Track physical dial update time
         }
 
         /// <summary>
@@ -49,6 +51,17 @@ namespace VUWare.App.Services
         public event Action<string>? OnError;
 
         public bool IsMonitoring => _isMonitoring;
+
+        /// <summary>
+        /// Enables or disables UI updates via Dispatcher.
+        /// Set to false when window is minimized to tray to eliminate unnecessary cross-thread marshaling.
+        /// Physical dial updates continue regardless of this setting.
+        /// </summary>
+        public void SetUIUpdateEnabled(bool enabled)
+        {
+            _enableUIUpdates = enabled;
+            System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] UI updates {(enabled ? "ENABLED" : "DISABLED")}");
+        }
 
         public SensorMonitoringService(VU1Controller vuController, HWInfo64Controller hwInfoController, DialsConfiguration config)
         {
@@ -297,6 +310,7 @@ namespace VUWare.App.Services
         /// <summary>
         /// Updates a single dial based on current sensor reading.
         /// Returns true if the dial was updated.
+        /// Implements debouncing to prevent rapid successive updates.
         /// </summary>
         private async Task<bool> UpdateDialAsync(DialMonitoringState state, CancellationToken cancellationToken)
         {
@@ -329,6 +343,14 @@ namespace VUWare.App.Services
                 return false;
             }
 
+            // Debouncing: Check if we're updating too frequently (minimum 100ms between physical updates)
+            var timeSinceLastPhysicalUpdate = (DateTime.Now - state.LastPhysicalUpdate).TotalMilliseconds;
+            if (timeSinceLastPhysicalUpdate < 100)
+            {
+                // Skip this update - too soon after last physical update
+                return false;
+            }
+
             // Update dial position
             bool positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
             if (!positionSuccess)
@@ -351,6 +373,7 @@ namespace VUWare.App.Services
 
             // Increment update count and timestamp
             state.LastUpdate = DateTime.Now;
+            state.LastPhysicalUpdate = DateTime.Now; // Track physical update time
             state.UpdateCount++;
 
             System.Diagnostics.Debug.WriteLine(
@@ -390,6 +413,12 @@ namespace VUWare.App.Services
         /// </summary>
         private void RaiseDialUpdated(DialMonitoringState state)
         {
+            // Skip UI updates if window is hidden/minimized
+            if (!_enableUIUpdates)
+            {
+                return;
+            }
+
             try
             {
                 var update = GetDialStatus(state.DialUid);

@@ -693,17 +693,23 @@ namespace VUWare.App
 
             if (WindowState == WindowState.Minimized)
             {
+                // Disable UI updates when hidden - physical dials still update!
+                _monitoringService?.SetUIUpdateEnabled(false);
+                
                 // Hide window to tray
                 _trayManager.HideToTray();
                 _trayManager.ShowIcon();
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized to tray");
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized to tray - UI updates DISABLED");
             }
             else if (WindowState == WindowState.Normal)
             {
+                // Re-enable UI updates when visible
+                _monitoringService?.SetUIUpdateEnabled(true);
+                
                 // Restore window from tray
                 _trayManager.HideIcon();
                 ShowInTaskbar = true;
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Window restored from tray");
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Window restored from tray - UI updates ENABLED");
             }
         }
     }

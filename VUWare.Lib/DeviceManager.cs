@@ -579,12 +579,12 @@ namespace VUWare.Lib
         }
 
         /// <summary>
-        /// Sends a command and waits for a response.
-        /// Thread-safe wrapper around SerialPortManager.SendCommand.
+        /// Sends a command and waits for a response using true async I/O.
         /// </summary>
-        private async Task<string> SendCommandAsync(string command, int timeoutMs)
+        private async Task<string> SendCommandAsync(string command, int timeoutMs, CancellationToken cancellationToken = default)
         {
-            return await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
+            // Use the new SendCommandAsync directly - no more Task.Run wrapper!
+            return await _serialPort.SendCommandAsync(command, timeoutMs, cancellationToken);
         }
 
         public void Dispose()

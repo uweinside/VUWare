@@ -205,8 +205,9 @@ namespace VUWare.HWInfo64
 
         /// <summary>
         /// Polling loop that reads HWInfo64 at regular intervals.
+        /// Now uses proper async/await instead of blocking Wait().
         /// </summary>
-        private void PollingLoop(CancellationToken cancellationToken)
+        private async void PollingLoop(CancellationToken cancellationToken)
         {
             try
             {
@@ -228,21 +229,25 @@ namespace VUWare.HWInfo64
                                 var previous = _currentReadings.ContainsKey(mapping.Id) ? _currentReadings[mapping.Id] : null;
                                 _currentReadings[mapping.Id] = reading;
 
-                                // Fire event if value changed
-                                if (previous == null || Math.Abs(previous.Value - reading.Value) > 0.01)
+                                // Fire event only if value changed significantly (0.1% threshold)
+                                if (previous == null || Math.Abs(previous.Value - reading.Value) > 0.1)
                                 {
                                     OnSensorValueChanged?.Invoke(mapping.Id, reading);
                                 }
                             }
                         }
 
-                        Task.Delay(_pollIntervalMs, cancellationToken).Wait(cancellationToken);
+                        // Use proper async delay instead of blocking Wait()
+                        await Task.Delay(_pollIntervalMs, cancellationToken);
                     }
-                    catch (OperationCanceledException) { break; }
+                    catch (OperationCanceledException) 
+                    { 
+                        break; 
+                    }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Polling error: {ex.Message}");
-                        Task.Delay(1000, cancellationToken).Wait(cancellationToken);
+                        await Task.Delay(1000, cancellationToken);
                     }
                 }
             }

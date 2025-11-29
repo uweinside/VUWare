@@ -226,25 +226,45 @@ namespace VUWare.Lib
         }
         /// <summary>
         /// Periodic update loop that processes image updates.
-        /// Runs every ~500ms while connected.
+        /// Now optimized with idle detection - sleeps longer when no work to do.
         /// </summary>
         private async void PeriodicUpdateLoop(CancellationToken ct)
         {
             try
             {
+                int idleCycles = 0;
+                const int maxIdleCycles = 5;
+                
                 while (!ct.IsCancellationRequested && IsConnected)
                 {
                     try
                     {
+                        bool didWork = false;
+                        
                         // Process pending image updates
                         while (_imageQueue.TryGetNextUpdate(out byte idx, out byte[] img))
                         {
                             var dial = _deviceManager.GetDialByIndex(idx);
-                            if (dial != null) await SetDisplayImageAsync(dial.UID, img);
+                            if (dial != null) 
+                            {
+                                await SetDisplayImageAsync(dial.UID, img);
+                                didWork = true;
+                            }
                         }
 
-                        // Sleep before next update
-                        await Task.Delay(500, ct);
+                        // Adaptive delay: sleep longer when idle to reduce CPU usage
+                        if (didWork)
+                        {
+                            idleCycles = 0;
+                            await Task.Delay(500, ct);  // Normal update interval
+                        }
+                        else
+                        {
+                            idleCycles++;
+                            // Gradually increase sleep time when idle (up to 2 seconds)
+                            int sleepMs = Math.Min(500 + (idleCycles * 300), 2000);
+                            await Task.Delay(sleepMs, ct);
+                        }
                     }
                     catch (OperationCanceledException) { break; }
                     catch (Exception ex)
@@ -262,8 +282,10 @@ namespace VUWare.Lib
 
         /// <summary>
         /// Sends a command directly to the hub (for advanced use).
+        /// Now uses true async I/O!
         /// </summary>
-        private async Task<string> SendCommandAsync(string command, int timeoutMs) => await Task.Run(() => _serialPort.SendCommand(command, timeoutMs));
+        private async Task<string> SendCommandAsync(string command, int timeoutMs, CancellationToken cancellationToken = default) 
+            => await _serialPort.SendCommandAsync(command, timeoutMs, cancellationToken);
         
         /// <summary>
         /// Queues an image update for a dial (processed by periodic update loop).
