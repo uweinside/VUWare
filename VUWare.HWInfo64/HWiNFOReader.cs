@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace VUWare.HWInfo64
 {
@@ -16,6 +17,8 @@ namespace VUWare.HWInfo64
         private MemoryMappedViewAccessor? _accessor;
         private bool _disposed;
         private bool _isConnected;
+        private DateTime _lastReadTime = DateTime.MinValue;  // Track update rate
+        private int _consecutiveTimeouts = 0;  // Track blocking issues
 
         public bool IsConnected => _isConnected;
 
@@ -139,6 +142,8 @@ namespace VUWare.HWInfo64
         /// <summary>
         /// Reads all sensor readings with metadata.
         /// This is the primary method for retrieving sensor data.
+        /// Now with timeout protection against blocking reads under 100% CPU.
+        /// Enhanced diagnostics to identify exact bottleneck.
         /// </summary>
         /// <returns>List of SensorReading objects, or empty list if read fails</returns>
         public List<SensorReading> ReadAllSensorReadings()
@@ -150,53 +155,116 @@ namespace VUWare.HWInfo64
 
             try
             {
-                var sensors = ReadAllSensors();
-                var entries = ReadAllEntries();
+                var readStartTime = DateTime.Now;
+                
+                // Calculate time since last successful read
+                var timeSinceLastRead = _lastReadTime == DateTime.MinValue 
+                    ? 0 
+                    : (readStartTime - _lastReadTime).TotalMilliseconds;
 
-                if (sensors == null || entries == null)
-                    return readings;
-
-                foreach (var entry in entries)
+                // Wrap read operation in a timeout to prevent blocking under high load
+                var readTask = Task.Run(() =>
                 {
-                    // Skip null entries
-                    if (entry.type == SensorType.None)
-                        continue;
-
-                    // Validate sensor index
-                    if (entry.sensor_index >= sensors.Length)
-                        continue;
-
-                    var sensor = sensors[entry.sensor_index];
-
-                    string sensorName = string.IsNullOrWhiteSpace(sensor.name_user)
-                        ? sensor.name_original
-                        : sensor.name_user;
-
-                    string entryName = string.IsNullOrWhiteSpace(entry.name_user)
-                        ? entry.name_original
-                        : entry.name_user;
-
-                    readings.Add(new SensorReading
+                    var taskStartTime = DateTime.Now;
+                    try
                     {
-                        SensorId = sensor.id,
-                        SensorInstance = sensor.instance,
-                        SensorName = sensorName,
-                        EntryId = entry.id,
-                        EntryName = entryName,
-                        Type = entry.type,
-                        Value = entry.value,
-                        ValueMin = entry.value_min,
-                        ValueMax = entry.value_max,
-                        ValueAvg = entry.value_avg,
-                        Unit = entry.unit,
-                        LastUpdate = DateTime.Now
-                    });
-                }
+                        var sensors = ReadAllSensors();
+                        var entries = ReadAllEntries();
 
-                return readings;
+                        if (sensors == null || entries == null)
+                        {
+                            System.Diagnostics.Debug.WriteLine("[HWiNFOReader] NULL sensors or entries returned");
+                            return readings;
+                        }
+
+                        var processingStartTime = DateTime.Now;
+                        int processedCount = 0;
+
+                        foreach (var entry in entries)
+                        {
+                            // Skip null entries
+                            if (entry.type == SensorType.None)
+                                continue;
+
+                            // Validate sensor index
+                            if (entry.sensor_index >= sensors.Length)
+                                continue;
+
+                            var sensor = sensors[entry.sensor_index];
+
+                            string sensorName = string.IsNullOrWhiteSpace(sensor.name_user)
+                                ? sensor.name_original
+                                : sensor.name_user;
+
+                            string entryName = string.IsNullOrWhiteSpace(entry.name_user)
+                                ? entry.name_original
+                                : entry.name_user;
+
+                            readings.Add(new SensorReading
+                            {
+                                SensorId = sensor.id,
+                                SensorInstance = sensor.instance,
+                                SensorName = sensorName,
+                                EntryId = entry.id,
+                                EntryName = entryName,
+                                Type = entry.type,
+                                Value = entry.value,
+                                ValueMin = entry.value_min,
+                                ValueMax = entry.value_max,
+                                ValueAvg = entry.value_avg,
+                                Unit = entry.unit,
+                                LastUpdate = DateTime.Now
+                            });
+                            processedCount++;
+                        }
+
+                        var totalReadTime = (DateTime.Now - taskStartTime).TotalMilliseconds;
+                        var processingTime = (DateTime.Now - processingStartTime).TotalMilliseconds;
+                        
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[HWiNFOReader] Read completed - Total: {totalReadTime:F0}ms, " +
+                            $"Processing: {processingTime:F0}ms, Sensors: {processedCount}");
+
+                        return readings;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[HWiNFOReader] Exception during read: {ex.Message}");
+                        return readings;
+                    }
+                });
+
+                // Wait for read with 100ms timeout
+                // If HWInfo64 is blocked under load, don't wait - return stale data
+                if (readTask.Wait(100))
+                {
+                    _lastReadTime = DateTime.Now;
+                    var totalElapsed = (_lastReadTime - readStartTime).TotalMilliseconds;
+                    _consecutiveTimeouts = 0;
+                    
+                    // Log update rate for diagnostics
+                    if (timeSinceLastRead > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[HWiNFOReader] ? SUCCESS - Gap since last: {timeSinceLastRead:F0}ms, " +
+                            $"This read took: {totalElapsed:F0}ms, Got {readTask.Result.Count} readings");
+                    }
+                    
+                    return readTask.Result;
+                }
+                else
+                {
+                    _consecutiveTimeouts++;
+                    var totalElapsed = (DateTime.Now - readStartTime).TotalMilliseconds;
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[HWiNFOReader] ? TIMEOUT #{_consecutiveTimeouts} - Read blocked for {totalElapsed:F0}ms " +
+                        $"(last success: {timeSinceLastRead:F0}ms ago)");
+                    return readings;  // Return empty list, will use cached data
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[HWiNFOReader] Outer exception: {ex.Message}");
                 return readings;
             }
         }

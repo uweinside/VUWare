@@ -184,6 +184,7 @@ namespace VUWare.HWInfo64
 
         /// <summary>
         /// Starts the periodic polling of HWInfo64.
+        /// Uses dedicated thread with high priority to ensure responsiveness under 100% CPU load.
         /// </summary>
         private void StartPolling()
         {
@@ -191,7 +192,17 @@ namespace VUWare.HWInfo64
                 return;
 
             _pollingCancellation = new CancellationTokenSource();
-            _pollingTask = Task.Run(() => PollingLoop(_pollingCancellation.Token));
+            
+            // Use dedicated thread instead of Task.Run to avoid thread pool starvation
+            var pollingThread = new Thread(() => PollingLoop(_pollingCancellation.Token))
+            {
+                Name = "HWInfo64 Polling",
+                IsBackground = true,
+                Priority = ThreadPriority.AboveNormal  // Higher priority for time-critical work
+            };
+            
+            pollingThread.Start();
+            _pollingTask = Task.CompletedTask;  // Track that polling was started
         }
 
         /// <summary>

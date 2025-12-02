@@ -178,7 +178,7 @@ namespace VUWare.Lib
         /// <summary>
         /// Reads a complete response asynchronously using true async I/O.
         /// Response format: <CCDDLLLL[DATA]
-        /// NO MORE BUSY-WAITING!
+        /// Optimized for responsiveness under high CPU load.
         /// </summary>
         private async Task<string> ReadResponseAsync(int timeoutMs, CancellationToken cancellationToken)
         {
@@ -189,6 +189,8 @@ namespace VUWare.Lib
             var responseBuilder = new StringBuilder();
             bool foundStart = false;
             int expectedLength = -1;
+            int emptyReadCount = 0;
+            const int maxEmptyReads = 3;
 
             try
             {
@@ -199,10 +201,23 @@ namespace VUWare.Lib
 
                     if (bytesRead == 0)
                     {
-                        // No data available, wait a bit before retry
-                        await Task.Delay(10, cts.Token);
+                        emptyReadCount++;
+                        
+                        // OPTIMIZATION: Only yield if we've had multiple empty reads
+                        // This prevents Task.Delay overhead under high CPU load
+                        // Serial data arrives in bursts, so immediate retry is often successful
+                        if (emptyReadCount >= maxEmptyReads)
+                        {
+                            // Yield briefly to prevent tight loop, but resume ASAP
+                            // Task.Yield is much lighter than Task.Delay under load
+                            await Task.Yield();
+                            emptyReadCount = 0;
+                        }
                         continue;
                     }
+
+                    // Reset empty read counter when we get data
+                    emptyReadCount = 0;
 
                     // Process received bytes
                     for (int i = 0; i < bytesRead; i++)
@@ -327,6 +342,7 @@ namespace VUWare.Lib
 
         /// <summary>
         /// Tests if a port is the VU1 hub by attempting a rescan command (async version).
+        /// Optimized for high CPU load scenarios.
         /// </summary>
         private async Task<bool> TryPortAsync(string portName, CancellationToken cancellationToken = default)
         {
@@ -361,13 +377,14 @@ namespace VUWare.Lib
                 await testPort.BaseStream.WriteAsync(command, 0, command.Length, cancellationToken);
                 await testPort.BaseStream.FlushAsync(cancellationToken);
 
-                // Try to read response with timeout (async)
+                // Try to read response with timeout (async, optimized for high load)
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(2000);
 
                 var buffer = new byte[128];
                 var responseBuilder = new StringBuilder();
                 bool foundStart = false;
+                int emptyReadCount = 0;
 
                 try
                 {
@@ -377,9 +394,18 @@ namespace VUWare.Lib
                         
                         if (bytesRead == 0)
                         {
-                            await Task.Delay(10, cts.Token);
+                            emptyReadCount++;
+                            
+                            // Only yield after multiple empty reads to reduce overhead
+                            if (emptyReadCount >= 3)
+                            {
+                                await Task.Yield();
+                                emptyReadCount = 0;
+                            }
                             continue;
                         }
+
+                        emptyReadCount = 0;
 
                         for (int i = 0; i < bytesRead; i++)
                         {

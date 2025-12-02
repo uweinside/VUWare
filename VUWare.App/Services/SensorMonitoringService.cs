@@ -19,6 +19,7 @@ namespace VUWare.App.Services
         private readonly HWInfo64Controller _hwInfoController;
         private readonly DialsConfiguration _config;
         private readonly Dictionary<string, DialMonitoringState> _dialStates;
+        private readonly Dictionary<string, SensorReading> _lastKnownReadings = new();  // Cache for HWInfo64 timeouts
         private CancellationTokenSource? _monitoringCts;
         private Task? _monitoringTask;
         private bool _disposed;
@@ -73,6 +74,7 @@ namespace VUWare.App.Services
 
         /// <summary>
         /// Starts the monitoring loop on a background thread.
+        /// Uses dedicated thread with high priority for responsiveness under 100% CPU load.
         /// </summary>
         public void Start()
         {
@@ -98,13 +100,23 @@ namespace VUWare.App.Services
             }
 
             _monitoringCts = new CancellationTokenSource();
-            _monitoringTask = Task.Run(async () => 
+            
+            // Use dedicated thread instead of Task.Run to avoid thread pool starvation
+            var monitoringThread = new Thread(async () =>
             {
                 // Send initial values to all dials before starting the loop
                 await InitializeDials(_monitoringCts.Token);
                 // Then start the monitoring loop
                 MonitoringLoop(_monitoringCts.Token);
-            });
+            })
+            {
+                Name = "Sensor Monitoring",
+                IsBackground = true,
+                Priority = ThreadPriority.AboveNormal  // Higher priority for time-critical updates
+            };
+            
+            monitoringThread.Start();
+            _monitoringTask = Task.CompletedTask;  // Track that monitoring was started
             _isMonitoring = true;
         }
 
@@ -247,13 +259,13 @@ namespace VUWare.App.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine("MonitoringLoop: Started");
-                int cycleCount = 0;
+                int cycle = 0;
 
                 while (!cancellationToken.IsCancellationRequested && _isMonitoring)
                 {
                     try
                     {
-                        cycleCount++;
+                        cycle++;
                         bool anyUpdated = false;
 
                         // Process each enabled dial
@@ -274,9 +286,9 @@ namespace VUWare.App.Services
                             }
                         }
 
-                        if (cycleCount % 10 == 0)
+                        if (cycle % 10 == 0)
                         {
-                            System.Diagnostics.Debug.WriteLine($"MonitoringLoop: Cycle {cycleCount}, Updated: {anyUpdated}");
+                            System.Diagnostics.Debug.WriteLine($"MonitoringLoop: Cycle {cycle}, Updated: {anyUpdated}");
                         }
 
                         // Sleep based on global update interval
@@ -311,15 +323,45 @@ namespace VUWare.App.Services
         /// Updates a single dial based on current sensor reading.
         /// Returns true if the dial was updated.
         /// Implements debouncing to prevent rapid successive updates.
+        /// Uses cached readings when HWInfo64 is blocked under load.
         /// </summary>
         private async Task<bool> UpdateDialAsync(DialMonitoringState state, CancellationToken cancellationToken)
         {
             // Get current sensor reading
             var status = _hwInfoController.GetSensorStatus(state.DialUid);
+            
             if (status == null)
             {
-                // Sensor reading not available yet - this is normal on first cycles
-                return false;
+                // Try to use cached reading if available
+                if (_lastKnownReadings.TryGetValue(state.DialUid, out var cachedReading))
+                {
+                    // Calculate percentage from cached value
+                    double range = state.Config.MaxValue - state.Config.MinValue;
+                    double normalized = Math.Clamp((cachedReading.Value - state.Config.MinValue) / range, 0.0, 1.0);
+                    byte cachedPercentage = (byte)(normalized * 100);
+                    
+                    // Use cached data
+                    status = new SensorStatus
+                    {
+                        MappingId = state.DialUid,
+                        SensorReading = cachedReading,
+                        Percentage = cachedPercentage,
+                        IsCritical = state.Config.CriticalThreshold.HasValue && 
+                                    cachedReading.Value >= state.Config.CriticalThreshold.Value,
+                        IsWarning = state.Config.WarningThreshold.HasValue && 
+                                   cachedReading.Value >= state.Config.WarningThreshold.Value
+                    };
+                }
+                else
+                {
+                    // No cached data and no current data - skip update
+                    return false;
+                }
+            }
+            else
+            {
+                // Update cache with fresh reading
+                _lastKnownReadings[state.DialUid] = status.SensorReading!;
             }
 
             // Store previous values BEFORE updating state
@@ -329,7 +371,7 @@ namespace VUWare.App.Services
             // Update state with current values
             state.LastReading = status.SensorReading;
             state.LastPercentage = status.Percentage;
-            state.LastColor = state.Config.GetColorForValue(status.SensorReading.Value);
+            state.LastColor = state.Config.GetColorForValue(status.SensorReading!.Value);
 
             // Check if values changed
             bool positionChanged = previousPercentage != state.LastPercentage;
