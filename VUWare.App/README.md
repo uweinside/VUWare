@@ -90,27 +90,26 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant IC as InitService_OnInitializationComplete()
-    participant SM as StartMonitoring()
+    participant IC as InitComplete
+    participant SM as StartMonitoring
     participant SMS as SensorMonitoringService
-    participant Loop as Monitoring Loop (1000ms)
     participant HW as HWInfo64
     participant VU1 as VU1 Dial
     participant UI as UI Thread
     
     IC->>SM: Start
     SM->>SMS: Create Service
-    SMS->>Loop: Start() [Background Thread]
+    SMS->>SMS: Start Background Thread
     
     loop Every 1000ms
-        Loop->>HW: Get sensor reading
-        HW-->>Loop: Sensor value
-        Loop->>Loop: Calculate dial percentage (min/max)
-        Loop->>Loop: Determine color (normal/warning/critical)
-        Loop->>VU1: Update dial (if changed)
-        Loop->>VU1: Update color (if changed)
-        Loop->>UI: Fire OnDialUpdated event
-        UI->>UI: Update button: color, percentage, tooltip
+        SMS->>HW: Get sensor reading
+        HW-->>SMS: Sensor value
+        SMS->>SMS: Calculate percentage
+        SMS->>SMS: Determine color
+        SMS->>VU1: Update dial if changed
+        SMS->>VU1: Update color if changed
+        SMS->>UI: Fire OnDialUpdated event
+        UI->>UI: Update button display
     end
 ```
 
