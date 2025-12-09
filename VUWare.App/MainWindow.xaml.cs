@@ -69,7 +69,17 @@ namespace VUWare.App
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Window closing - starting shutdown sequence");
+            // Perform the actual shutdown
+            PerformGracefulShutdown();
+        }
+
+        /// <summary>
+        /// Performs graceful shutdown of all services and resets hardware to safe state.
+        /// Can be called from window closing OR from App.SessionEnding.
+        /// </summary>
+        public void PerformGracefulShutdown()
+        {
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Starting graceful shutdown sequence");
             
             // Step 1: Stop monitoring service first
             if (_monitoringService != null)
@@ -81,6 +91,7 @@ namespace VUWare.App
             }
             
             // Step 2: Stop HWInfo64 polling
+            // BUT DON'T call Disconnect() yet - that would cancel the shutdown commands!
             if (_initService != null)
             {
                 System.Diagnostics.Debug.WriteLine("[MainWindow] Stopping HWInfo64 polling");
@@ -100,7 +111,7 @@ namespace VUWare.App
             _initService?.Dispose();
             _initService = null;
             
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Shutdown sequence complete");
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Graceful shutdown sequence complete");
         }
 
         /// <summary>
