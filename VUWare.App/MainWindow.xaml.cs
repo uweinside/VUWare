@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Windows;
@@ -12,6 +12,9 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using VUWare.App.Models;
 using VUWare.App.Services;
+using System.Linq;
+using WpfColors = System.Windows.Media.Colors;
+using VULib = VUWare.Lib;
 
 namespace VUWare.App
 {
@@ -66,22 +69,43 @@ namespace VUWare.App
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            // Stop monitoring FIRST to prevent interference
-            _monitoringService?.Stop();
-            _monitoringService?.Dispose();
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Window closing - starting shutdown sequence");
             
-            // Set all dials to zero on the physical devices
+            // Step 1: Stop monitoring service first
+            if (_monitoringService != null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Stopping sensor monitoring service");
+                _monitoringService.Stop();
+                _monitoringService.Dispose();
+                _monitoringService = null;
+            }
+            
+            // Step 2: Stop HWInfo64 polling
+            if (_initService != null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Stopping HWInfo64 polling");
+                _initService.GetHWInfo64Controller().Disconnect();
+            }
+            
+            // Give loops time to stop
+            System.Threading.Thread.Sleep(200);
+            
+            // Step 3: Send shutdown commands directly using simple synchronous serial commands
+            // This bypasses all the async/cancellation infrastructure
             ResetAllDialValues();
-            
-            // Now turn off all dial lights with enough time for serial transmission
             TurnOffAllDialLights();
             
-            // Dispose init service last
+            // Step 4: Dispose services
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Disposing initialization service");
             _initService?.Dispose();
+            _initService = null;
+            
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Shutdown sequence complete");
         }
 
         /// <summary>
         /// Resets all dial needle positions to zero on the physical devices.
+        /// Uses direct serial port commands to avoid cancellation issues.
         /// </summary>
         private void ResetAllDialValues()
         {
@@ -101,39 +125,52 @@ namespace VUWare.App
                 System.Diagnostics.Debug.WriteLine("Resetting all dial values to zero...");
 
                 var dials = vu1.GetAllDials();
-                System.Diagnostics.Debug.WriteLine($"Sending zero command to {dials.Count} dials");
+                System.Diagnostics.Debug.WriteLine($"Resetting {dials.Count} dials to 0%");
 
-                // Queue zero-value commands for all dials
+                int successCount = 0;
                 foreach (var dial in dials.Values)
                 {
                     try
                     {
-                        System.Diagnostics.Debug.WriteLine($"Queuing zero value for dial: {dial.Name}");
+                        // Build command directly: >CCDDLLLLDATA
+                        // CC=03 (SET), DD=04 (DIAL_POSITION), LLLL=0002 (2 bytes), DATA=XXPP (dial index + percentage)
+                        string command = $">03040002{dial.Index:X2}00";
+                        System.Diagnostics.Debug.WriteLine($"Sending reset command for {dial.Name}: {command}");
                         
-                        // Queue the command to set dial to 0%
-                        _ = vu1.SetDialPercentageAsync(dial.UID, 0);
+                        // Send using synchronous method that bypasses cancellation
+                        string response = vu1.GetType()
+                            .GetField("_serialPort", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
+                            .GetValue(vu1) is VULib.SerialPortManager serialPort
+                            ? serialPort.SendCommandSync(command, 2000)
+                            : "";
+                        
+                        if (response.StartsWith("<") && response.Length >= 9)
+                        {
+                            successCount++;
+                            System.Diagnostics.Debug.WriteLine($"? {dial.Name} reset to 0%");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"? {dial.Name} reset failed - no response");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error queueing zero command for {dial.Name}: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"Error resetting {dial.Name}: {ex.Message}");
                     }
                 }
-
-                System.Diagnostics.Debug.WriteLine("All zero-value commands queued. Waiting for serial transmission...");
                 
-                // Wait for commands to be transmitted through the serial port
-                System.Threading.Thread.Sleep(300);
-                
-                System.Diagnostics.Debug.WriteLine("Dial reset sequence complete.");
+                System.Diagnostics.Debug.WriteLine($"Dial reset complete: {successCount}/{dials.Count} successful");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Critical error during dial value reset: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Critical error during dial reset: {ex.Message}");
             }
         }
 
         /// <summary>
         /// Turns off all dial backlights when the application closes.
+        /// Uses direct serial port commands to avoid cancellation issues.
         /// </summary>
         private void TurnOffAllDialLights()
         {
@@ -150,39 +187,49 @@ namespace VUWare.App
                     return;
                 }
 
-                System.Diagnostics.Debug.WriteLine("Starting dial light shutdown sequence...");
+                System.Diagnostics.Debug.WriteLine("Turning off all dial backlights...");
 
                 var dials = vu1.GetAllDials();
-                System.Diagnostics.Debug.WriteLine($"Found {dials.Count} dials to turn off");
+                System.Diagnostics.Debug.WriteLine($"Turning off {dials.Count} dial backlights");
 
-                // Queue all backlight-off commands
+                int successCount = 0;
                 foreach (var dial in dials.Values)
                 {
                     try
                     {
-                        System.Diagnostics.Debug.WriteLine($"Queuing backlight off for: {dial.Name}");
+                        // Build command directly: >CCDDLLLLDATA
+                        // CC=13 (SET_RGB), DD=03 (dial index embedded), LLLL=0005 (5 bytes), DATA=XXRRGGBBWW
+                        string command = $">13030005{dial.Index:X2}00000000";
+                        System.Diagnostics.Debug.WriteLine($"Sending backlight off for {dial.Name}: {command}");
                         
-                        // Queue the command - don't wait, just schedule it
-                        _ = vu1.SetBacklightAsync(dial.UID, 0, 0, 0, 0);
+                        // Send using synchronous method that bypasses cancellation
+                        string response = vu1.GetType()
+                            .GetField("_serialPort", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
+                            .GetValue(vu1) is VULib.SerialPortManager serialPort
+                            ? serialPort.SendCommandSync(command, 2000)
+                            : "";
+                        
+                        if (response.StartsWith("<") && response.Length >= 9)
+                        {
+                            successCount++;
+                            System.Diagnostics.Debug.WriteLine($"? {dial.Name} backlight off");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"? {dial.Name} backlight failed - no response");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error queueing command for {dial.Name}: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"Error turning off {dial.Name}: {ex.Message}");
                     }
                 }
-
-                System.Diagnostics.Debug.WriteLine("All commands queued. Waiting for serial transmission...");
                 
-                // Wait for commands to be transmitted through the serial port
-                // The DeviceManager queues commands which get sent by SetBacklightAsync
-                // We need to give the serial port enough time to actually send these
-                System.Threading.Thread.Sleep(300);
-                
-                System.Diagnostics.Debug.WriteLine("Shutdown sequence complete.");
+                System.Diagnostics.Debug.WriteLine($"Backlight shutdown complete: {successCount}/{dials.Count} successful");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Critical error during dial light shutdown: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Critical error during backlight shutdown: {ex.Message}");
             }
         }
 
@@ -208,7 +255,7 @@ namespace VUWare.App
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                     StatusText.Text = "Configuration Error";
-                    StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    StatusText.Foreground = new SolidColorBrush(WpfColors.Red);
                     return;
                 }
 
@@ -222,7 +269,7 @@ namespace VUWare.App
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
                     StatusText.Text = "Configuration Error";
-                    StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    StatusText.Foreground = new SolidColorBrush(WpfColors.Red);
                     return;
                 }
 
@@ -232,7 +279,7 @@ namespace VUWare.App
                 if (_config.AppSettings.DebugMode)
                 {
                     MessageBox.Show(
-                        $"✓ Configuration loaded successfully\n\n" +
+                        $"? Configuration loaded successfully\n\n" +
                         $"Dials: {_config.Dials.Count}\n" +
                         $"Config file: {configPath}",
                         "Debug: Configuration Loaded",
@@ -249,7 +296,7 @@ namespace VUWare.App
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
                 StatusText.Text = "Configuration Error";
-                StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                StatusText.Foreground = new SolidColorBrush(WpfColors.Red);
             }
         }
 
@@ -279,7 +326,7 @@ namespace VUWare.App
                 
                 // Use neutral dark gray for all dials until monitoring starts
                 Color panelColor = Color.FromRgb(80, 80, 80);
-                Color textColor = Colors.White;
+                Color textColor = WpfColors.White;
                 Color subtextColor = Color.FromRgb(150, 150, 150);
 
                 // Apply neutral colors
@@ -342,7 +389,7 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
-                StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
+                StatusText.Text = $"Connecting to HWiNFO64� [{retryCount}]";
                 
                 if (isConnected)
                 {
@@ -386,7 +433,7 @@ namespace VUWare.App
                     var hwInfoConnected = _initService?.GetHWInfo64Controller().IsConnected ?? false;
                     
                     MessageBox.Show(
-                        $"✓ Initialization Complete\n\n" +
+                        $"? Initialization Complete\n\n" +
                         $"Dials: {dialCount}\n" +
                         $"HWInfo Connected: {hwInfoConnected}",
                         "Debug: Ready",
@@ -426,7 +473,7 @@ namespace VUWare.App
 
                 if (_config.AppSettings.DebugMode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"✓ Monitoring service started");
+                    System.Diagnostics.Debug.WriteLine($"? Monitoring service started");
                     System.Diagnostics.Debug.WriteLine($"  IsMonitoring: {_monitoringService.IsMonitoring}");
                 }
             }
@@ -506,14 +553,14 @@ namespace VUWare.App
 
                 // Determine color based on dial configuration's color mode
                 Color panelColor = Color.FromRgb(204, 204, 204); // Default light gray
-                Color textColor = Colors.Black;
+                Color textColor = WpfColors.Black;
                 Color subtextColor = Color.FromRgb(102, 102, 102);
 
                 if (dialConfig?.ColorConfig.ColorMode == "off")
                 {
                     // Off mode: keep default colors
                     panelColor = Color.FromRgb(204, 204, 204);
-                    textColor = Colors.Black;
+                    textColor = WpfColors.Black;
                     subtextColor = Color.FromRgb(102, 102, 102);
                 }
                 else if (dialConfig?.ColorConfig.ColorMode == "static")
@@ -563,7 +610,7 @@ namespace VUWare.App
         {
             // Calculate luminance
             double luminance = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
-            return luminance > 0.5 ? Colors.Black : Colors.White;
+            return luminance > 0.5 ? WpfColors.Black : WpfColors.White;
         }
 
         /// <summary>
@@ -583,7 +630,7 @@ namespace VUWare.App
             Dispatcher.Invoke(() =>
             {
                 StatusText.Text = $"Error: {errorMessage}";
-                StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                StatusText.Foreground = new SolidColorBrush(WpfColors.Red);
             });
         }
 
@@ -598,7 +645,7 @@ namespace VUWare.App
                 AppInitializationService.InitializationStatus.InitializingDials => Color.FromRgb(255, 200, 0),  // Yellow
                 AppInitializationService.InitializationStatus.ConnectingHWInfo => Color.FromRgb(255, 200, 0),   // Yellow
                 AppInitializationService.InitializationStatus.Monitoring => Color.FromRgb(0, 200, 0),           // Green
-                AppInitializationService.InitializationStatus.Failed => Colors.Red,                             // Red
+                AppInitializationService.InitializationStatus.Failed => WpfColors.Red,                             // Red
                 _ => Color.FromRgb(200, 200, 200)                                                               // Gray
             };
 

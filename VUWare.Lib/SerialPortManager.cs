@@ -22,7 +22,8 @@ namespace VUWare.Lib
         private const int RESPONSE_BUFFER_SIZE = 10000;
 
         private SerialPort? _serialPort;
-        private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1); // Replace lock with async-safe semaphore
+        private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1);
+        private CancellationTokenSource? _disconnectCts;
         private bool _isConnected;
         private bool _disposed;
 
@@ -57,36 +58,44 @@ namespace VUWare.Lib
         /// </summary>
         public bool Connect(string portName)
         {
-            lock (_asyncLock)
+            _asyncLock.Wait();
+            try
             {
-                try
+                if (_serialPort != null && _serialPort.IsOpen)
                 {
-                    if (_serialPort != null && _serialPort.IsOpen)
-                    {
-                        _serialPort.Close();
-                    }
-
-                    _serialPort = new SerialPort(portName)
-                    {
-                        BaudRate = BAUD_RATE,
-                        DataBits = 8,
-                        Parity = Parity.None,
-                        StopBits = StopBits.One,
-                        ReadTimeout = READ_TIMEOUT_MS,
-                        WriteTimeout = WRITE_TIMEOUT_MS,
-                        Handshake = Handshake.None
-                    };
-
-                    _serialPort.Open();
-                    _isConnected = true;
-                    return true;
+                    _serialPort.Close();
                 }
-                catch (Exception ex)
+
+                _serialPort = new SerialPort(portName)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Connection failed: {ex.Message}");
-                    _isConnected = false;
-                    return false;
-                }
+                    BaudRate = BAUD_RATE,
+                    DataBits = 8,
+                    Parity = Parity.None,
+                    StopBits = StopBits.One,
+                    ReadTimeout = READ_TIMEOUT_MS,
+                    WriteTimeout = WRITE_TIMEOUT_MS,
+                    Handshake = Handshake.None
+                };
+
+                _serialPort.Open();
+                
+                // Reset cancellation token for new connection
+                _disconnectCts?.Cancel();
+                _disconnectCts?.Dispose();
+                _disconnectCts = new CancellationTokenSource();
+                
+                _isConnected = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Connection failed: {ex.Message}");
+                _isConnected = false;
+                return false;
+            }
+            finally
+            {
+                _asyncLock.Release();
             }
         }
 
@@ -95,18 +104,44 @@ namespace VUWare.Lib
         /// </summary>
         public void Disconnect()
         {
-            lock (_asyncLock)
+            // Signal all pending operations to cancel first
+            _isConnected = false;
+            _disconnectCts?.Cancel();
+            
+            // Try to acquire lock with timeout to prevent indefinite hang
+            bool acquiredLock = _asyncLock.Wait(TimeSpan.FromSeconds(2));
+            
+            if (!acquiredLock)
+            {
+                System.Diagnostics.Debug.WriteLine("[SerialPort] Warning: Disconnect timed out waiting for lock, forcing disconnect");
+            }
+            
+            try
             {
                 if (_serialPort != null)
                 {
-                    if (_serialPort.IsOpen)
+                    try
                     {
-                        _serialPort.Close();
+                        if (_serialPort.IsOpen)
+                        {
+                            _serialPort.Close();
+                        }
+                        _serialPort.Dispose();
                     }
-                    _serialPort.Dispose();
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Error disposing serial port: {ex.Message}");
+                    }
                     _serialPort = null;
                 }
-                _isConnected = false;
+            }
+            finally
+            {
+                // Only release if we successfully acquired the lock
+                if (acquiredLock)
+                {
+                    try { _asyncLock.Release(); } catch { }
+                }
             }
         }
 
@@ -116,29 +151,36 @@ namespace VUWare.Lib
         /// </summary>
         public async Task<string> SendCommandAsync(string command, int timeoutMs = READ_TIMEOUT_MS, CancellationToken cancellationToken = default)
         {
-            await _asyncLock.WaitAsync(cancellationToken);
+            // Link caller's cancellation token with disconnect cancellation
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disconnectCts?.Token ?? CancellationToken.None);
+            
+            await _asyncLock.WaitAsync(linkedCts.Token);
+            
+            // Capture the serial port reference while holding the lock to prevent it from becoming null
+            SerialPort? portSnapshot = _serialPort;
+            
             try
             {
-                if (!_isConnected || _serialPort == null || !_serialPort.IsOpen)
+                if (!_isConnected || portSnapshot == null || !portSnapshot.IsOpen)
                 {
                     throw new InvalidOperationException("Serial port is not connected");
                 }
 
                 // Clear any pending data
-                if (_serialPort.BytesToRead > 0)
+                if (portSnapshot.BytesToRead > 0)
                 {
-                    _serialPort.DiscardInBuffer();
+                    portSnapshot.DiscardInBuffer();
                 }
 
                 // Send command with CRLF terminator
                 System.Diagnostics.Debug.WriteLine($"[SerialPort] Sending command: {command}");
                 
                 byte[] commandBytes = Encoding.ASCII.GetBytes(command + "\r\n");
-                await _serialPort.BaseStream.WriteAsync(commandBytes, 0, commandBytes.Length, cancellationToken);
-                await _serialPort.BaseStream.FlushAsync(cancellationToken);
+                await portSnapshot.BaseStream.WriteAsync(commandBytes, 0, commandBytes.Length, linkedCts.Token);
+                await portSnapshot.BaseStream.FlushAsync(linkedCts.Token);
 
                 // Read response with async I/O
-                string response = await ReadResponseAsync(timeoutMs, cancellationToken);
+                string response = await ReadResponseAsync(portSnapshot, timeoutMs, linkedCts.Token);
                 System.Diagnostics.Debug.WriteLine($"[SerialPort] Received response: {response}");
                 return response;
             }
@@ -176,11 +218,100 @@ namespace VUWare.Lib
         }
 
         /// <summary>
+        /// Sends a command synchronously without cancellation token support.
+        /// Used for critical shutdown commands that must complete.
+        /// </summary>
+        public string SendCommandSync(string command, int timeoutMs = READ_TIMEOUT_MS)
+        {
+            if (!_asyncLock.Wait(TimeSpan.FromSeconds(5)))
+            {
+                throw new TimeoutException("Failed to acquire serial port lock");
+            }
+
+            try
+            {
+                if (_serialPort == null || !_serialPort.IsOpen)
+                {
+                    throw new InvalidOperationException("Serial port is not connected");
+                }
+
+                // Clear any pending data
+                if (_serialPort.BytesToRead > 0)
+                {
+                    _serialPort.DiscardInBuffer();
+                }
+
+                // Send command with CRLF terminator
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandSync: {command}");
+                
+                byte[] commandBytes = Encoding.ASCII.GetBytes(command + "\r\n");
+                _serialPort.Write(commandBytes, 0, commandBytes.Length);
+
+                // Read response synchronously
+                var responseBuilder = new StringBuilder();
+                bool foundStart = false;
+                int expectedLength = -1;
+                var startTime = DateTime.UtcNow;
+
+                while ((DateTime.UtcNow - startTime).TotalMilliseconds < timeoutMs)
+                {
+                    if (_serialPort.BytesToRead > 0)
+                    {
+                        char c = (char)_serialPort.ReadChar();
+
+                        if (c == '<')
+                        {
+                            foundStart = true;
+                            responseBuilder.Clear();
+                            expectedLength = -1;
+                        }
+
+                        if (foundStart)
+                        {
+                            responseBuilder.Append(c);
+
+                            // Parse length after receiving header
+                            if (responseBuilder.Length == 9 && expectedLength == -1)
+                            {
+                                try
+                                {
+                                    string lengthStr = responseBuilder.ToString().Substring(5, 4);
+                                    int dataLength = int.Parse(lengthStr, System.Globalization.NumberStyles.HexNumber);
+                                    expectedLength = 9 + (dataLength * 2);
+                                }
+                                catch { }
+                            }
+
+                            // Check if complete
+                            if (expectedLength > 0 && responseBuilder.Length >= expectedLength)
+                            {
+                                string response = responseBuilder.ToString();
+                                System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandSync response: {response}");
+                                return response;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // No data available, brief sleep
+                        Thread.Sleep(10);
+                    }
+                }
+
+                throw new TimeoutException($"No response received within {timeoutMs}ms");
+            }
+            finally
+            {
+                _asyncLock.Release();
+            }
+        }
+
+        /// <summary>
         /// Reads a complete response asynchronously using true async I/O.
         /// Response format: <CCDDLLLL[DATA]
         /// Optimized for responsiveness under high CPU load.
         /// </summary>
-        private async Task<string> ReadResponseAsync(int timeoutMs, CancellationToken cancellationToken)
+        private async Task<string> ReadResponseAsync(SerialPort serialPort, int timeoutMs, CancellationToken cancellationToken)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(timeoutMs);
@@ -197,7 +328,7 @@ namespace VUWare.Lib
                 while (!cts.Token.IsCancellationRequested)
                 {
                     // TRUE ASYNC I/O - Thread is released during read operation!
-                    int bytesRead = await _serialPort!.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                    int bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
 
                     if (bytesRead == 0)
                     {
@@ -491,9 +622,16 @@ namespace VUWare.Lib
         {
             if (!_disposed)
             {
-                Disconnect();
-                _asyncLock?.Dispose();
                 _disposed = true;
+                Disconnect();
+                
+                // Only dispose the cancellation token source, NOT the semaphore
+                // The semaphore may still have pending Release() calls from cancelled operations
+                _disconnectCts?.Dispose();
+                
+                // Do NOT dispose _asyncLock here - it causes ObjectDisposedException
+                // when cancelled operations try to release it in their finally blocks.
+                // The GC will clean it up when the object is finalized.
             }
         }
     }
