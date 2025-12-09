@@ -72,9 +72,12 @@ namespace VUWare.Lib
                     DataBits = 8,
                     Parity = Parity.None,
                     StopBits = StopBits.One,
+                    // CRITICAL FIX: Set read timeout for ReadLine() to work properly
+                    // Python uses timeout=2 on the serial port itself
                     ReadTimeout = READ_TIMEOUT_MS,
                     WriteTimeout = WRITE_TIMEOUT_MS,
-                    Handshake = Handshake.None
+                    Handshake = Handshake.None,
+                    NewLine = "\r\n"  // Match VU1 hub line terminator
                 };
 
                 _serialPort.Open();
@@ -336,144 +339,79 @@ namespace VUWare.Lib
         }
 
         /// <summary>
-        /// Reads a complete response asynchronously using true async I/O.
+        /// Reads a complete response asynchronously using line-based reading like the Python implementation.
         /// Response format: <CCDDLLLL[DATA]
-        /// Optimized for responsiveness under high CPU load.
+        /// The VU1 hub sends responses as complete lines terminated with \r\n
         /// </summary>
         private async Task<string> ReadResponseAsync(SerialPort serialPort, int timeoutMs, CancellationToken cancellationToken)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(timeoutMs);
 
-            var buffer = new byte[256];
-            var responseBuilder = new StringBuilder();
-            bool foundStart = false;
-            int expectedLength = -1;
-            int totalBytesRead = 0;
             var startTime = DateTime.UtcNow;
-
+            
             try
             {
+                // CRITICAL FIX: Read LINE-BY-LINE like the Python implementation
+                // The VU1 hub sends complete responses as lines terminated with \r\n
                 while (!cts.Token.IsCancellationRequested)
                 {
-                    int bytesRead = 0;
-                    
-                    try
+                    // Check if there's any data available
+                    if (serialPort.BytesToRead == 0)
                     {
-                        // CRITICAL FIX: Use the OVERALL timeout, not per-read timeout
-                        // The hardware might be slow to START responding (>500ms)
-                        // but once it starts, it sends data quickly
-                        bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token).ConfigureAwait(false);
-                        totalBytesRead += bytesRead;
-                        
-                        // Log first data received
-                        if (totalBytesRead == bytesRead && bytesRead > 0)
-                        {
-                            var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                            System.Diagnostics.Debug.WriteLine($"[SerialPort] First data received after {elapsed:F0}ms");
-                        }
-                    }
-                    catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
-                    {
-                        // Overall timeout reached
-                        break;
-                    }
-
-                    if (bytesRead == 0)
-                    {
-                        // No data available YET - yield and retry
-                        // Don't give up! The hardware might just be slow
-                        await Task.Delay(50, cts.Token).ConfigureAwait(false);
+                        // No data yet - wait a bit before retrying
+                        await Task.Delay(10, cts.Token).ConfigureAwait(false);
                         continue;
                     }
-
-                    // Process received bytes
-                    for (int i = 0; i < bytesRead; i++)
+                    
+                    // Read one line (blocks until \n or timeout)
+                    string line = serialPort.ReadLine().Trim();
+                    
+                    if (string.IsNullOrEmpty(line))
                     {
-                        char c = (char)buffer[i];
-
-                        // Start collecting when we see '<'
-                        if (c == '<')
-                        {
-                            foundStart = true;
-                            responseBuilder.Clear();
-                            expectedLength = -1;
-                        }
-
-                        if (foundStart)
-                        {
-                            responseBuilder.Append(c);
-
-                            // Check if we have enough data to parse length
-                            if (responseBuilder.Length == 9 && expectedLength == -1)
-                            {
-                                try
-                                {
-                                    string lengthStr = responseBuilder.ToString().Substring(5, 4);
-                                    int dataLength = int.Parse(lengthStr, System.Globalization.NumberStyles.HexNumber);
-                                    expectedLength = 9 + (dataLength * 2);
-                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Expecting {expectedLength} total chars (header=9 + data={dataLength*2})");
-                                }
-                                catch (Exception ex)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Failed to parse length: {ex.Message}");
-                                }
-                            }
-
-                            // Check if we have complete message
-                            if (expectedLength > 0 && responseBuilder.Length >= expectedLength)
-                            {
-                                string response = responseBuilder.ToString();
-                                var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                                System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received in {elapsed:F0}ms: {responseBuilder.Length} chars");
-                                
-                                // Clear any remaining bytes in buffer
-                                if (serialPort.BytesToRead > 0)
-                                {
-                                    int leftover = serialPort.BytesToRead;
-                                    serialPort.DiscardInBuffer();
-                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Cleared {leftover} leftover bytes from buffer");
-                                }
-                                
-                                return response;
-                            }
-                        }
+                        continue;
                     }
                     
-                    // Log progress for large responses or if we're taking too long
-                    var elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                    if (foundStart && expectedLength > 0 && elapsedMs > 1000)
+                    var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Received line after {elapsed:F0}ms: {line}");
+                    
+                    // Check if this is the response we're looking for
+                    if (line.StartsWith("<"))
                     {
-                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Progress: {responseBuilder.Length}/{expectedLength} chars (elapsed {elapsedMs:F0}ms, total bytes {totalBytesRead})");
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received in {elapsed:F0}ms");
+                        
+                        // Clear any remaining bytes in buffer
+                        if (serialPort.BytesToRead > 0)
+                        {
+                            int leftover = serialPort.BytesToRead;
+                            serialPort.DiscardInBuffer();
+                            System.Diagnostics.Debug.WriteLine($"[SerialPort] Cleared {leftover} leftover bytes from buffer");
+                        }
+                        
+                        return line;
                     }
+                    
+                    // Got a line but it doesn't start with '<' - might be debug output or error
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Ignoring non-response line: {line}");
                 }
 
-                // Timeout or cancellation
+                // Timeout
                 var finalElapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                
-                if (!foundStart)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: No start character '<' received (total bytes read: {totalBytesRead})");
-                    throw new TimeoutException("No response start character '<' received");
-                }
-
-                string partialResponse = responseBuilder.ToString();
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: Expected {expectedLength} chars, got {partialResponse.Length} (bytes read: {totalBytesRead})");
-                throw new TimeoutException($"Incomplete response: expected {expectedLength}, got {partialResponse.Length} chars");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: No response line starting with '<' received");
+                throw new TimeoutException("No valid response line received");
+            }
+            catch (TimeoutException) when (serialPort.ReadTimeout > 0)
+            {
+                // SerialPort.ReadLine() timed out
+                var finalElapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] ReadLine() timeout after {finalElapsed:F0}ms");
+                throw new TimeoutException($"ReadLine() timed out after {finalElapsed:F0}ms");
             }
             catch (OperationCanceledException) when (cts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 var finalElapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                
-                if (!foundStart)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: No start character '<' received (total bytes: {totalBytesRead})");
-                    throw new TimeoutException("No response start character '<' received");
-                }
-
-                string partialResponse = responseBuilder.ToString();
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: Expected {expectedLength} chars, got {partialResponse.Length} (total bytes: {totalBytesRead})");
-                throw new TimeoutException($"Incomplete response: expected {expectedLength}, got {partialResponse.Length} chars");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms");
+                throw new TimeoutException($"No response received within {timeoutMs}ms");
             }
         }
 
