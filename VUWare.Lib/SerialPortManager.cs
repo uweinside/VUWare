@@ -154,7 +154,7 @@ namespace VUWare.Lib
             // Link caller's cancellation token with disconnect cancellation
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disconnectCts?.Token ?? CancellationToken.None);
             
-            await _asyncLock.WaitAsync(linkedCts.Token);
+            await _asyncLock.WaitAsync(linkedCts.Token).ConfigureAwait(false);
             
             // Capture the serial port reference while holding the lock to prevent it from becoming null
             SerialPort? portSnapshot = _serialPort;
@@ -176,11 +176,11 @@ namespace VUWare.Lib
                 System.Diagnostics.Debug.WriteLine($"[SerialPort] Sending command: {command}");
                 
                 byte[] commandBytes = Encoding.ASCII.GetBytes(command + "\r\n");
-                await portSnapshot.BaseStream.WriteAsync(commandBytes, 0, commandBytes.Length, linkedCts.Token);
-                await portSnapshot.BaseStream.FlushAsync(linkedCts.Token);
+                await portSnapshot.BaseStream.WriteAsync(commandBytes, 0, commandBytes.Length, linkedCts.Token).ConfigureAwait(false);
+                await portSnapshot.BaseStream.FlushAsync(linkedCts.Token).ConfigureAwait(false);
 
                 // Read response with async I/O
-                string response = await ReadResponseAsync(portSnapshot, timeoutMs, linkedCts.Token);
+                string response = await ReadResponseAsync(portSnapshot, timeoutMs, linkedCts.Token).ConfigureAwait(false);
                 System.Diagnostics.Debug.WriteLine($"[SerialPort] Received response: {response}");
                 return response;
             }
@@ -321,14 +321,24 @@ namespace VUWare.Lib
             bool foundStart = false;
             int expectedLength = -1;
             int emptyReadCount = 0;
-            const int maxEmptyReads = 3;
+            const int maxEmptyReads = 10; // Increased from 3 to be more patient
 
             try
             {
                 while (!cts.Token.IsCancellationRequested)
                 {
-                    // TRUE ASYNC I/O - Thread is released during read operation!
-                    int bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                    int bytesRead = 0;
+                    
+                    try
+                    {
+                        // TRUE ASYNC I/O - Thread is released during read operation!
+                        bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+                    {
+                        // Timeout or cancellation
+                        break;
+                    }
 
                     if (bytesRead == 0)
                     {
@@ -378,9 +388,12 @@ namespace VUWare.Lib
                                     
                                     // Calculate expected total length: 9 (header) + (dataLength * 2 for hex encoding)
                                     expectedLength = 9 + (dataLength * 2);
+                                    
+                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Expecting {expectedLength} total chars (header=9 + data={dataLength*2})");
                                 }
-                                catch
+                                catch (Exception ex)
                                 {
+                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Failed to parse length: {ex.Message}");
                                     // If we can't parse length, continue reading
                                 }
                             }
@@ -388,15 +401,24 @@ namespace VUWare.Lib
                             // Check if we have complete message
                             if (expectedLength > 0 && responseBuilder.Length >= expectedLength)
                             {
-                                return responseBuilder.ToString();
+                                string response = responseBuilder.ToString();
+                                System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received: {responseBuilder.Length} chars");
+                                return response;
                             }
                         }
+                    }
+                    
+                    // Log progress for large responses
+                    if (foundStart && expectedLength > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Progress: {responseBuilder.Length}/{expectedLength} chars");
                     }
                 }
 
                 // Timeout or cancellation
                 if (!foundStart)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: No start character '<' received after {timeoutMs}ms");
                     throw new TimeoutException("No response start character '<' received");
                 }
 
@@ -404,20 +426,23 @@ namespace VUWare.Lib
                 if (partialResponse.Length > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"[SerialPort] Partial response (timeout): {partialResponse}");
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Expected {expectedLength} chars, got {partialResponse.Length}");
                 }
 
-                throw new TimeoutException($"Incomplete response received: {partialResponse}");
+                throw new TimeoutException($"Incomplete response received: expected {expectedLength}, got {partialResponse.Length} chars");
             }
             catch (OperationCanceledException) when (cts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 // Timeout occurred
                 if (!foundStart)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: No start character '<' received");
                     throw new TimeoutException("No response start character '<' received");
                 }
 
                 string partialResponse = responseBuilder.ToString();
-                throw new TimeoutException($"Incomplete response received: {partialResponse}");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: Expected {expectedLength} chars, got {partialResponse.Length}");
+                throw new TimeoutException($"Incomplete response received: expected {expectedLength}, got {partialResponse.Length} chars");
             }
         }
 
@@ -493,7 +518,7 @@ namespace VUWare.Lib
                 testPort.Open();
                 
                 // Wait for port to stabilize
-                await Task.Delay(100, cancellationToken);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
                 
                 // Clear any junk in buffer
                 if (testPort.BytesToRead > 0)
@@ -505,8 +530,8 @@ namespace VUWare.Lib
                 
                 // Send a simple RESCAN_BUS command
                 byte[] command = Encoding.ASCII.GetBytes(">0C0100000000\r\n");
-                await testPort.BaseStream.WriteAsync(command, 0, command.Length, cancellationToken);
-                await testPort.BaseStream.FlushAsync(cancellationToken);
+                await testPort.BaseStream.WriteAsync(command, 0, command.Length, cancellationToken).ConfigureAwait(false);
+                await testPort.BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
                 // Try to read response with timeout (async, optimized for high load)
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -521,7 +546,7 @@ namespace VUWare.Lib
                 {
                     while (!cts.Token.IsCancellationRequested && responseBuilder.Length < 100)
                     {
-                        int bytesRead = await testPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                        int bytesRead = await testPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token).ConfigureAwait(false);
                         
                         if (bytesRead == 0)
                         {

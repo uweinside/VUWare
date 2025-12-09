@@ -5,7 +5,8 @@
     "enablePolling": true,
     "globalUpdateIntervalMs": 1000,
     "logFilePath": "",
-    "debugMode": false
+    "debugMode": false,
+    "serialCommandDelayMs": 50
   },
   "dials": [
     {

@@ -120,7 +120,7 @@ namespace VUWare.App
         /// </summary>
         private void ResetAllDialValues()
         {
-            if (_initService == null)
+            if (_initService == null || _config == null)
                 return;
 
             try
@@ -137,6 +137,10 @@ namespace VUWare.App
 
                 var dials = vu1.GetAllDials();
                 System.Diagnostics.Debug.WriteLine($"Resetting {dials.Count} dials to 0%");
+
+                // Get configured delay between commands
+                int commandDelay = _config.AppSettings.SerialCommandDelayMs;
+                System.Diagnostics.Debug.WriteLine($"Using command delay: {commandDelay}ms");
 
                 int successCount = 0;
                 foreach (var dial in dials.Values)
@@ -164,10 +168,15 @@ namespace VUWare.App
                         {
                             System.Diagnostics.Debug.WriteLine($"? {dial.Name} reset failed - no response");
                         }
+                        
+                        // Add delay between commands to prevent overwhelming the hub
+                        System.Threading.Thread.Sleep(commandDelay);
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Error resetting {dial.Name}: {ex.Message}");
+                        // Still delay even on error to prevent rapid retry
+                        System.Threading.Thread.Sleep(commandDelay);
                     }
                 }
                 
@@ -185,7 +194,7 @@ namespace VUWare.App
         /// </summary>
         private void TurnOffAllDialLights()
         {
-            if (_initService == null)
+            if (_initService == null || _config == null)
                 return;
 
             try
@@ -202,6 +211,10 @@ namespace VUWare.App
 
                 var dials = vu1.GetAllDials();
                 System.Diagnostics.Debug.WriteLine($"Turning off {dials.Count} dial backlights");
+
+                // Get configured delay between commands
+                int commandDelay = _config.AppSettings.SerialCommandDelayMs;
+                System.Diagnostics.Debug.WriteLine($"Using command delay: {commandDelay}ms");
 
                 int successCount = 0;
                 foreach (var dial in dials.Values)
@@ -229,10 +242,15 @@ namespace VUWare.App
                         {
                             System.Diagnostics.Debug.WriteLine($"? {dial.Name} backlight failed - no response");
                         }
+                        
+                        // Add delay between commands to prevent overwhelming the hub
+                        System.Threading.Thread.Sleep(commandDelay);
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Error turning off {dial.Name}: {ex.Message}");
+                        // Still delay even on error to prevent rapid retry
+                        System.Threading.Thread.Sleep(commandDelay);
                     }
                 }
                 

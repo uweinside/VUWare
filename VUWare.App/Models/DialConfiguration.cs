@@ -216,5 +216,9 @@ namespace VUWare.App.Models
         /// <summary>Enable debug logging</summary>
         [JsonPropertyName("debugMode")]
         public bool DebugMode { get; set; } = false;
+
+        /// <summary>Delay in milliseconds between firmware detail queries during initialization (default: 50ms)</summary>
+        [JsonPropertyName("serialCommandDelayMs")]
+        public int SerialCommandDelayMs { get; set; } = 50;
     }
 }

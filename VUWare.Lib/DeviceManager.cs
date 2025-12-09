@@ -16,17 +16,19 @@ namespace VUWare.Lib
         private readonly Dictionary<string, DialState> _dialsByUID;
         private readonly Dictionary<byte, string> _indexToUID; // Maps current index to UID
         private readonly object _lockObj = new object();
+        private readonly int _commandDelayMs;
 
         // Configuration
         private const int RESCAN_TIMEOUT_MS = 3000;
         private const int PROVISION_ATTEMPT_DELAY_MS = 200;
         private const int PROVISION_ATTEMPTS = 3;
 
-        public DeviceManager(SerialPortManager serialPort)
+        public DeviceManager(SerialPortManager serialPort, int commandDelayMs = 50)
         {
             _serialPort = serialPort ?? throw new ArgumentNullException(nameof(serialPort));
             _dialsByUID = new Dictionary<string, DialState>();
             _indexToUID = new Dictionary<byte, string>();
+            _commandDelayMs = Math.Max(10, Math.Min(commandDelayMs, 500)); // Clamp between 10-500ms
         }
 
         /// <summary>
@@ -84,39 +86,55 @@ namespace VUWare.Lib
                     throw new InvalidOperationException("Serial port is not connected");
                 }
 
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Starting dial discovery...");
+
                 // Step 1: Rescan the I2C bus
-                if (!await RescanBusAsync())
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Step 1: Rescanning I2C bus...");
+                if (!await RescanBusAsync().ConfigureAwait(false))
                 {
+                    System.Diagnostics.Debug.WriteLine("[DeviceManager] Rescan bus failed");
                     return false;
                 }
 
                 // Step 2: Provision any unprovisioned dials (multiple attempts)
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Step 2: Provisioning dials...");
                 for (int attempt = 0; attempt < PROVISION_ATTEMPTS; attempt++)
                 {
-                    if (!await ProvisionDialsAsync())
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] Provision attempt {attempt + 1}/{PROVISION_ATTEMPTS}");
+                    if (!await ProvisionDialsAsync().ConfigureAwait(false))
                     {
                         // Continue even if provision fails, as dials may already be provisioned
+                        System.Diagnostics.Debug.WriteLine($"[DeviceManager] Provision attempt {attempt + 1} returned false (may already be provisioned)");
                     }
                     if (attempt < PROVISION_ATTEMPTS - 1)
                     {
-                        await Task.Delay(PROVISION_ATTEMPT_DELAY_MS);
+                        await Task.Delay(PROVISION_ATTEMPT_DELAY_MS).ConfigureAwait(false);
                     }
                 }
 
+                // Give hardware time to settle after provisioning before querying device map
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Waiting 500ms for hardware to settle...");
+                await Task.Delay(500).ConfigureAwait(false);
+
                 // Step 3: Get the device map to see which dials are online
-                if (!await UpdateDeviceMapAsync())
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Step 3: Getting device map...");
+                if (!await UpdateDeviceMapAsync().ConfigureAwait(false))
                 {
+                    System.Diagnostics.Debug.WriteLine("[DeviceManager] UpdateDeviceMapAsync failed");
                     return false;
                 }
 
                 // Step 4: Query each online dial for its UID and info
-                await QueryDialDetailsAsync();
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Step 4: Querying dial details...");
+                await QueryDialDetailsAsync().ConfigureAwait(false);
 
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Dial discovery completed successfully");
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Discovery failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Discovery failed: {ex.GetType().Name}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Stack trace: {ex.StackTrace}");
                 return false;
             }
         }
@@ -129,7 +147,7 @@ namespace VUWare.Lib
             try
             {
                 string command = CommandBuilder.RescanBus();
-                string response = await SendCommandAsync(command, RESCAN_TIMEOUT_MS);
+                string response = await SendCommandAsync(command, RESCAN_TIMEOUT_MS).ConfigureAwait(false);
                 
                 var message = ProtocolHandler.ParseResponse(response);
                 return ProtocolHandler.IsSuccessResponse(message);
@@ -150,7 +168,7 @@ namespace VUWare.Lib
             try
             {
                 string command = CommandBuilder.ProvisionDevice();
-                string response = await SendCommandAsync(command, RESCAN_TIMEOUT_MS);
+                string response = await SendCommandAsync(command, RESCAN_TIMEOUT_MS).ConfigureAwait(false);
                 
                 var message = ProtocolHandler.ParseResponse(response);
                 return ProtocolHandler.IsSuccessResponse(message);
@@ -169,17 +187,23 @@ namespace VUWare.Lib
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("[DeviceManager] Getting device map...");
                 string command = CommandBuilder.GetDevicesMap();
-                string response = await SendCommandAsync(command, RESCAN_TIMEOUT_MS);
+                
+                // Use longer timeout for device map command (larger response)
+                string response = await SendCommandAsync(command, 5000).ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Device map response received: {response.Substring(0, Math.Min(50, response.Length))}...");
                 
                 var message = ProtocolHandler.ParseResponse(response);
                 if (!ProtocolHandler.IsSuccessResponse(message))
                 {
+                    System.Diagnostics.Debug.WriteLine("[DeviceManager] Device map response indicates error");
                     return false;
                 }
 
                 // Parse device map: each byte represents one device (0=offline, 1=online)
                 byte[] deviceMap = ProtocolHandler.HexStringToBytes(message.RawData);
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Device map parsed: {deviceMap.Length} bytes");
 
                 lock (_lockObj)
                 {
@@ -193,21 +217,30 @@ namespace VUWare.Lib
                     }
 
                     // Update based on device map
+                    int onlineCount = 0;
                     for (int i = 0; i < deviceMap.Length && i < 100; i++)
                     {
                         if (deviceMap[i] == 0x01)
                         {
+                            onlineCount++;
                             // Device is online at index i
                             // We'll populate the UID mapping in QueryDialDetailsAsync
                         }
                     }
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] Found {onlineCount} online devices in map");
                 }
 
                 return true;
             }
+            catch (TimeoutException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] TIMEOUT in UpdateDeviceMapAsync: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] This suggests the VU1 hub is not responding to GetDevicesMap command");
+                throw;
+            }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Device map update failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Device map update failed: {ex.GetType().Name}: {ex.Message}");
                 return false;
             }
         }
@@ -221,7 +254,7 @@ namespace VUWare.Lib
             {
                 // First get the device map
                 string mapCommand = CommandBuilder.GetDevicesMap();
-                string mapResponse = await SendCommandAsync(mapCommand, RESCAN_TIMEOUT_MS);
+                string mapResponse = await SendCommandAsync(mapCommand, RESCAN_TIMEOUT_MS).ConfigureAwait(false);
                 var mapMessage = ProtocolHandler.ParseResponse(mapResponse);
 
                 if (!ProtocolHandler.IsSuccessResponse(mapMessage))
@@ -237,7 +270,7 @@ namespace VUWare.Lib
                     if (deviceMap[i] == 0x01)
                     {
                         // Dial is online at index i
-                        await QueryDialDetailsAtIndexAsync(i);
+                        await QueryDialDetailsAtIndexAsync(i).ConfigureAwait(false);
                     }
                 }
             }
@@ -256,7 +289,7 @@ namespace VUWare.Lib
             {
                 // Get UID
                 string uidCommand = CommandBuilder.GetDeviceUID(index);
-                string uidResponse = await SendCommandAsync(uidCommand, 1000);
+                string uidResponse = await SendCommandAsync(uidCommand, 1000).ConfigureAwait(false);
                 var uidMessage = ProtocolHandler.ParseResponse(uidResponse);
 
                 if (!ProtocolHandler.IsSuccessResponse(uidMessage))
@@ -287,19 +320,17 @@ namespace VUWare.Lib
                     _indexToUID[index] = uid;
                 }
 
-                // Query additional details asynchronously (don't block on these)
-                _ = Task.Run(async () =>
+                // Query additional details SEQUENTIALLY, not in background task
+                // This prevents overwhelming the serial port
+                try
                 {
-                    try
-                    {
-                        await QueryFirmwareDetailsAsync(index, uid);
-                        await QueryEasingConfigAsync(index, uid);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Failed to query firmware details for index {index}: {ex.Message}");
-                    }
-                });
+                    await QueryFirmwareDetailsAsync(index, uid).ConfigureAwait(false);
+                    await QueryEasingConfigAsync(index, uid).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to query firmware details for index {index}: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -314,9 +345,12 @@ namespace VUWare.Lib
         {
             try
             {
+                // Small delay before firmware queries to prevent overwhelming the device
+                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
+                
                 // Get firmware version
                 string fwCommand = CommandBuilder.GetFirmwareInfo(index);
-                string fwResponse = await SendCommandAsync(fwCommand, 1000);
+                string fwResponse = await SendCommandAsync(fwCommand, 1000).ConfigureAwait(false);
                 var fwMessage = ProtocolHandler.ParseResponse(fwResponse);
 
                 if (ProtocolHandler.IsSuccessResponse(fwMessage))
@@ -331,9 +365,12 @@ namespace VUWare.Lib
                     }
                 }
 
+                // Small delay between firmware detail queries
+                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
+
                 // Get hardware version
                 string hwCommand = CommandBuilder.GetHardwareInfo(index);
-                string hwResponse = await SendCommandAsync(hwCommand, 1000);
+                string hwResponse = await SendCommandAsync(hwCommand, 1000).ConfigureAwait(false);
                 var hwMessage = ProtocolHandler.ParseResponse(hwResponse);
 
                 if (ProtocolHandler.IsSuccessResponse(hwMessage))
@@ -348,9 +385,12 @@ namespace VUWare.Lib
                     }
                 }
 
+                // Small delay between firmware detail queries
+                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
+
                 // Get build info
                 string buildCommand = CommandBuilder.GetBuildInfo(index);
-                string buildResponse = await SendCommandAsync(buildCommand, 1000);
+                string buildResponse = await SendCommandAsync(buildCommand, 1000).ConfigureAwait(false);
                 var buildMessage = ProtocolHandler.ParseResponse(buildResponse);
 
                 if (ProtocolHandler.IsSuccessResponse(buildMessage))
@@ -379,7 +419,7 @@ namespace VUWare.Lib
             try
             {
                 string command = CommandBuilder.GetEasingConfig(index);
-                string response = await SendCommandAsync(command, 1000);
+                string response = await SendCommandAsync(command, 1000).ConfigureAwait(false);
                 var message = ProtocolHandler.ParseResponse(response);
 
                 if (!ProtocolHandler.IsSuccessResponse(message) || message.BinaryData == null || message.BinaryData.Length < 16)
@@ -443,7 +483,7 @@ namespace VUWare.Lib
                 System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET command for dial index {dial.Index}, percentage {percentage}");
                 System.Diagnostics.Debug.WriteLine($"[DeviceManager] Built command: {command}");
                 
-                string response = await SendCommandAsync(command, 5000);
+                string response = await SendCommandAsync(command, 5000).ConfigureAwait(false);
                 
                 System.Diagnostics.Debug.WriteLine($"[DeviceManager] SET response received: {response}");
                 
@@ -490,7 +530,7 @@ namespace VUWare.Lib
                 }
 
                 string command = CommandBuilder.SetRGBBacklight(dial.Index, red, green, blue, white);
-                string response = await SendCommandAsync(command, 5000);  // ? INCREASED FROM 1000ms
+                string response = await SendCommandAsync(command, 5000).ConfigureAwait(false);  // ? INCREASED FROM 1000ms
                 var message = ProtocolHandler.ParseResponse(response);
 
                 if (ProtocolHandler.IsSuccessResponse(message))
@@ -530,7 +570,7 @@ namespace VUWare.Lib
 
                 // Set dial easing step
                 string stepCmd = CommandBuilder.SetDialEasingStep(dial.Index, config.DialStep);
-                string stepResp = await SendCommandAsync(stepCmd, 5000);  // ? INCREASED FROM 1000ms
+                string stepResp = await SendCommandAsync(stepCmd, 5000).ConfigureAwait(false);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(stepResp)))
                 {
                     success = false;
@@ -538,7 +578,7 @@ namespace VUWare.Lib
 
                 // Set dial easing period
                 string periodCmd = CommandBuilder.SetDialEasingPeriod(dial.Index, config.DialPeriod);
-                string periodResp = await SendCommandAsync(periodCmd, 5000);  // ? INCREASED FROM 1000ms
+                string periodResp = await SendCommandAsync(periodCmd, 5000).ConfigureAwait(false);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(periodResp)))
                 {
                     success = false;
@@ -546,7 +586,7 @@ namespace VUWare.Lib
 
                 // Set backlight easing step
                 string blStepCmd = CommandBuilder.SetBacklightEasingStep(dial.Index, config.BacklightStep);
-                string blStepResp = await SendCommandAsync(blStepCmd, 5000);  // ? INCREASED FROM 1000ms
+                string blStepResp = await SendCommandAsync(blStepCmd, 5000).ConfigureAwait(false);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(blStepResp)))
                 {
                     success = false;
@@ -554,7 +594,7 @@ namespace VUWare.Lib
 
                 // Set backlight easing period
                 string blPeriodCmd = CommandBuilder.SetBacklightEasingPeriod(dial.Index, config.BacklightPeriod);
-                string blPeriodResp = await SendCommandAsync(blPeriodCmd, 5000);  // ? INCREASED FROM 1000ms
+                string blPeriodResp = await SendCommandAsync(blPeriodCmd, 5000).ConfigureAwait(false);  // ? INCREASED FROM 1000ms
                 if (!ProtocolHandler.IsSuccessResponse(ProtocolHandler.ParseResponse(blPeriodResp)))
                 {
                     success = false;

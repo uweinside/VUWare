@@ -74,7 +74,7 @@ namespace VUWare.App.Services
         public AppInitializationService(DialsConfiguration config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            _vuController = new VU1Controller();
+            _vuController = new VU1Controller(_config.AppSettings.SerialCommandDelayMs);
             _hwInfoController = new HWInfo64Controller();
             IsInitialized = false;
             IsInitializing = false;
@@ -218,11 +218,22 @@ namespace VUWare.App.Services
         {
             try
             {
-                bool initialized = await _vuController.InitializeAsync();
-                if (!initialized || _vuController.DialCount == 0)
+                System.Diagnostics.Debug.WriteLine("[Init] Starting dial discovery...");
+                bool initialized = await _vuController.InitializeAsync().ConfigureAwait(false);
+                
+                if (!initialized)
                 {
+                    System.Diagnostics.Debug.WriteLine("[Init] Dial initialization returned false");
                     return false;
                 }
+                
+                if (_vuController.DialCount == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("[Init] No dials discovered");
+                    return false;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[Init] Discovered {_vuController.DialCount} dial(s)");
 
                 // Set default positions and colors based on config
                 var dials = _vuController.GetAllDials();
@@ -233,8 +244,11 @@ namespace VUWare.App.Services
                     {
                         try
                         {
-                            // Set initial position to 0%
-                            await _vuController.SetDialPercentageAsync(dialConfig.DialUid, 0);
+                            System.Diagnostics.Debug.WriteLine($"[Init] Setting initial state for {dial.Name}");
+                            
+                            // Set initial position to 0% - ConfigureAwait(false) prevents deadlock
+                            await _vuController.SetDialPercentageAsync(dialConfig.DialUid, 0).ConfigureAwait(false);
+                            System.Diagnostics.Debug.WriteLine($"[Init] Set {dial.Name} position to 0%");
 
                             // Set initial color to normal color
                             var color = new NamedColor(
@@ -243,20 +257,28 @@ namespace VUWare.App.Services
                                 GetColorComponent(dialConfig.ColorConfig.NormalColor, 'G'),
                                 GetColorComponent(dialConfig.ColorConfig.NormalColor, 'B')
                             );
-                            await _vuController.SetBacklightColorAsync(dialConfig.DialUid, color);
+                            await _vuController.SetBacklightColorAsync(dialConfig.DialUid, color).ConfigureAwait(false);
+                            System.Diagnostics.Debug.WriteLine($"[Init] Set {dial.Name} color to {color.Name}");
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error initializing dial {dialConfig.DialUid}: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Init] Error initializing dial {dialConfig.DialUid}: {ex.Message}");
+                            // Continue with other dials even if one fails
                         }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Init] Warning: Configured dial {dialConfig.DialUid} not found in discovered dials");
                     }
                 }
 
+                System.Diagnostics.Debug.WriteLine("[Init] Dial initialization complete");
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error initializing dials: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Init] ERROR in InitializeDialsAsync: {ex.GetType().Name}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Init] Stack trace: {ex.StackTrace}");
                 return false;
             }
         }

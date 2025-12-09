@@ -21,10 +21,10 @@ namespace VUWare.Lib
         public bool IsConnected => _serialPort?.IsConnected ?? false;
         public bool IsInitialized => _isInitialized;
 
-        public VU1Controller()
+        public VU1Controller(int commandDelayMs = 50)
         {
             _serialPort = new SerialPortManager();
-            _deviceManager = new DeviceManager(_serialPort);
+            _deviceManager = new DeviceManager(_serialPort, commandDelayMs);
             _imageQueue = new ImageUpdateQueue();
             _isInitialized = false;
         }
