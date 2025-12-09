@@ -228,7 +228,7 @@ namespace VUWare.Lib
         /// Periodic update loop that processes image updates.
         /// Now optimized with idle detection - sleeps longer when no work to do.
         /// </summary>
-        private async Task PeriodicUpdateLoop(CancellationToken ct)
+        private async void PeriodicUpdateLoop(CancellationToken ct)
         {
             try
             {

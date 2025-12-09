@@ -100,33 +100,24 @@ namespace VUWare.App.Services
             }
 
             _monitoringCts = new CancellationTokenSource();
-            _isMonitoring = true;
             
-            // Use Task.Run for proper async execution, NOT Thread
-            // This ensures async/await works correctly throughout the call chain
-            _monitoringTask = Task.Run(async () =>
+            // Use dedicated thread instead of Task.Run to avoid thread pool starvation
+            var monitoringThread = new Thread(async () =>
             {
-                try
-                {
-                    // Send initial values to all dials before starting the loop
-                    await InitializeDials(_monitoringCts.Token);
-                    // Then start the monitoring loop - MUST AWAIT!
-                    await Task.Run(() => MonitoringLoop(_monitoringCts.Token), _monitoringCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    System.Diagnostics.Debug.WriteLine("[SensorMonitoring] Monitoring cancelled during startup");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Monitoring startup failed: {ex.Message}");
-                    RaiseError($"Monitoring startup failed: {ex.Message}");
-                }
-                finally
-                {
-                    _isMonitoring = false;
-                }
-            }, _monitoringCts.Token);
+                // Send initial values to all dials before starting the loop
+                await InitializeDials(_monitoringCts.Token);
+                // Then start the monitoring loop
+                MonitoringLoop(_monitoringCts.Token);
+            })
+            {
+                Name = "Sensor Monitoring",
+                IsBackground = true,
+                Priority = ThreadPriority.AboveNormal  // Higher priority for time-critical updates
+            };
+            
+            monitoringThread.Start();
+            _monitoringTask = Task.CompletedTask;  // Track that monitoring was started
+            _isMonitoring = true;
         }
 
         /// <summary>
@@ -263,7 +254,7 @@ namespace VUWare.App.Services
         /// <summary>
         /// Background monitoring loop that reads sensors and updates dials.
         /// </summary>
-        private async Task MonitoringLoop(CancellationToken cancellationToken)
+        private async void MonitoringLoop(CancellationToken cancellationToken)
         {
             try
             {
@@ -399,14 +390,27 @@ namespace VUWare.App.Services
             if (timeSinceLastPhysicalUpdate < 100)
             {
                 // Skip this update - too soon after last physical update
+                System.Diagnostics.Debug.WriteLine($"[Monitoring] Skipping update for {state.Config.DisplayName} - debouncing ({timeSinceLastPhysicalUpdate:F0}ms since last)");
                 return false;
             }
 
+            // FIX: Add diagnostic to track when we're about to send serial commands
+            System.Diagnostics.Debug.WriteLine($"[Monitoring] Sending updates for {state.Config.DisplayName}: Position={state.LastPercentage}%, Color={state.LastColor}");
+
             // Update dial position
-            bool positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
-            if (!positionSuccess)
+            bool positionSuccess = false;
+            try
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to update dial position for {state.DialUid}");
+                positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
+                if (!positionSuccess)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial position for {state.DialUid}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial position for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
                 return false;
             }
 
@@ -414,10 +418,19 @@ namespace VUWare.App.Services
             var color = GetColorFromName(state.LastColor);
             if (color != null)
             {
-                bool colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color!);
-                if (!colorSuccess)
+                bool colorSuccess = false;
+                try
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to update dial color for {state.DialUid}");
+                    colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color!);
+                    if (!colorSuccess)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial color for {state.DialUid}");
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial color for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
                     return false;
                 }
             }
