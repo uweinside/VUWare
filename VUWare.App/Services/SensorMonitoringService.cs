@@ -100,24 +100,33 @@ namespace VUWare.App.Services
             }
 
             _monitoringCts = new CancellationTokenSource();
-            
-            // Use dedicated thread instead of Task.Run to avoid thread pool starvation
-            var monitoringThread = new Thread(async () =>
-            {
-                // Send initial values to all dials before starting the loop
-                await InitializeDials(_monitoringCts.Token);
-                // Then start the monitoring loop
-                MonitoringLoop(_monitoringCts.Token);
-            })
-            {
-                Name = "Sensor Monitoring",
-                IsBackground = true,
-                Priority = ThreadPriority.AboveNormal  // Higher priority for time-critical updates
-            };
-            
-            monitoringThread.Start();
-            _monitoringTask = Task.CompletedTask;  // Track that monitoring was started
             _isMonitoring = true;
+            
+            // Use Task.Run for proper async execution, NOT Thread
+            // This ensures async/await works correctly throughout the call chain
+            _monitoringTask = Task.Run(async () =>
+            {
+                try
+                {
+                    // Send initial values to all dials before starting the loop
+                    await InitializeDials(_monitoringCts.Token);
+                    // Then start the monitoring loop - MUST AWAIT!
+                    await Task.Run(() => MonitoringLoop(_monitoringCts.Token), _monitoringCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SensorMonitoring] Monitoring cancelled during startup");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Monitoring startup failed: {ex.Message}");
+                    RaiseError($"Monitoring startup failed: {ex.Message}");
+                }
+                finally
+                {
+                    _isMonitoring = false;
+                }
+            }, _monitoringCts.Token);
         }
 
         /// <summary>
@@ -254,7 +263,7 @@ namespace VUWare.App.Services
         /// <summary>
         /// Background monitoring loop that reads sensors and updates dials.
         /// </summary>
-        private async void MonitoringLoop(CancellationToken cancellationToken)
+        private async Task MonitoringLoop(CancellationToken cancellationToken)
         {
             try
             {

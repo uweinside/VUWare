@@ -184,7 +184,7 @@ namespace VUWare.HWInfo64
 
         /// <summary>
         /// Starts the periodic polling of HWInfo64.
-        /// Uses dedicated thread with high priority to ensure responsiveness under 100% CPU load.
+        /// Uses Task.Run for proper async execution.
         /// </summary>
         private void StartPolling()
         {
@@ -193,16 +193,22 @@ namespace VUWare.HWInfo64
 
             _pollingCancellation = new CancellationTokenSource();
             
-            // Use dedicated thread instead of Task.Run to avoid thread pool starvation
-            var pollingThread = new Thread(() => PollingLoop(_pollingCancellation.Token))
+            // Use Task.Run for proper async execution
+            _pollingTask = Task.Run(async () =>
             {
-                Name = "HWInfo64 Polling",
-                IsBackground = true,
-                Priority = ThreadPriority.AboveNormal  // Higher priority for time-critical work
-            };
-            
-            pollingThread.Start();
-            _pollingTask = Task.CompletedTask;  // Track that polling was started
+                try
+                {
+                    await PollingLoop(_pollingCancellation.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    System.Diagnostics.Debug.WriteLine("[HWInfo64] Polling cancelled");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[HWInfo64] Polling failed: {ex.Message}");
+                }
+            }, _pollingCancellation.Token);
         }
 
         /// <summary>
@@ -218,7 +224,7 @@ namespace VUWare.HWInfo64
         /// Polling loop that reads HWInfo64 at regular intervals.
         /// Now uses proper async/await instead of blocking Wait().
         /// </summary>
-        private async void PollingLoop(CancellationToken cancellationToken)
+        private async Task PollingLoop(CancellationToken cancellationToken)
         {
             try
             {
