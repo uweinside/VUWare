@@ -151,10 +151,31 @@ namespace VUWare.Lib
         /// </summary>
         public async Task<string> SendCommandAsync(string command, int timeoutMs = READ_TIMEOUT_MS, CancellationToken cancellationToken = default)
         {
+            System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandAsync ENTRY: command={command}, waiting for lock...");
+            
             // Link caller's cancellation token with disconnect cancellation
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disconnectCts?.Token ?? CancellationToken.None);
             
-            await _asyncLock.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+            // CRITICAL FIX: Add timeout to semaphore wait to prevent indefinite deadlock
+            // If we can't acquire the lock within 3 seconds, something is seriously wrong
+            bool lockAcquired = false;
+            try
+            {
+                lockAcquired = await _asyncLock.WaitAsync(TimeSpan.FromSeconds(3), linkedCts.Token).ConfigureAwait(false);
+                
+                if (!lockAcquired)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] ? DEADLOCK DETECTED: Failed to acquire lock after 3 seconds for command: {command}");
+                    throw new TimeoutException("Semaphore deadlock detected - failed to acquire serial port lock");
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandAsync ACQUIRED LOCK for: {command}");
+            }
+            catch (OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandAsync CANCELLED while waiting for lock: {command}");
+                throw;
+            }
             
             // Capture the serial port reference while holding the lock to prevent it from becoming null
             SerialPort? portSnapshot = _serialPort;
@@ -186,22 +207,30 @@ namespace VUWare.Lib
             }
             catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Command cancelled");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Command cancelled: {command}");
                 throw;
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout waiting for response after {timeoutMs}ms");
-                throw new TimeoutException($"No response received within {timeoutMs}ms");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout for command {command}: {ex.Message}");
+                throw;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Communication error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Communication error for command {command}: {ex.Message}");
                 throw new InvalidOperationException($"Serial communication error: {ex.Message}", ex);
             }
             finally
             {
-                _asyncLock.Release();
+                if (lockAcquired)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandAsync RELEASING LOCK for: {command}");
+                    _asyncLock.Release();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] SendCommandAsync EXITING without releasing lock (never acquired) for: {command}");
+                }
             }
         }
 
@@ -320,10 +349,6 @@ namespace VUWare.Lib
             var responseBuilder = new StringBuilder();
             bool foundStart = false;
             int expectedLength = -1;
-            int emptyReadCount = 0;
-            const int maxEmptyReads = 10;
-            
-            // FIX: Track total bytes read to detect if we're stuck
             int totalBytesRead = 0;
             var startTime = DateTime.UtcNow;
 
@@ -335,49 +360,32 @@ namespace VUWare.Lib
                     
                     try
                     {
-                        // TRUE ASYNC I/O with shorter timeout to detect hangs faster
-                        using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-                        readCts.CancelAfter(500); // 500ms max per read attempt
-                        
-                        bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, readCts.Token).ConfigureAwait(false);
+                        // CRITICAL FIX: Use the OVERALL timeout, not per-read timeout
+                        // The hardware might be slow to START responding (>500ms)
+                        // but once it starts, it sends data quickly
+                        bytesRead = await serialPort.BaseStream.ReadAsync(buffer, 0, buffer.Length, cts.Token).ConfigureAwait(false);
                         totalBytesRead += bytesRead;
+                        
+                        // Log first data received
+                        if (totalBytesRead == bytesRead && bytesRead > 0)
+                        {
+                            var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                            System.Diagnostics.Debug.WriteLine($"[SerialPort] First data received after {elapsed:F0}ms");
+                        }
                     }
                     catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
                     {
-                        // Overall timeout or cancellation
+                        // Overall timeout reached
                         break;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Read timeout - continue to check if we should give up
-                        if ((DateTime.UtcNow - startTime).TotalMilliseconds >= timeoutMs)
-                        {
-                            break;
-                        }
-                        continue;
                     }
 
                     if (bytesRead == 0)
                     {
-                        emptyReadCount++;
-                        
-                        // Check if we've been stuck with no data for too long
-                        if (emptyReadCount >= maxEmptyReads && !foundStart)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"[SerialPort] Giving up after {emptyReadCount} empty reads with no start character");
-                            break;
-                        }
-                        
-                        if (emptyReadCount >= maxEmptyReads)
-                        {
-                            await Task.Yield();
-                            emptyReadCount = 0;
-                        }
+                        // No data available YET - yield and retry
+                        // Don't give up! The hardware might just be slow
+                        await Task.Delay(50, cts.Token).ConfigureAwait(false);
                         continue;
                     }
-
-                    // Reset empty read counter when we get data
-                    emptyReadCount = 0;
 
                     // Process received bytes
                     for (int i = 0; i < bytesRead; i++)
@@ -399,21 +407,16 @@ namespace VUWare.Lib
                             // Check if we have enough data to parse length
                             if (responseBuilder.Length == 9 && expectedLength == -1)
                             {
-                                // Try to parse the length field: <CCDDLLLL
                                 try
                                 {
                                     string lengthStr = responseBuilder.ToString().Substring(5, 4);
                                     int dataLength = int.Parse(lengthStr, System.Globalization.NumberStyles.HexNumber);
-                                    
-                                    // Calculate expected total length: 9 (header) + (dataLength * 2 for hex encoding)
                                     expectedLength = 9 + (dataLength * 2);
-                                    
                                     System.Diagnostics.Debug.WriteLine($"[SerialPort] Expecting {expectedLength} total chars (header=9 + data={dataLength*2})");
                                 }
                                 catch (Exception ex)
                                 {
                                     System.Diagnostics.Debug.WriteLine($"[SerialPort] Failed to parse length: {ex.Message}");
-                                    // If we can't parse length, continue reading
                                 }
                             }
 
@@ -421,9 +424,10 @@ namespace VUWare.Lib
                             if (expectedLength > 0 && responseBuilder.Length >= expectedLength)
                             {
                                 string response = responseBuilder.ToString();
-                                System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received: {responseBuilder.Length} chars");
+                                var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                                System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received in {elapsed:F0}ms: {responseBuilder.Length} chars");
                                 
-                                // CRITICAL FIX: Clear any remaining bytes in buffer after successful read
+                                // Clear any remaining bytes in buffer
                                 if (serialPort.BytesToRead > 0)
                                 {
                                     int leftover = serialPort.BytesToRead;
@@ -437,41 +441,39 @@ namespace VUWare.Lib
                     }
                     
                     // Log progress for large responses or if we're taking too long
-                    var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                    if (foundStart && expectedLength > 0 && elapsed > 1000)
+                    var elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    if (foundStart && expectedLength > 0 && elapsedMs > 1000)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Progress: {responseBuilder.Length}/{expectedLength} chars (elapsed {elapsed:F0}ms, total bytes {totalBytesRead})");
+                        System.Diagnostics.Debug.WriteLine($"[SerialPort] Progress: {responseBuilder.Length}/{expectedLength} chars (elapsed {elapsedMs:F0}ms, total bytes {totalBytesRead})");
                     }
                 }
 
                 // Timeout or cancellation
+                var finalElapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                
                 if (!foundStart)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: No start character '<' received after {timeoutMs}ms (total bytes read: {totalBytesRead})");
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: No start character '<' received (total bytes read: {totalBytesRead})");
                     throw new TimeoutException("No response start character '<' received");
                 }
 
                 string partialResponse = responseBuilder.ToString();
-                if (partialResponse.Length > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Partial response (timeout): {partialResponse}");
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Expected {expectedLength} chars, got {partialResponse.Length}");
-                }
-
-                throw new TimeoutException($"Incomplete response received: expected {expectedLength}, got {partialResponse.Length} chars");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: Expected {expectedLength} chars, got {partialResponse.Length} (bytes read: {totalBytesRead})");
+                throw new TimeoutException($"Incomplete response: expected {expectedLength}, got {partialResponse.Length} chars");
             }
             catch (OperationCanceledException) when (cts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
-                // Timeout occurred
+                var finalElapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                
                 if (!foundStart)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: No start character '<' received (total bytes: {totalBytesRead})");
+                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: No start character '<' received (total bytes: {totalBytesRead})");
                     throw new TimeoutException("No response start character '<' received");
                 }
 
                 string partialResponse = responseBuilder.ToString();
-                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout: Expected {expectedLength} chars, got {partialResponse.Length} (total bytes: {totalBytesRead})");
-                throw new TimeoutException($"Incomplete response received: expected {expectedLength}, got {partialResponse.Length} chars");
+                System.Diagnostics.Debug.WriteLine($"[SerialPort] Timeout after {finalElapsed:F0}ms: Expected {expectedLength} chars, got {partialResponse.Length} (total bytes: {totalBytesRead})");
+                throw new TimeoutException($"Incomplete response: expected {expectedLength}, got {partialResponse.Length} chars");
             }
         }
 

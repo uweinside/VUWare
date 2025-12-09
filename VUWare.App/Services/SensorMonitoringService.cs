@@ -267,6 +267,9 @@ namespace VUWare.App.Services
                     {
                         cycle++;
                         bool anyUpdated = false;
+                        int attemptsCount = 0;
+                        int skippedCount = 0;
+                        int failedCount = 0;
 
                         // Process each enabled dial
                         foreach (var state in _dialStates.Values)
@@ -276,19 +279,27 @@ namespace VUWare.App.Services
 
                             try
                             {
+                                attemptsCount++;
                                 bool updated = await UpdateDialAsync(state, cancellationToken);
                                 if (updated)
+                                {
                                     anyUpdated = true;
+                                }
+                                else
+                                {
+                                    skippedCount++;
+                                }
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error updating dial {state.DialUid}: {ex.Message}");
+                                failedCount++;
+                                System.Diagnostics.Debug.WriteLine($"[MonitoringLoop] Error updating dial {state.DialUid}: {ex.Message}");
                             }
                         }
 
                         if (cycle % 10 == 0)
                         {
-                            System.Diagnostics.Debug.WriteLine($"MonitoringLoop: Cycle {cycle}, Updated: {anyUpdated}");
+                            System.Diagnostics.Debug.WriteLine($"[MonitoringLoop] Cycle {cycle}: Attempted={attemptsCount}, Updated={anyUpdated}, Skipped={skippedCount}, Failed={failedCount}");
                         }
 
                         // Sleep based on global update interval
@@ -300,7 +311,7 @@ namespace VUWare.App.Services
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Monitoring loop cycle error: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"[MonitoringLoop] Cycle error: {ex.Message}");
                         RaiseError($"Monitoring loop error: {ex.Message}");
                         await Task.Delay(1000, cancellationToken);
                     }
@@ -310,7 +321,7 @@ namespace VUWare.App.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Monitoring loop failure: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[MonitoringLoop] FATAL: {ex.Message}");
                 RaiseError($"Monitoring failed: {ex.Message}");
             }
             finally
@@ -327,14 +338,20 @@ namespace VUWare.App.Services
         /// </summary>
         private async Task<bool> UpdateDialAsync(DialMonitoringState state, CancellationToken cancellationToken)
         {
+            System.Diagnostics.Debug.WriteLine($"[UpdateDial] START for {state.Config.DisplayName}");
+            
             // Get current sensor reading
             var status = _hwInfoController.GetSensorStatus(state.DialUid);
             
             if (status == null)
             {
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No status from HWInfo");
+                
                 // Try to use cached reading if available
                 if (_lastKnownReadings.TryGetValue(state.DialUid, out var cachedReading))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Using cached reading");
+                    
                     // Calculate percentage from cached value
                     double range = state.Config.MaxValue - state.Config.MinValue;
                     double normalized = Math.Clamp((cachedReading.Value - state.Config.MinValue) / range, 0.0, 1.0);
@@ -354,7 +371,7 @@ namespace VUWare.App.Services
                 }
                 else
                 {
-                    // No cached data and no current data - skip update
+                    System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No cached data, SKIP");
                     return false;
                 }
             }
@@ -362,6 +379,7 @@ namespace VUWare.App.Services
             {
                 // Update cache with fresh reading
                 _lastKnownReadings[state.DialUid] = status.SensorReading!;
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Got fresh reading {status.SensorReading.Value:F1}{status.SensorReading.Unit}");
             }
 
             // Store previous values BEFORE updating state
@@ -387,7 +405,7 @@ namespace VUWare.App.Services
 
             if (!needsUpdate)
             {
-                // Still update the timestamp even if no change
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No change (pos={state.LastPercentage}%), SKIP");
                 state.LastUpdate = DateTime.Now;
                 return false;
             }
@@ -396,13 +414,11 @@ namespace VUWare.App.Services
             var timeSinceLastPhysicalUpdate = (DateTime.Now - state.LastPhysicalUpdate).TotalMilliseconds;
             if (timeSinceLastPhysicalUpdate < 100)
             {
-                // Skip this update - too soon after last physical update
-                System.Diagnostics.Debug.WriteLine($"[Monitoring] Skipping update for {state.Config.DisplayName} - debouncing ({timeSinceLastPhysicalUpdate:F0}ms since last)");
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Debouncing ({timeSinceLastPhysicalUpdate:F0}ms), SKIP");
                 return false;
             }
 
-            // FIX: Add diagnostic to track when we're about to send serial commands
-            System.Diagnostics.Debug.WriteLine($"[Monitoring] Sending updates for {state.Config.DisplayName}: Position={state.LastPercentage}%{(colorChanged ? $", Color={state.LastColor}" : " (static color)")}");
+            System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: NEEDS UPDATE - pos={previousPercentage}%?{state.LastPercentage}%, color={previousColor}?{state.LastColor}");
 
             // CRITICAL FIX: Add timeout protection to prevent hanging the entire monitoring loop
             using var updateCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -413,6 +429,7 @@ namespace VUWare.App.Services
             // Update dial position
             if (positionChanged)
             {
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Calling SetDialPercentageAsync({state.LastPercentage}%)...");
                 bool positionSuccess = false;
                 try
                 {
@@ -421,33 +438,33 @@ namespace VUWare.App.Services
                     
                     if (!positionSuccess)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial position for {state.DialUid}");
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update returned FALSE");
                     }
                     else
                     {
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update succeeded");
                         updateSuccess = true;
                     }
                 }
                 catch (TimeoutException)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? TIMEOUT updating dial position for {state.DialUid} - continuing anyhow");
-                    // Don't return false - try to update color anyhow
+                    System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update TIMEOUT");
                 }
                 catch (OperationCanceledException)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? CANCELLED updating dial position for {state.DialUid}");
-                    return false; // Overall timeout - give up
+                    System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update CANCELLED");
+                    return false;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial position for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
-                    // Don't return false - try to update color anyhow
+                    System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update EXCEPTION: {ex.GetType().Name}: {ex.Message}");
                 }
             }
 
             // Update backlight color (only if colorChanged AND not in static mode)
             if (colorChanged && state.Config.ColorConfig.ColorMode != "static")
             {
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Calling SetBacklightColorAsync({state.LastColor})...");
                 var color = GetColorFromName(state.LastColor);
                 if (color != null)
                 {
@@ -459,27 +476,25 @@ namespace VUWare.App.Services
                         
                         if (!colorSuccess)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial color for {state.DialUid}");
+                            System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Color update returned FALSE");
                         }
                         else
                         {
+                            System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Color update succeeded");
                             updateSuccess = true;
                         }
                     }
                     catch (TimeoutException)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? TIMEOUT updating dial color for {state.DialUid} - continuing anyhow");
-                        // Don't fail the update entirely
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Color update TIMEOUT");
                     }
                     catch (OperationCanceledException)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? CANCELLED updating dial color for {state.DialUid}");
-                        // Don't fail the update entirely if we got at least the position
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Color update CANCELLED");
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial color for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
-                        // Don't fail the update entirely
+                        System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Color update EXCEPTION: {ex.GetType().Name}: {ex.Message}");
                     }
                 }
             }
@@ -487,18 +502,16 @@ namespace VUWare.App.Services
             // Consider it success if at least one command worked
             if (!updateSuccess && !positionChanged)
             {
-                System.Diagnostics.Debug.WriteLine($"[Monitoring] ? No updates performed for {state.Config.DisplayName}");
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? No updates performed");
                 return false;
             }
 
             // Increment update count and timestamp
             state.LastUpdate = DateTime.Now;
-            state.LastPhysicalUpdate = DateTime.Now; // Track physical update time
+            state.LastPhysicalUpdate = DateTime.Now;
             state.UpdateCount++;
 
-            System.Diagnostics.Debug.WriteLine(
-                $"Dial updated: {state.Config.DisplayName} ? {state.LastPercentage}%{(colorChanged ? $" ({state.LastColor})" : "")}" +
-                $"{(positionChanged ? " [position]" : "")}{(colorChanged ? " [color]" : "")}");
+            System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? COMPLETE (updateCount={state.UpdateCount})");
 
             // Raise event for UI update
             RaiseDialUpdated(state);
