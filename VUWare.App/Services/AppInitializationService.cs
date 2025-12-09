@@ -194,13 +194,39 @@ namespace VUWare.App.Services
             {
                 try
                 {
+                    // CRITICAL: Add startup delay to allow USB device enumeration to complete
+                    // When app launches at Windows startup or via Explorer, USB devices may not be
+                    // fully enumerated yet. VS debugger adds natural delays that mask this issue.
+                    System.Diagnostics.Debug.WriteLine("[Init] Waiting for USB enumeration to stabilize...");
+                    Thread.Sleep(2000); // 2 second startup delay
+                    
+                    System.Diagnostics.Debug.WriteLine("[Init] Attempting first connection...");
                     bool connected = _vuController.AutoDetectAndConnect();
                     if (!connected)
                     {
                         // Try a short delay and attempt once more
-                        Thread.Sleep(500);
+                        System.Diagnostics.Debug.WriteLine("[Init] First connection failed, retrying after 1s delay...");
+                        Thread.Sleep(1000);
                         connected = _vuController.AutoDetectAndConnect();
+                        
+                        if (!connected)
+                        {
+                            // One final attempt with longer delay
+                            System.Diagnostics.Debug.WriteLine("[Init] Second connection failed, final attempt after 2s delay...");
+                            Thread.Sleep(2000);
+                            connected = _vuController.AutoDetectAndConnect();
+                        }
                     }
+                    
+                    if (connected)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Init] ? Successfully connected to VU1 hub");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Init] ? Failed to connect after all retry attempts");
+                    }
+                    
                     return connected;
                 }
                 catch (Exception ex)

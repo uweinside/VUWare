@@ -287,17 +287,37 @@ namespace VUWare.Lib
         {
             try
             {
-                // Get UID
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Querying UID for dial index {index}...");
+                
+                // Get UID with timeout handling
                 string uidCommand = CommandBuilder.GetDeviceUID(index);
-                string uidResponse = await SendCommandAsync(uidCommand, 1000).ConfigureAwait(false);
+                string uidResponse;
+                
+                try
+                {
+                    uidResponse = await SendCommandAsync(uidCommand, 2000).ConfigureAwait(false); // Increased timeout
+                }
+                catch (TimeoutException)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] TIMEOUT querying UID for dial index {index} - dial may be offline");
+                    return; // Skip this dial
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] ERROR querying UID for dial index {index}: {ex.Message}");
+                    return; // Skip this dial
+                }
+                
                 var uidMessage = ProtocolHandler.ParseResponse(uidResponse);
 
                 if (!ProtocolHandler.IsSuccessResponse(uidMessage))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[DeviceManager] Dial index {index} returned error response");
                     return;
                 }
 
                 string uid = uidMessage.RawData;
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Dial index {index} UID: {uid}");
 
                 lock (_lockObj)
                 {
@@ -320,149 +340,13 @@ namespace VUWare.Lib
                     _indexToUID[index] = uid;
                 }
 
-                // Query additional details SEQUENTIALLY, not in background task
-                // This prevents overwhelming the serial port
-                try
-                {
-                    await QueryFirmwareDetailsAsync(index, uid).ConfigureAwait(false);
-                    await QueryEasingConfigAsync(index, uid).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to query firmware details for index {index}: {ex.Message}");
-                }
+                // SKIP firmware version queries - they cause hangs and aren't needed for operation
+                // SKIP easing config query too - it's optional and can cause issues
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Successfully registered dial index {index} with UID {uid}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to query dial at index {index}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Queries firmware and hardware version details.
-        /// </summary>
-        private async Task QueryFirmwareDetailsAsync(byte index, string uid)
-        {
-            try
-            {
-                // Small delay before firmware queries to prevent overwhelming the device
-                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
-                
-                // Get firmware version
-                string fwCommand = CommandBuilder.GetFirmwareInfo(index);
-                string fwResponse = await SendCommandAsync(fwCommand, 1000).ConfigureAwait(false);
-                var fwMessage = ProtocolHandler.ParseResponse(fwResponse);
-
-                if (ProtocolHandler.IsSuccessResponse(fwMessage))
-                {
-                    string fwVersion = ProtocolHandler.DecodeAsciiString(fwMessage.RawData);
-                    lock (_lockObj)
-                    {
-                        if (_dialsByUID.TryGetValue(uid, out var dial))
-                        {
-                            dial.FirmwareVersion = fwVersion;
-                        }
-                    }
-                }
-
-                // Small delay between firmware detail queries
-                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
-
-                // Get hardware version
-                string hwCommand = CommandBuilder.GetHardwareInfo(index);
-                string hwResponse = await SendCommandAsync(hwCommand, 1000).ConfigureAwait(false);
-                var hwMessage = ProtocolHandler.ParseResponse(hwResponse);
-
-                if (ProtocolHandler.IsSuccessResponse(hwMessage))
-                {
-                    string hwVersion = ProtocolHandler.DecodeAsciiString(hwMessage.RawData);
-                    lock (_lockObj)
-                    {
-                        if (_dialsByUID.TryGetValue(uid, out var dial))
-                        {
-                            dial.HardwareVersion = hwVersion;
-                        }
-                    }
-                }
-
-                // Small delay between firmware detail queries
-                await Task.Delay(_commandDelayMs).ConfigureAwait(false);
-
-                // Get build info
-                string buildCommand = CommandBuilder.GetBuildInfo(index);
-                string buildResponse = await SendCommandAsync(buildCommand, 1000).ConfigureAwait(false);
-                var buildMessage = ProtocolHandler.ParseResponse(buildResponse);
-
-                if (ProtocolHandler.IsSuccessResponse(buildMessage))
-                {
-                    string buildHash = ProtocolHandler.DecodeAsciiString(buildMessage.RawData);
-                    lock (_lockObj)
-                    {
-                        if (_dialsByUID.TryGetValue(uid, out var dial))
-                        {
-                            dial.FirmwareBuildHash = buildHash;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Firmware query failed for {uid}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Queries easing configuration from a dial.
-        /// </summary>
-        private async Task QueryEasingConfigAsync(byte index, string uid)
-        {
-            try
-            {
-                string command = CommandBuilder.GetEasingConfig(index);
-                string response = await SendCommandAsync(command, 1000).ConfigureAwait(false);
-                var message = ProtocolHandler.ParseResponse(response);
-
-                if (!ProtocolHandler.IsSuccessResponse(message) || message.BinaryData == null || message.BinaryData.Length < 16)
-                {
-                    return;
-                }
-
-                // Parse 4 x 32-bit values (big-endian)
-                uint dialStep = (uint)(
-                    (message.BinaryData[0] << 24) |
-                    (message.BinaryData[1] << 16) |
-                    (message.BinaryData[2] << 8) |
-                    message.BinaryData[3]);
-
-                uint dialPeriod = (uint)(
-                    (message.BinaryData[4] << 24) |
-                    (message.BinaryData[5] << 16) |
-                    (message.BinaryData[6] << 8) |
-                    message.BinaryData[7]);
-
-                uint backlightStep = (uint)(
-                    (message.BinaryData[8] << 24) |
-                    (message.BinaryData[9] << 16) |
-                    (message.BinaryData[10] << 8) |
-                    message.BinaryData[11]);
-
-                uint backlightPeriod = (uint)(
-                    (message.BinaryData[12] << 24) |
-                    (message.BinaryData[13] << 16) |
-                    (message.BinaryData[14] << 8) |
-                    message.BinaryData[15]);
-
-                lock (_lockObj)
-                {
-                    if (_dialsByUID.TryGetValue(uid, out var dial))
-                    {
-                        dial.Easing = new EasingConfig(dialStep, dialPeriod, backlightStep, backlightPeriod);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Easing config query failed for {uid}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DeviceManager] Failed to query dial at index {index}: {ex.GetType().Name}: {ex.Message}");
             }
         }
 

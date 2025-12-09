@@ -403,6 +403,16 @@ namespace VUWare.Lib
                             {
                                 string response = responseBuilder.ToString();
                                 System.Diagnostics.Debug.WriteLine($"[SerialPort] Complete response received: {responseBuilder.Length} chars");
+                                
+                                // CRITICAL FIX: Clear any remaining bytes in buffer after successful read
+                                // This prevents the last response from lingering and causing hangs on subsequent commands
+                                if (serialPort.BytesToRead > 0)
+                                {
+                                    int leftover = serialPort.BytesToRead;
+                                    serialPort.DiscardInBuffer();
+                                    System.Diagnostics.Debug.WriteLine($"[SerialPort] Cleared {leftover} leftover bytes from buffer");
+                                }
+                                
                                 return response;
                             }
                         }
