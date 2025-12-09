@@ -375,7 +375,14 @@ namespace VUWare.App.Services
 
             // Check if values changed
             bool positionChanged = previousPercentage != state.LastPercentage;
-            bool colorChanged = previousColor != state.LastColor;
+            
+            // OPTIMIZATION: In static color mode, never update color after initialization
+            bool colorChanged = false;
+            if (state.Config.ColorConfig.ColorMode != "static")
+            {
+                colorChanged = previousColor != state.LastColor;
+            }
+            
             bool needsUpdate = positionChanged || colorChanged;
 
             if (!needsUpdate)
@@ -395,44 +402,93 @@ namespace VUWare.App.Services
             }
 
             // FIX: Add diagnostic to track when we're about to send serial commands
-            System.Diagnostics.Debug.WriteLine($"[Monitoring] Sending updates for {state.Config.DisplayName}: Position={state.LastPercentage}%, Color={state.LastColor}");
+            System.Diagnostics.Debug.WriteLine($"[Monitoring] Sending updates for {state.Config.DisplayName}: Position={state.LastPercentage}%{(colorChanged ? $", Color={state.LastColor}" : " (static color)")}");
+
+            // CRITICAL FIX: Add timeout protection to prevent hanging the entire monitoring loop
+            using var updateCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            updateCts.CancelAfter(TimeSpan.FromSeconds(5)); // Max 5 seconds for both commands
+            
+            bool updateSuccess = false;
 
             // Update dial position
-            bool positionSuccess = false;
-            try
+            if (positionChanged)
             {
-                positionSuccess = await _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
-                if (!positionSuccess)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial position for {state.DialUid}");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial position for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
-                return false;
-            }
-
-            // Update backlight color
-            var color = GetColorFromName(state.LastColor);
-            if (color != null)
-            {
-                bool colorSuccess = false;
+                bool positionSuccess = false;
                 try
                 {
-                    colorSuccess = await _vuController.SetBacklightColorAsync(state.DialUid, color!);
-                    if (!colorSuccess)
+                    var positionTask = _vuController.SetDialPercentageAsync(state.DialUid, state.LastPercentage);
+                    positionSuccess = await positionTask.WaitAsync(TimeSpan.FromSeconds(2), updateCts.Token);
+                    
+                    if (!positionSuccess)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial color for {state.DialUid}");
-                        return false;
+                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial position for {state.DialUid}");
                     }
+                    else
+                    {
+                        updateSuccess = true;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? TIMEOUT updating dial position for {state.DialUid} - continuing anyhow");
+                    // Don't return false - try to update color anyhow
+                }
+                catch (OperationCanceledException)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? CANCELLED updating dial position for {state.DialUid}");
+                    return false; // Overall timeout - give up
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial color for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
-                    return false;
+                    System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial position for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
+                    // Don't return false - try to update color anyhow
                 }
+            }
+
+            // Update backlight color (only if colorChanged AND not in static mode)
+            if (colorChanged && state.Config.ColorConfig.ColorMode != "static")
+            {
+                var color = GetColorFromName(state.LastColor);
+                if (color != null)
+                {
+                    bool colorSuccess = false;
+                    try
+                    {
+                        var colorTask = _vuController.SetBacklightColorAsync(state.DialUid, color!);
+                        colorSuccess = await colorTask.WaitAsync(TimeSpan.FromSeconds(2), updateCts.Token);
+                        
+                        if (!colorSuccess)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[Monitoring] ? FAILED to update dial color for {state.DialUid}");
+                        }
+                        else
+                        {
+                            updateSuccess = true;
+                        }
+                    }
+                    catch (TimeoutException)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? TIMEOUT updating dial color for {state.DialUid} - continuing anyhow");
+                        // Don't fail the update entirely
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? CANCELLED updating dial color for {state.DialUid}");
+                        // Don't fail the update entirely if we got at least the position
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Monitoring] ? EXCEPTION updating dial color for {state.DialUid}: {ex.GetType().Name}: {ex.Message}");
+                        // Don't fail the update entirely
+                    }
+                }
+            }
+
+            // Consider it success if at least one command worked
+            if (!updateSuccess && !positionChanged)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Monitoring] ? No updates performed for {state.Config.DisplayName}");
+                return false;
             }
 
             // Increment update count and timestamp
@@ -441,7 +497,7 @@ namespace VUWare.App.Services
             state.UpdateCount++;
 
             System.Diagnostics.Debug.WriteLine(
-                $"Dial updated: {state.Config.DisplayName} ? {state.LastPercentage}% ({state.LastColor})" +
+                $"Dial updated: {state.Config.DisplayName} ? {state.LastPercentage}%{(colorChanged ? $" ({state.LastColor})" : "")}" +
                 $"{(positionChanged ? " [position]" : "")}{(colorChanged ? " [color]" : "")}");
 
             // Raise event for UI update
