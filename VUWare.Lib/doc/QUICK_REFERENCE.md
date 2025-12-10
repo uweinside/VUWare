@@ -289,21 +289,62 @@ The VU1 hub uses a **line-based protocol** where each command and response is a 
 
 - Simplifies implementation (use standard `ReadLine()`)
 - Improves reliability (complete messages, no partial data)
-- Matches the original Python VU-Server implementation
+- Enables clean asynchronous I/O patterns
 
-**Both C# and Python implementations use the same approach:**
+**C# Implementation:**
 
-```python
-# Python (legacy/src/serial_driver.py)
-response = self.port.readline()  # Reads until \n
-```
+The VUWare.Lib library implements line-based reading in `SerialPortManager.cs`:
 
 ```csharp
-// C# (VUWare.Lib/SerialPortManager.cs)
-string line = serialPort.ReadLine().Trim();  // Reads until \n
+// VUWare.Lib/SerialPortManager.cs - ReadResponseAsync method
+private async Task<string> ReadResponseAsync(SerialPort serialPort, 
+                                             int timeoutMs, 
+                                             CancellationToken cancellationToken)
+{
+    // Read LINE-BY-LINE - blocks until \n or timeout
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        if (serialPort.BytesToRead == 0)
+        {
+            await Task.Delay(10, cancellationToken);
+            continue;
+        }
+        
+        string line = serialPort.ReadLine().Trim();  // Complete line
+        
+        if (!string.IsNullOrEmpty(line) && line.StartsWith("<"))
+        {
+            return line;  // Found response
+        }
+    }
+}
 ```
 
-See `SERIAL_PROTOCOL.md` and `IMPLEMENTATION_GUIDE.md` for detailed protocol documentation.
+**Key Implementation Details:**
+
+- **Port Configuration** (`SerialPortManager.cs`):
+  ```csharp
+  _serialPort = new SerialPort(portName) {
+      BaudRate = 115200,
+      NewLine = "\r\n"  // Match hub line terminator
+  };
+  ```
+
+- **Command Sending** (`SerialPortManager.SendCommandAsync`):
+  ```csharp
+  byte[] commandBytes = Encoding.ASCII.GetBytes(command + "\r\n");
+  await serialPort.BaseStream.WriteAsync(commandBytes, ...);
+  ```
+
+- **Response Reading**: Uses `SerialPort.ReadLine()` which blocks until `\n` received or timeout occurs
+
+See `SerialPortManager.cs`, `CommandBuilder.cs`, and `ProtocolHandler.cs` for complete implementation details.
+
+**Reference Documentation:**
+- `SERIAL_PROTOCOL.md` - Complete protocol specification
+- `IMPLEMENTATION_GUIDE.md` - Architecture and design patterns
+- `SerialPortManager.cs` - Serial communication implementation
+- `ProtocolHandler.cs` - Message parsing and validation
 
 ## Troubleshooting
 
