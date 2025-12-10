@@ -284,6 +284,83 @@ Server Process:
 5. Hub sends I2C command to address 0x0F
 ```
 
+## Serial Communication Architecture
+
+### Line-Based Protocol Design
+
+**The VU1 hub implements a line-based communication protocol.** This is a crucial architectural decision that simplifies implementation and improves reliability.
+
+**Protocol Characteristics:**
+- Commands and responses are complete ASCII lines
+- Each line is terminated with `\r\n` (CRLF)
+- Commands start with `>`, responses start with `<`
+- No character-by-character parsing required
+- Standard `ReadLine()` methods can be used
+
+**Why Line-Based?**
+1. **Simplicity** - Standard library support for line reading
+2. **Reliability** - Complete messages, no partial data
+3. **Debugging** - Easy to capture and inspect in serial monitors
+4. **Atomic** - Each line is a complete transaction
+5. **Buffering** - OS/hardware handles buffering automatically
+
+### Python Implementation
+
+The VU-Server Python implementation (located in `legacy/src/serial_driver.py`) demonstrates the line-based approach:
+
+```python
+def handle_serial_read(self):
+    """Reads one complete line until \\n"""
+    try:
+        response = self.port.readline()  # ← LINE-BASED READING
+        ret = response.decode("utf-8").strip()
+        return ret
+    except _serial.SerialTimeoutException:
+        return None
+
+def read_until_response(self, timeout=5):
+    """Reads lines until response starting with '<' is found"""
+    rx_lines = []
+    while time.time() <= timeout_timestamp:
+        line = self.handle_serial_read()  # ← LINE-BY-LINE
+        if line and line.startswith('<'):  # Response found!
+            break
+        rx_lines.append(line)
+    return rx_lines
+```
+
+### C# Implementation
+
+The VUWare.Lib C# implementation (in `SerialPortManager.cs`) uses the same pattern:
+
+```csharp
+private async Task<string> ReadResponseAsync(SerialPort serialPort, 
+                                             int timeoutMs, 
+                                             CancellationToken cancellationToken)
+{
+    // Read LINE-BY-LINE like the Python implementation
+    // The VU1 hub sends complete responses as lines terminated with \\r\\n
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        if (serialPort.BytesToRead == 0)
+        {
+            await Task.Delay(10, cancellationToken);
+            continue;
+        }
+        
+        // Read one line (blocks until \\n or timeout)
+        string line = serialPort.ReadLine().Trim();  // ← LINE-BASED READING
+        
+        if (!string.IsNullOrEmpty(line) && line.StartsWith("<"))
+        {
+            return line;
+        }
+    }
+}
+```
+
+Both implementations use `readline()` / `ReadLine()` to receive complete protocol messages as lines, matching the hub's line-based protocol design.
+
 ## Data Persistence and State Management
 
 ### Server-Side Persistence (SQLite Database)
@@ -303,7 +380,7 @@ CREATE TABLE dials (
     easing_dial_step INTEGER DEFAULT 2,
     easing_dial_period INTEGER DEFAULT 50,
     easing_backlight_step INTEGER DEFAULT 5,
-    easing_backlight_period DEFAULT 100
+    easing_backlight_period INTEGER DEFAULT 100
 );
 ```
 
@@ -646,9 +723,10 @@ def periodic_dial_update(self):
 ### Image Format and Conversion
 
 **Display Specifications:**
-- E-paper display: Likely 200x200 pixels
+- E-paper display: 200x144 pixels (confirmed)
 - 1-bit color depth (black/white)
-- Vertical byte packing
+- Vertical byte packing (8 pixels per byte, MSB=top)
+- Total packed size: 3600 bytes ((200×144)/8)
 
 **Image Encoding Process:**
 
@@ -707,16 +785,16 @@ Byte value:             0xC3 (195 decimal)
    Chunk size: 1000 bytes maximum
    Delay: 200ms between chunks
    
-4. Refresh display
+4. Trigger refresh
    Command: DISPLAY_SHOW_IMG
    Data: [dial_index]
 ```
 
 **Performance Considerations:**
-- 200x200 display = 40,000 pixels
-- 1 bit per pixel = 5,000 bytes total
-- At 1000 bytes per chunk = 5 chunks
-- At 200ms per chunk = ~1 second transfer time
+- 200×144 display = 28,800 pixels
+- 1 bit per pixel = 3600 bytes total
+- At 1000 bytes per chunk = 4 chunks (1000 + 1000 + 1000 + 600)
+- At 200ms per chunk = ~0.8 seconds transfer time
 - E-paper refresh = 1-2 seconds additional
 
 **Total time to update display: ~2-3 seconds**
@@ -1095,7 +1173,7 @@ self.dials[dial['uid']] = dial  # Key: "ABC123...", "DEF456..."
 **Proper Fix:**
 The `get_dial_list()` method should:
 1. Clear `self.dials = {}` when `rescan=True`
-2. Only populate with dials actually in the device map
+2. Only populate with dials actually reported by hardware
 3. Never return stale index-based entries
 
 ```python

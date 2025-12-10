@@ -96,6 +96,10 @@ await vu1.SetDisplayImageAsync(dialUID, image);
 // Blank (white)
 byte[] blank = ImageProcessor.CreateBlankImage();
 await vu1.SetDisplayImageAsync(dialUID, blank);
+
+// Load from file (PNG/BMP/JPEG ? 3600-byte packed buffer)
+byte[] imageData = ImageProcessor.LoadImageFile("path/to/image.png");
+await vu1.SetDisplayImageAsync(dialUID, imageData);
 ```
 
 ### Query Dial Information
@@ -277,6 +281,30 @@ catch (InvalidOperationException ex)
 6. **Power Cycles**: No automatic detection - manually re-initialize
 7. **Thread Safety**: Library is thread-safe - safe to use from multiple threads
 
+## Protocol Notes
+
+### Line-Based Communication
+
+The VU1 hub uses a **line-based protocol** where each command and response is a complete line terminated with `\r\n`. This design:
+
+- Simplifies implementation (use standard `ReadLine()`)
+- Improves reliability (complete messages, no partial data)
+- Matches the original Python VU-Server implementation
+
+**Both C# and Python implementations use the same approach:**
+
+```python
+# Python (legacy/src/serial_driver.py)
+response = self.port.readline()  # Reads until \n
+```
+
+```csharp
+// C# (VUWare.Lib/SerialPortManager.cs)
+string line = serialPort.ReadLine().Trim();  // Reads until \n
+```
+
+See `SERIAL_PROTOCOL.md` and `IMPLEMENTATION_GUIDE.md` for detailed protocol documentation.
+
 ## Troubleshooting
 
 ### "Not connected"
@@ -300,10 +328,32 @@ catch (InvalidOperationException ex)
 - Check serial port permissions
 
 ### "Image won't upload"
-- Verify image data is exactly 5000 bytes
-- Check 1-bit format (8 pixels per byte)
+- Verify image data is exactly 3600 bytes
+- Check 1-bit format (8 pixels per byte, vertical packing)
 - Verify `IsConnected` and dial exists
 - Check USB connection stability
+- Ensure image is 200x144 pixels after conversion
+
+## API Reference
+
+### ImageProcessor
+
+#### Constants
+
+- `DISPLAY_WIDTH` = 200
+- `DISPLAY_HEIGHT` = 144
+- `BYTES_PER_IMAGE` = 3600
+- `MAX_CHUNK_SIZE` = 1000
+
+#### Methods
+
+- `byte[] CreateBlankImage()` - Returns 3600-byte white image
+- `byte[] CreateTestPattern()` - Returns 3600-byte test pattern
+- `byte[] LoadImageFile(string path)` - PNG/BMP/JPEG ? 3600-byte packed buffer (auto-scaled to 200x144)
+- `byte[] ConvertGrayscaleTo1Bit(byte[] grayscale, int width, int height, int threshold = 127)` - Convert grayscale to packed 1-bit
+- `List<byte[]> ChunkImageData(byte[] data)` - Split 3600-byte buffer into ?1000-byte chunks
+
+### VU1Controller
 
 ## Examples Location
 

@@ -52,6 +52,71 @@ All messages follow a fixed format with ASCII-encoded hexadecimal values.
 - `<` start char
 - Remaining fields mirror request
 
+### Line-Based Protocol
+
+**The VU1 hub implements a line-based protocol.** Each command and response is a complete line terminated with `\r\n` (CRLF). This design allows simple, reliable communication using standard `ReadLine()` methods.
+
+**Key Protocol Characteristics:**
+- Commands and responses are transmitted as complete ASCII lines
+- Line terminator: `\r\n` (carriage return + line feed)
+- Each line starts with `>` (request) or `<` (response)
+- Hub waits for complete line before processing
+- Client should read complete lines, not individual characters
+
+**Python Implementation (from legacy/src/serial_driver.py):**
+```python
+def handle_serial_read(self):
+    """
+    Basic read implementation. Reads 1 line and decodes as utf-8
+    """
+    try:
+        response = self.port.readline()  # Reads until \n
+        try:
+            ret = response.decode("utf-8").strip()
+        except Exception as e:
+            logger.error(e)
+            ret = ""
+        return ret
+    except _serial.SerialTimeoutException:
+        logger.error("Reading response timed out")
+        return None
+```
+
+**C# Implementation (from VUWare.Lib/SerialPortManager.cs):**
+```csharp
+private async Task<string> ReadResponseAsync(SerialPort serialPort, 
+                                             int timeoutMs, 
+                                             CancellationToken cancellationToken)
+{
+    // Read LINE-BY-LINE like the Python implementation
+    // The VU1 hub sends complete responses as lines terminated with \r\n
+    while (!cts.Token.IsCancellationRequested)
+    {
+        if (serialPort.BytesToRead == 0)
+        {
+            await Task.Delay(10, cts.Token);
+            continue;
+        }
+        
+        // Read one line (blocks until \n or timeout)
+        string line = serialPort.ReadLine().Trim();
+        
+        if (string.IsNullOrEmpty(line))
+        {
+            continue;
+        }
+        
+        // Check if this is the response we're looking for
+        if (line.StartsWith("<"))
+        {
+            return line;
+        }
+    }
+}
+```
+
+Both implementations use the same approach: read complete lines using `readline()` or `ReadLine()`, process when the line starts with `<`.
+
 ### Configuration Constants
 ```
 GAUGE_COMM_HEADER_LEN = 9
@@ -487,7 +552,7 @@ Gets current easing configuration for a dial.
 
 ### E-Paper Display Commands
 
-The dials have e-paper displays (likely 200x200 pixels) for showing background scales and graphics.
+The dials have e-paper displays (200x144 pixels, confirmed) for showing background scales and graphics.
 
 #### 0x0D - COMM_CMD_DISPLAY_CLEAR
 Clears the display.
@@ -728,4 +793,11 @@ Scans I2C bus for debugging.
 
 ---
 
-*This documentation was reverse-engineered from the VU-Server Python implementation.*
+## References
+
+This documentation is based on the official VU-Server implementation by Saša Karanović:
+- **VU-Server Source**: https://github.com/SasaKaranovic/VU-Server
+- **VU1 Dials**: https://vudials.com
+- **Official Documentation**: https://docs.vudials.com
+
+The protocol specification and line-based communication pattern are derived from the Python reference implementation located in `legacy/src/serial_driver.py` and `legacy/src/dial_driver.py`
