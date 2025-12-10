@@ -109,11 +109,9 @@ namespace VUWare.Lib
         /// <summary>
         /// Gets a dial by its unique ID.
         /// </summary>
-        public DialState GetDial(string uid)
+        public DialState? GetDial(string uid)
         {
-#pragma warning disable CS8603
             return _deviceManager.GetDialByUID(uid);
-#pragma warning restore CS8603
         }
 
         /// <summary>
@@ -165,9 +163,7 @@ namespace VUWare.Lib
 
             try
             {
-#pragma warning disable CS8600
-                var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
-#pragma warning restore CS8600
+                DialState dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
 
                 // Clear (white) then origin
                 string clearCmd = CommandBuilder.DisplayClear(dial.Index, false);
@@ -233,7 +229,6 @@ namespace VUWare.Lib
             try
             {
                 int idleCycles = 0;
-                const int maxIdleCycles = 5;
                 
                 while (!ct.IsCancellationRequested && IsConnected)
                 {
@@ -242,10 +237,10 @@ namespace VUWare.Lib
                         bool didWork = false;
                         
                         // Process pending image updates
-                        while (_imageQueue.TryGetNextUpdate(out byte idx, out byte[] img))
+                        while (_imageQueue.TryGetNextUpdate(out byte idx, out byte[]? img))
                         {
-                            var dial = _deviceManager.GetDialByIndex(idx);
-                            if (dial != null) 
+                            DialState? dial = _deviceManager.GetDialByIndex(idx);
+                            if (dial != null && img != null) 
                             {
                                 await SetDisplayImageAsync(dial.UID, img);
                                 didWork = true;
@@ -290,13 +285,11 @@ namespace VUWare.Lib
         /// <summary>
         /// Queues an image update for a dial (processed by periodic update loop).
         /// </summary>
-#pragma warning disable CS8600
         public void QueueImageUpdate(string uid, byte[] imageData)
         {
-            var dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
+            DialState dial = _deviceManager.GetDialByUID(uid) ?? throw new ArgumentException($"Dial with UID '{uid}' not found");
             _imageQueue.QueueImageUpdate(dial.Index, imageData);
         }
-#pragma warning restore CS8600
         
         /// <summary>
         /// Gets the number of dials discovered.
