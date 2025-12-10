@@ -10,15 +10,16 @@ This document provides detailed implementation information about the VU1 dial sy
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│           Application Layer (REST API)              │
-│         - Server Handler (server.py)                │
-│         - Dial Handler (server_dial_handler.py)     │
+│           Application Layer                         │
+│         - VU1Controller (VUWare.Lib)                │
+│         - Application-specific logic                │
 └─────────────────────────────────────────────────────┘
                         ↕
 ┌─────────────────────────────────────────────────────┐
 │      Communication Layer (Serial Protocol)          │
-│         - Dial Driver (dial_driver.py)              │
-│         - Serial Driver (serial_driver.py)          │
+│         - SerialPortManager (VUWare.Lib)            │
+│         - DeviceManager (VUWare.Lib)                │
+│         - ProtocolHandler (VUWare.Lib)              │
 └─────────────────────────────────────────────────────┘
                         ↕
 ┌─────────────────────────────────────────────────────┐
@@ -29,6 +30,26 @@ This document provides detailed implementation information about the VU1 dial sy
 ```
 
 ### Component Responsibilities
+
+**VU1Controller (VUWare.Lib)**
+- High-level API for dial control
+- Device discovery and initialization
+- State management and caching
+- Asynchronous command execution
+- Image update queuing
+
+**SerialPortManager (VUWare.Lib)**
+- USB device detection (VID:0x0403, PID:0x6015)
+- Serial port configuration (115200 8N1)
+- Thread-safe send/receive operations
+- Line-based protocol implementation
+- Timeout and cancellation handling
+
+**DeviceManager (VUWare.Lib)**
+- Device provisioning and discovery
+- UID tracking and index mapping
+- Firmware/hardware version queries
+- Easing configuration management
 
 **Gauge Hub (Hardware Device)**
 - USB-to-Serial interface (VID:0x0403, PID:0x6015)
@@ -161,15 +182,23 @@ This is similar to how some sensor chips (like certain accelerometers) handle ad
 **Important Notes:**
 - Provisioning must be called multiple times (typically 3 attempts)
 - 200ms delay recommended between attempts
-- Server implementation calls provision 3 times for reliability
+- VUWare.Lib implementation calls provision 3 times for reliability
 
-**Server Implementation:**
-```python
-def provision_dials(self, num_attempts=3):
-    for _ in range(num_attempts):
-        self.dial_driver.provision_dials()
-        sleep(0.2)
-    self._reload_dials(True)
+**C# Implementation (VUWare.Lib/DeviceManager.cs):**
+```csharp
+public async Task<bool> DiscoverAndProvisionAsync()
+{
+    const int NUM_ATTEMPTS = 3;
+    const int DELAY_MS = 200;
+    
+    for (int attempt = 0; attempt < NUM_ATTEMPTS; attempt++)
+    {
+        await ProvisionDevicesAsync();
+        await Task.Delay(DELAY_MS);
+    }
+    
+    return await ReloadDialsAsync(rescan: true);
+}
 ```
 
 #### 3. Retrieving Device Map
@@ -207,26 +236,41 @@ For each online index:
     Response: 12-byte UID (hex-encoded as 24 characters)
 ```
 
-**Server Implementation:**
-```python
-def get_dial_list(self, rescan=False):
-    if rescan:
-        self.bus_rescan()
-        resp = self._sendCommand(COMM_CMD_GET_DEVICES_MAP, COMM_DATA_NONE)
-        resp = textwrap.wrap(resp, 2)  # Split into 2-char chunks
+**C# Implementation (VUWare.Lib/DeviceManager.cs):**
+```csharp
+public async Task<Dictionary<string, DialState>> DiscoverDialsAsync(bool rescan = false)
+{
+    if (rescan)
+    {
+        await BusRescanAsync();
+        string response = await SendCommandAsync(CommandBuilder.GetDevicesMap());
         
-        onlineDials = []
-        for key, elem in enumerate(resp):
-            if int(elem, 16) == 1:
-                onlineDials.append(key)
-        
-        for dialIndex in onlineDials:
-            deviceUID = self.dial_get_uid(dialIndex)
-            self.dials[dialIndex] = {
-                'index': str(dialIndex),
-                'uid': deviceUID,
-                # ...additional fields
+        // Parse device map (2 hex chars per device)
+        var onlineDials = new List<byte>();
+        for (int i = 0; i < response.Length; i += 2)
+        {
+            byte status = Convert.ToByte(response.Substring(i, 2), 16);
+            if (status == 1)
+            {
+                onlineDials.Add((byte)(i / 2));
             }
+        }
+        
+        // Read UID for each online dial
+        foreach (byte dialIndex in onlineDials)
+        {
+            string deviceUID = await GetDeviceUIDAsync(dialIndex);
+            _dials[deviceUID] = new DialState
+            {
+                Index = dialIndex,
+                UID = deviceUID,
+                // ...additional fields
+            };
+        }
+    }
+    
+    return _dials;
+}
 ```
 
 ### Index vs. UID Addressing
@@ -323,7 +367,7 @@ def read_until_response(self, timeout=5):
     rx_lines = []
     while time.time() <= timeout_timestamp:
         line = self.handle_serial_read()  # ← LINE-BY-LINE
-        if line and line.startswith('<'):  # Response found!
+        if line and line.startswith('<'):
             break
         rx_lines.append(line)
     return rx_lines
@@ -428,297 +472,201 @@ CREATE TABLE dials (
 
 ### Startup Sequence
 
-**Server Initialization Process:**
+**Application Initialization Process:**
 
 ```
-1. Load server configuration from config.yaml
-   - Hostname, port, timeouts
-   - Hardware COM port (optional)
-   - Master API key
+1. Create VU1Controller instance
+   - Initialize SerialPortManager
+   - Initialize DeviceManager
+   - Set up command queue
 
-2. Initialize SQLite database
-   - Create tables if missing
-   - Load existing dial records
-
-3. Connect to Gauge Hub
+2. Connect to Gauge Hub
    - Auto-detect: Scan for VID:0x0403, PID:0x6015
-   - Manual: Use port from config.yaml
+   - Manual: Use specified COM port
    - Timeout: 2 seconds
 
-4. Discover dials (initial provisioning if needed)
-   - Call RESCAN_BUS
-   - Call PROVISION_DEVICE (3 times)
-   - Call GET_DEVICES_MAP
+3. Discover dials (initial provisioning)
+   - Call RescanBus
+   - Call ProvisionDevice (3 times with 200ms delay)
+   - Call GetDevicesMap
    - For each online dial:
      - Read UID from hardware
-     - Look up UID in SQLite database
-     - If UID exists: Load stored metadata (name, easing, etc.)
-     - If UID is new: Create default database entry
+     - Create DialState object
      - Map UID to current runtime index
-     - Read firmware/hardware versions
-     - Read easing configuration
+     - Query firmware/hardware versions
+     - Query easing configuration
 
-5. Apply stored configuration to dials
-   - Send easing settings from database to each dial
+4. Initialize dial state
    - Set all dials to 0%
-   - Clear/restore background images
+   - Apply default easing configuration
+   - Clear display buffers
 
-6. Start REST API server
-   - Listen on configured port
-   - Begin periodic update loop (handles queued commands)
+5. Ready for operation
+   - Application can now control dials
+   - Use UID-based API methods
 ```
 
-**Code Flow:**
-```python
-# From server.py and server_dial_handler.py
-
-def __init__(self, dial_driver, server_config):
-    self.dial_driver = dial_driver
-    self.server_config = server_config
+**C# Code Flow (VUWare.Lib/VU1Controller.cs):**
+```csharp
+public class VU1Controller : IDisposable
+{
+    private readonly SerialPortManager _serialPort;
+    private readonly DeviceManager _deviceManager;
     
-    # Load timeout config
-    cfg = self.server_config.get_server_config()
-    self.communication_timeout = cfg.get('communication_timeout', 3)
-    
-    # Discover devices and restore metadata
-    self._reload_dials(rescan=True)
-    
-    # Apply stored configuration (from database)
-    self._send_db_config_to_dials()
-    
-    # Initialize to safe state
-    self.dial_driver.set_all_dials_to(0)
-
-def _reload_dials(self, rescan=False):
-    """Discover dials and restore their metadata from database"""
-    # Get list from hardware (UID for each discovered dial)
-    dials = self.dial_driver.get_dial_list(rescan)
-    
-    # For each discovered dial
-    for dial in dials:
-        # Look up UID in database (or create new entry)
-        dial_info = self.server_config.append_dial_info_from_db([dial])
+    public async Task<bool> InitializeAsync()
+    {
+        // Discover devices with provisioning
+        var dials = await _deviceManager.DiscoverAndProvisionAsync();
         
-        # Now dial has metadata: name, easing settings, etc.
-        # This metadata is keyed by UID, not index
-        self.dials[dial['uid']] = dial
-```
-
-**Database Lookup During Discovery:**
-```python
-def append_dial_info_from_db(self, dial_list):
-    """Merge hardware dial list with database metadata"""
-    for key, dial in enumerate(dial_list):
-        # Fetch or create database entry using UID
-        dial_info = self.database.fetch_dial_info_or_create_default(dial['uid'])
+        if (dials.Count == 0)
+        {
+            return false;
+        }
         
-        # Restore metadata from database
-        dial_list[key]['dial_name'] = dial_info['dial_name']  # e.g., "CPU Usage"
-        dial_list[key]['easing']['dial_step'] = dial_info['easing_dial_step']
-        dial_list[key]['easing']['dial_period'] = dial_info['easing_dial_period']
-        # ...etc
+        // Query device information
+        foreach (var dial in dials.Values)
+        {
+            dial.FirmwareVersion = await _deviceManager.GetFirmwareVersionAsync(dial.Index);
+            dial.HardwareVersion = await _deviceManager.GetHardwareVersionAsync(dial.Index);
+            dial.Easing = await _deviceManager.GetEasingConfigAsync(dial.Index);
+        }
         
-        # Store in memory with UID as key (not index!)
-        self.dials[dial['uid']] = dial
-    
-    return dial_list
-```
-
-### Runtime State Management
-
-**Server maintains in-memory state for each dial:**
-
-```python
-self.dials[dial_uid] = {
-    'index': '0',                    # Hub index (changes with provisioning)
-    'uid': '3A4B5C6D7E8F',          # Permanent unique ID (DATABASE KEY)
-    'dial_name': 'CPU Usage',        # User-friendly name (FROM DATABASE)
-    'value': 0,                      # Current percentage (0-100)
-    'backlight': {                   # Current RGBW values (0-100 each)
-        'red': 0,
-        'green': 0,
-        'blue': 0,
-        'white': 0
-    },
-    'image_file': 'img_blank',       # Current background image filename
-    'update_deadline': time(),       # Last communication timestamp
-    'value_changed': False,          # Pending value update flag
-    'backlight_changed': False,      # Pending backlight update flag
-    'image_changed': False,          # Pending image update flag
-    'easing': {                      # Animation settings (FROM DATABASE)
-        'dial_step': 2,
-        'dial_period': 50,
-        'backlight_step': 5,
-        'backlight_period': 100
-    },
-    'fw_hash': 'abc123...',          # Firmware build hash
-    'fw_version': 'v1.2.3',          # Firmware version
-    'hw_version': 'v1.0',            # Hardware version
-    'protocol_version': 'v1'         # Protocol version
+        // Initialize to safe state
+        foreach (var dial in dials.Values)
+        {
+            await SetDialPercentageAsync(dial.UID, 0);
+        }
+        
+        _isInitialized = true;
+        return true;
+    }
 }
 ```
 
-**Note:** The key `dial_uid` is used to index this dictionary, ensuring metadata follows the physical dial regardless of its current index/position.
+**Device Discovery:**
+```csharp
+public async Task<Dictionary<string, DialState>> DiscoverAndProvisionAsync()
+{
+    // Rescan I2C bus
+    await RescanBusAsync();
+    
+    // Provision devices (3 attempts)
+    for (int i = 0; i < 3; i++)
+    {
+        await ProvisionDevicesAsync();
+        await Task.Delay(200);
+    }
+    
+    // Get device map and read UIDs
+    return await DiscoverDialsAsync(rescan: true);
+}
+```
+
+**State Management:**
+```csharp
+// VUWare.Lib/DialState.cs
+public class DialState
+{
+    public byte Index { get; set; }              // Hub index (changes with provisioning)
+    public string UID { get; set; }              // Permanent unique ID (PRIMARY KEY)
+    public string Name { get; set; }             // User-friendly name
+    public byte CurrentValue { get; set; }       // Current percentage (0-100)
+    public BacklightColor Backlight { get; set; } // Current RGBW values
+    public EasingConfig Easing { get; set; }     // Animation settings
+    public string FirmwareVersion { get; set; }  // Firmware version
+    public string HardwareVersion { get; set; }  // Hardware version
+    public DateTime LastCommunication { get; set; } // Last contact time
+}
+
+public class BacklightColor
+{
+    public byte Red { get; set; }    // 0-100
+    public byte Green { get; set; }  // 0-100
+    public byte Blue { get; set; }   // 0-100
+    public byte White { get; set; }  // 0-100
+}
+
+public class EasingConfig
+{
+    public uint DialStep { get; set; }         // % change per update
+    public uint DialPeriod { get; set; }       // ms between updates
+    public uint BacklightStep { get; set; }    // % change per update  
+    public uint BacklightPeriod { get; set; }  // ms between updates
+}
+
+// Access by UID (permanent identifier)
+public DialState? GetDial(string uid)
+{
+    return _dials.TryGetValue(uid, out var dial) ? dial : null;
+}
+
+// Get all dials
+public IReadOnlyDictionary<string, DialState> GetAllDials()
+{
+    return _dials;
+}
+```
+
+**Note:** The UID is used as the dictionary key, ensuring metadata follows the physical dial regardless of its current index/position.
 
 ### Complete Power Cycle Example
 
-Here's a detailed walkthrough showing how dial metadata persists across power cycles:
-
-**Initial Setup (First Boot):**
 ```
-1. User connects 3 dials to hub
-2. Server starts, runs provisioning
-3. Dials discovered:
-   - Index 0, UID "ABC123", assigned name "CPU Usage"
-   - Index 1, UID "DEF456", assigned name "GPU Usage"  
-   - Index 2, UID "789GHI", assigned name "RAM Usage"
+1. System powered on
+   - All dials assert reset, listen on 0x09
 
-4. Database entries created:
-   dial_uid="ABC123", dial_name="CPU Usage", easing_dial_step=5
-   dial_uid="DEF456", dial_name="GPU Usage", easing_dial_step=3
-   dial_uid="789GHI", dial_name="RAM Usage", easing_dial_step=2
+2. Host (PC/Server) starts
+   - Initializes VU1Controller
+   - Scans for devices (VID:0x0403, PID:0x6015)
+   - Connects to Gauge Hub
 
-5. User configures via REST API:
-   - "CPU Usage" dial shows 75%, red backlight
-   - "GPU Usage" dial shows 50%, green backlight
-   - "RAM Usage" dial shows 30%, blue backlight
+3. Device discovery process:
+   - VU1Controller.InitializeAsync called
+   - Scans I2C bus (COMM_CMD_RESCAN_BUS)
+   - Receives bitmap of online devices (COMM_CMD_GET_DEVICES_MAP)
+   - Detected devices: 3 (indexes 0, 1, 2)
+
+4. Provisioning new devices:
+   - VU1Controller discovers 3 online devices (indexes 0-2)
+   - Provisions each device:
+     - Sends GET_UID to 0x09
+     - Receives unique UIDs:
+       - Dial 1: "ABC123ABC123"
+       - Dial 2: "DEF456DEF456"
+       - Dial 3: "789ABC789ABC"
+     - Assigns dynamic I2C addresses:
+       - Dial 1: 0x0A
+       - Dial 2: 0x0B
+       - Dial 3: 0x0C
+     - Sends SET_ADDRESS commands to each dial
+       - Targeting by UID
+       - New addresses (10, 11, 12)
+
+5. Retrieving device map:
+   - Host requests device map (COMM_CMD_GET_DEVICES_MAP)
+   - Receives bitmap: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011
+   - Indicates 3 online devices (at indexes 0, 1, 2)
+
+6. Reading device UIDs:
+   - Host reads UID for each online dial (COMM_CMD_GET_DEVICE_UID)
+   - For each index 0-2:
+     - Sends request to get UID
+     - Receives UID from dial
+   - Confirms UIDs:
+     - Dial 1: "ABC123ABC123"
+     - Dial 2: "DEF456DEF456"
+     - Dial 3: "789ABC789ABC"
+
+7. Initializing dial state:
+   - Sets all dials to 0%
+   - Applies default easing configuration
+   - Clears display buffers
+
+8. Ready for operation
+   - Host sends commands to control dials
+   - E.g., SetDialPercentageAsync("ABC123ABC123", 75)
+   - VU1Controller translates UID to index, sends I2C command to dial
 ```
-
-**Power Cycle Occurs:**
-```
-1. Power lost, all dials reset:
-   - All I2C addresses reset to 0x09
-   - Dial positions reset to 0
-   - Backlight colors reset to off
-   - UIDs remain: "ABC123", "DEF456", "789GHI"
-   - Database unchanged on server
-
-2. User physically rearranges dials on I2C bus
-   (moved dials around on the desk)
-```
-
-**System Restart (After Power Cycle):**
-```
-1. Server starts, connects to hub
-2. Provisioning runs (3 times with 200ms delays)
-3. Dials may get DIFFERENT indices due to rearrangement:
-   - Index 0, UID "789GHI" (was index 2 before!)
-   - Index 1, UID "ABC123" (was index 0 before!)
-   - Index 2, UID "DEF456" (was index 1 before!)
-
-4. For each discovered dial, server looks up UID in database:
-   
-   Dial at Index 0:
-   - Read UID: "789GHI"
-   - Database lookup: dial_name="RAM Usage", easing_dial_step=2
-   - Restore metadata to this dial at index 0
-   
-   Dial at Index 1:
-   - Read UID: "ABC123"
-   - Database lookup: dial_name="CPU Usage", easing_dial_step=5
-   - Restore metadata to this dial at index 1
-   
-   Dial at Index 2:
-   - Read UID: "DEF456"
-   - Database lookup: dial_name="GPU Usage", easing_dial_step=3
-   - Restore metadata to this dial at index 2
-
-5. Server sends configuration to dials:
-   - Dial "789GHI" at index 0: Apply easing_dial_step=2
-   - Dial "ABC123" at index 1: Apply easing_dial_step=5
-   - Dial "DEF456" at index 2: Apply easing_dial_step=3
-
-6. Server resets all positions to 0% (safe state)
-
-7. Application resumes:
-   - App sends: "Set CPU Usage to 75%"
-   - Server looks up UID "ABC123" → finds index 1
-   - Server sends command to index 1
-   - Correct dial responds!
-```
-
-**Key Takeaways:**
-- Physical dial position/index can change
-- UID is the permanent identifier
-- Database uses UID as primary key
-- Metadata automatically follows the physical dial
-- Applications use dial names/UIDs, never indices
-- Index-to-UID mapping happens transparently in server
-
-### Periodic Update Loop
-
-The server uses a periodic callback to process queued updates:
-
-**Update Priority:**
-1. Dial values (position updates)
-2. Backlight colors
-3. Display images (large data transfers)
-
-**Implementation:**
-```python
-def periodic_dial_update(self):
-    """Called every ~100ms by tornado.ioloop.PeriodicCallback"""
-    
-    # Update dial positions
-    for _, dial in self.dials.items():
-        if dial['value_changed']:
-            self.dial_driver.dial_single_set_percent(
-                dial['index'], 
-                dial['value']
-            )
-            dial['value_changed'] = False
-            dial['update_deadline'] = time() + self.communication_timeout
-    
-    # Update backlights
-    for _, dial in self.dials.items():
-        if dial['backlight_changed']:
-            self.dial_driver.dial_set_backlight(
-                dial['index'],
-                dial['backlight']['red'],
-                dial['backlight']['green'],
-                dial['backlight']['blue'],
-                dial['backlight']['white']
-            )
-            dial['backlight_changed'] = False
-            dial['update_deadline'] = time() + self.communication_timeout
-    
-    # Update images (if no other updates pending)
-    for _, dial in self.dials.items():
-        if dial['image_changed']:
-            self.dial_driver.update_display(
-                device=dial['index'],
-                imageFile=dial['image_file']
-            )
-            dial['image_changed'] = False
-```
-
-**Why Queued Updates?**
-- Serial communication is slow (115200 baud)
-- Image transfers can take 10+ seconds
-- Prevents blocking REST API responses
-- Allows batching of rapid value changes
-
-## Image Storage and Management
-
-### Server-Side Image Storage
-
-**Location:** `upload/` directory (relative to server root)
-
-**Filename Convention:**
-- Format: `img_[UID]`
-- No file extension
-- Example: `img_3A4B5C6D7E8F`
-
-**Special Files:**
-- `img_blank` - Default blank/empty background
-
-**Persistence:**
-- Images stored as files on server filesystem
-- Filenames mapped to dial UIDs
-- Server sends image to dial on:
-  - Startup (restore last image)
-  - User upload (via REST API)
-  - Explicit refresh request
 
 ### Image Format and Conversion
 
@@ -728,171 +676,170 @@ def periodic_dial_update(self):
 - Vertical byte packing (8 pixels per byte, MSB=top)
 - Total packed size: 3600 bytes ((200×144)/8)
 
-**Image Encoding Process:**
+**Image Encoding Process (VUWare.Lib/ImageProcessor.cs):**
 
-```python
-def img_to_binary(self, img_filepath):
-    """Convert image file to dial-compatible binary format"""
+```csharp
+public static byte[] LoadImageFile(string filePath)
+{
+    // 1. Load image
+    using var img = Image.Load<Rgba32>(filePath);
     
-    # 1. Load image and convert to grayscale
-    img = Image.open(img_filepath)
-    img = img.convert("L")  # Luminance (grayscale)
+    // 2. Resize to display dimensions if needed
+    if (img.Width != DISPLAY_WIDTH || img.Height != DISPLAY_HEIGHT)
+    {
+        img.Mutate(x => x.Resize(DISPLAY_WIDTH, DISPLAY_HEIGHT));
+    }
     
-    # 2. Transpose to column-major order
-    imgData = np.asarray(img)
-    imgData = imgData.T.tolist()
+    // 3. Convert to grayscale
+    byte[] grayscale = ConvertToGrayscale(img);
     
-    # 3. Pack vertically: 8 pixels per byte
-    buff = []
-    for column in imgData:
-        # Threshold: >127 = white (0), ≤127 = black (1)
-        bits = [1 if pixel > 127 else 0 for pixel in column]
-        
-        # Pack into bytes (MSB = top pixel)
-        bytes = [
-            int("".join(map(str, bits[i:i+8])), 2)
-            for i in range(0, len(bits), 8)
-        ]
-        buff.extend(bytes)
+    // 4. Pack vertically: 8 pixels per byte
+    return ConvertGrayscaleTo1Bit(grayscale, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+}
+
+public static byte[] ConvertGrayscaleTo1Bit(byte[] grayscale, int width, int height, int threshold = 127)
+{
+    byte[] packed = new byte[(width * height) / 8];
+    int byteIndex = 0;
     
-    return buff
+    // Process column by column (vertical packing)
+    for (int x = 0; x < width; x++)
+    {
+        for (int y = 0; y < height; y += 8)
+        {
+            byte packedByte = 0;
+            
+            // Pack 8 vertical pixels into one byte (MSB = top pixel)
+            for (int bit = 0; bit < 8; bit++)
+            {
+                int pixelY = y + bit;
+                if (pixelY < height)
+                {
+                    int pixelIndex = pixelY * width + x;
+                    bool isLight = grayscale[pixelIndex] > threshold;
+                    
+                    if (isLight)
+                    {
+                        packedByte |= (byte)(1 << (7 - bit)); // MSB = top pixel
+                    }
+                }
+            }
+            
+            packed[byteIndex++] = packedByte;
+        }
+    }
+    
+    return packed;
+}
 ```
 
 **Bit Packing Example:**
-```
-Pixels (top to bottom): [255, 200, 100, 50, 0, 30, 180, 220]
-Threshold at 127:       [1,   1,   0,   0,  0, 0,  1,   1]
-Binary string:          "11000011"
-Byte value:             0xC3 (195 decimal)
-```
+````````
 
-### Image Transfer Protocol
+This is the description of what the code block changes:
+Update Default Values section to reference C# constants
 
-**Transfer Sequence:**
+This is the code block that represents the suggested code change:
 
-```
-1. Clear display
-   Command: DISPLAY_CLEAR
-   Data: [dial_index, color_flag]
-   
-2. Set cursor to origin
-   Command: DISPLAY_GOTO_XY
-   Data: [dial_index, 0x00, 0x00, 0x00, 0x00]
-   
-3. Send image data in chunks
-   Command: DISPLAY_IMG_DATA (repeated)
-   Data: [dial_index, chunk_data...]
-   Chunk size: 1000 bytes maximum
-   Delay: 200ms between chunks
-   
-4. Trigger refresh
-   Command: DISPLAY_SHOW_IMG
-   Data: [dial_index]
-```
-
-**Performance Considerations:**
-- 200×144 display = 28,800 pixels
-- 1 bit per pixel = 3600 bytes total
-- At 1000 bytes per chunk = 4 chunks (1000 + 1000 + 1000 + 600)
-- At 200ms per chunk = ~0.8 seconds transfer time
-- E-paper refresh = 1-2 seconds additional
-
-**Total time to update display: ~2-3 seconds**
-
-## Easing and Animation
-
-### Concept
-
-Easing controls how smoothly dials transition between values. Without easing, dials would instantly jump to new positions.
-
-**Two Independent Easing Systems:**
-1. **Dial Easing** - Needle/pointer movement
-2. **Backlight Easing** - RGBW color transitions
-
-### Easing Parameters
-
-**Step Size** (`easing_step`)
-- Percentage change per update period
-- Example: `step=5` means move 5% per period
-- Larger = faster transitions
-- Range: 1-100
-
-**Period** (`easing_period`)
-- Milliseconds between updates
-- Example: `period=50` means update every 50ms
-- Smaller = smoother transitions
-- Range: typically 10-1000ms
-
-### Example Calculations
-
-**Scenario:** Dial at 0%, commanded to 100%
-
-**Configuration 1: Fast (step=10, period=50ms)**
-```
-Time 0ms:    0%
-Time 50ms:   10%
-Time 100ms:  20%
-Time 150ms:  30%
-...
-Time 500ms:  100% (complete in 0.5 seconds)
-```
-
-**Configuration 2: Slow (step=2, period=100ms)**
-```
-Time 0ms:    0%
-Time 100ms:  2%
-Time 200ms:  4%
-Time 300ms:  6%
-...
-Time 5000ms: 100% (complete in 5 seconds)
-```
-
+````````markdown
 ### Default Values
 
-```python
-# Server defaults (from database schema)
-easing_dial_step = 2            # 2% per update
-easing_dial_period = 50         # 50ms between updates
-easing_backlight_step = 5       # 5% per update
-easing_backlight_period = 100   # 100ms between updates
+```csharp
+// VUWare.Lib default easing configuration
+public static class EasingDefaults
+{
+    public const uint DialStep = 2;          // 2% per update
+    public const uint DialPeriod = 50;       // 50ms between updates
+    public const uint BacklightStep = 5;     // 5% per update
+    public const uint BacklightPeriod = 100; // 100ms between updates
+}
+
+// Example usage
+var defaultEasing = new EasingConfig
+{
+    DialStep = 2,
+    DialPeriod = 50,
+    BacklightStep = 5,
+    BacklightPeriod = 100
+};
 ```
 
 ### Configuration Persistence
 
-**Dual Storage:**
-1. **Server Database** - Source of truth, restored on dial discovery
-2. **Dial EEPROM** - Local copy, survives server restart
+**Storage Options:**
+1. **Application-Managed** - Application stores dial metadata (UID → Name, Easing, etc.)
+2. **Dial EEPROM** - Dials store easing configuration in non-volatile memory
+
+**VUWare.Lib Pattern:**
+
+```csharp
+// Application stores mapping of UID to user preferences
+public class DialConfiguration
+{
+    public string UID { get; set; }
+    public string Name { get; set; }
+    public EasingConfig Easing { get; set; }
+}
+
+// Load configuration on startup
+public async Task RestoreDialConfigurationAsync(DialConfiguration config)
+{
+    var dial = GetDial(config.UID);
+    if (dial != null)
+    {
+        dial.Name = config.Name;
+        
+        // Send easing to dial hardware
+        await SetEasingConfigAsync(config.UID, config.Easing);
+    }
+}
+
+// SetEasingConfigAsync sends four commands to the dial
+public async Task<bool> SetEasingConfigAsync(string uid, EasingConfig config)
+{
+    var dial = GetDial(uid);
+    if (dial == null) return false;
+    
+    await SendCommandAsync(CommandBuilder.SetDialEasingStep(dial.Index, config.DialStep));
+    await SendCommandAsync(CommandBuilder.SetDialEasingPeriod(dial.Index, config.DialPeriod));
+    await SendCommandAsync(CommandBuilder.SetBacklightEasingStep(dial.Index, config.BacklightStep));
+    await SendCommandAsync(CommandBuilder.SetBacklightEasingPeriod(dial.Index, config.BacklightPeriod));
+    
+    dial.Easing = config;
+    return true;
+}
+```
 
 **Synchronization Flow:**
 ```
-User Changes Easing via API
+Application Loads Configuration
     ↓
-Server Updates Database
+Call SetEasingConfigAsync(UID, config)
     ↓
-Server Sends Commands to Dial:
+VU1Controller sends commands to dial:
     - SET_DIAL_EASING_STEP
     - SET_DIAL_EASING_PERIOD
     - SET_BACKLIGHT_EASING_STEP
     - SET_BACKLIGHT_EASING_PERIOD
     ↓
-Dial Stores in EEPROM
+Dial stores in EEPROM
     ↓
-Dial Uses for All Future Transitions
+Dial uses for all future transitions
 ```
 
-**On Server Restart:**
+**On Application Restart:**
 ```
-Server Starts
+Application Starts
     ↓
-Discovers Dials (via UID)
+VU1Controller.InitializeAsync() discovers dials
     ↓
-Loads Easing Config from Database
+Application loads saved configurations (UID-based)
     ↓
-Sends Config to Each Dial
+Application calls SetEasingConfigAsync for each dial
     ↓
-Dial Overwrites EEPROM
+Dials receive and store configuration
     ↓
-Ready for Operation
+Ready for operation
 ```
 
 ## Error Handling and Edge Cases
@@ -902,158 +849,71 @@ Ready for Operation
 **Timeout Handling:**
 - Read timeout: 2 seconds (configurable)
 - Write timeout: 2 seconds (configurable)
-- On timeout: Log error, return failure
-- No automatic retry at driver level
+- On timeout: Throw TimeoutException
+- Async operations support CancellationToken
 
-**Response Validation:**
-```python
-def _parseResponse(self, response):
-    """Parse hub response and check for errors"""
-    for line in response:
-        if line.startswith('<'):
-            cmd = line[1:3]
-            dataType = line[3:5]
-            dataLen = line[5:9]
-            data = line[9:]
-            
-            # Check if response is a status code
-            if dataType == COMM_DATA_STATUS_CODE:
-                status = int(data, 16)
-                if status == GAUGE_STATUS_OK:
-                    return True
-                else:
-                    logger.error(f"Error code: {status}")
-                    return False
-            
-            return data
+**Response Validation (VUWare.Lib/ProtocolHandler.cs):**
+```csharp
+public static Message ParseResponse(string response)
+{
+    if (string.IsNullOrEmpty(response) || response.Length < 9)
+    {
+        throw new ArgumentException("Invalid response format");
+    }
     
-    return False
+    // Validate start character
+    if (response[0] != '<')
+    {
+        throw new InvalidOperationException("Response does not start with '<'");
+    }
+    
+    // Parse header: <CCDDLLLL[DATA]
+    byte command = byte.Parse(response.Substring(1, 2), NumberStyles.HexNumber);
+    byte dataType = byte.Parse(response.Substring(3, 2), NumberStyles.HexNumber);
+    int dataLength = int.Parse(response.Substring(5, 4), NumberStyles.HexNumber);
+    
+    string rawData = response.Length > 9 ? response.Substring(9) : string.Empty;
+    
+    var message = new Message
+    {
+        Command = command,
+        DataType = (DataType)dataType,
+        DataLength = dataLength,
+        RawData = rawData
+    };
+    
+    // Parse binary data if present
+    if (message.DataType == DataType.StatusCode && rawData.Length >= 4)
+    {
+        message.BinaryData = HexStringToBytes(rawData.Substring(0, 4));
+    }
+    else if (rawData.Length > 0)
+    {
+        message.BinaryData = HexStringToBytes(rawData);
+    }
+    
+    return message;
+}
+
+public static bool IsSuccessResponse(Message message)
+{
+    if (message.DataType != DataType.StatusCode)
+    {
+        return true; // Non-status responses are typically successful
+    }
+    
+    if (message.BinaryData == null || message.BinaryData.Length < 2)
+    {
+        return false;
+    }
+    
+    // Status codes are big-endian 16-bit values
+    ushort statusCode = (ushort)((message.BinaryData[0] << 8) | message.BinaryData[1]);
+    return statusCode == (ushort)GaugeStatus.OK;
+}
 ```
 
 ### Device Offline/Disconnect
-
-**Detection:**
-- Device stops responding to commands
-- Status code: `GAUGE_STATUS_DEVICE_OFFLINE` (0x0012)
-
-**Recovery:**
-1. Call `RESCAN_BUS`
-2. Call `GET_DEVICES_MAP`
-3. Compare with previous device map
-4. Log disconnected devices
-5. Remove from active dial list
-
-### Power Cycle Detection
-
-**Critical Finding: The current implementation does NOT detect power cycles automatically.**
-
-The server has no mechanism to detect when dials have lost power and reset. Here's what happens:
-
-**Server Lifecycle:**
-```
-Server Start
-    ↓
-Connect to Hub (USB serial port)
-    ↓
-Discover Dials (RESCAN + PROVISION + GET_DEVICES_MAP)
-    ↓
-Build dial list in memory
-    ↓
-Run periodic update loop (every ~1 second)
-    ↓
-Server runs continuously until stopped
-```
-
-**What Doesn't Happen:**
-- No periodic re-scanning of the I2C bus
-- No automatic re-provisioning
-- No detection of address reset (dials reverting to 0x09)
-- No validation that dial at index X still has expected UID
-
-**Power Cycle Scenarios:**
-
-**Scenario 1: Dials lose power while server running**
-```
-1. Server running, dials at indices 0, 1, 2
-2. User accidentally unplugs dial power
-3. All dials reset to address 0x09
-4. Server continues sending commands to indices 0, 1, 2
-5. Commands fail (no devices at those addresses)
-6. Server logs "device offline" errors
-7. Values stop updating
-8. NO AUTOMATIC RECOVERY - manual intervention required
-```
-
-**Scenario 2: Server restart (dials kept powered)**
-```
-1. Dials remain powered at addresses 0x0A, 0x0B, 0x0C
-2. Server restarts
-3. Server runs provisioning (assumes all dials at 0x09)
-4. Provisioning attempts fail or assign conflicting addresses
-5. May result in communication errors
-6. User must power-cycle dials to reset to 0x09
-```
-
-**Scenario 3: Everything restarts together**
-```
-1. Both server and dials power cycle
-2. Server starts, runs discovery
-3. All dials at 0x09 (correct state)
-4. Provisioning succeeds
-5. System works correctly
-```
-
-**Why This Matters:**
-
-The server assumes:
-- Initial discovery is sufficient
-- Index-to-UID mapping remains valid forever
-- Dials never reset during server operation
-
-But reality:
-- USB power can glitch
-- Users may disconnect/reconnect devices
-- Hardware issues can cause device resets
-- Dials may be on separate power supply
-
-**Detection Mechanisms (Not Implemented):**
-
-The server COULD detect power cycles by:
-
-1. **Periodic UID Verification**
-   ```python
-   # Every N seconds, verify each dial's UID
-   def verify_dial_identity(dialIndex, expectedUID):
-       actualUID = dial_get_uid(dialIndex)
-       if actualUID != expectedUID:
-           # Dial has changed or reset!
-           return False
-       return True
-   ```
-
-2. **Communication Failure Pattern**
-   ```python
-   # If multiple sequential commands fail with DEVICE_OFFLINE
-   if consecutive_failures > threshold:
-       # Trigger automatic re-discovery
-       rescan_and_reprovision()
-   ```
-
-3. **Periodic Re-provisioning**
-   ```python
-   # Every N minutes, do a full bus rescan
-   def periodic_discovery():
-       devices_map = get_devices_map()
-       if len(devices_map) != len(expected_devices):
-           # Device count changed, re-provision
-           provision_dials()
-   ```
-
-4. **Hub Status Query**
-   ```
-   # Check if hub has noticed address conflicts or errors
-   # (Would require hub firmware support)
-   ```
 
 **Current Workaround:**
 
@@ -1075,7 +935,7 @@ if len(self.dial_handler.dials) <= 1:
 
 **C# Implementation Recommendation:**
 
-For a robust C# library, implement:
+For a robust C# library, VUWare.Lib can implement:
 
 1. **Heartbeat/Keep-Alive**: Periodically verify dial communication
 2. **UID Verification**: Periodically confirm index→UID mapping
@@ -1083,158 +943,225 @@ For a robust C# library, implement:
 4. **Device Count Monitoring**: Track expected vs. actual device count
 5. **Error Pattern Detection**: Trigger recovery on repeated failures
 
-Example architecture:
+**Example C# Architecture:**
 ```csharp
-class DialMonitor {
-    Timer verificationTimer;
-    Dictionary<int, DialInfo> expectedDevices;
+// VUWare.Lib - Dial health monitoring
+public class DialHealthMonitor
+{
+    private readonly VU1Controller _controller;
+    private readonly Timer _verificationTimer;
+    private readonly Dictionary<string, int> _failureCounts = new();
     
-    void PeriodicVerification() {
-        foreach (var dial in expectedDevices) {
-            if (!VerifyDialUID(dial.Index, dial.UID)) {
-                // Dial has reset or been replaced
-                TriggerRecovery();
-                break;
+    public DialHealthMonitor(VU1Controller controller)
+    {
+        _controller = controller;
+        _verificationTimer = new Timer(PeriodicVerification, null, 
+                                       TimeSpan.FromMinutes(1), 
+                                       TimeSpan.FromMinutes(1));
+    }
+    
+    private async void PeriodicVerification(object? state)
+    {
+        foreach (var dial in _controller.GetAllDials().Values)
+        {
+            try
+            {
+                // Verify UID still matches index
+                string actualUID = await _controller._deviceManager.GetDeviceUIDAsync(dial.Index);
+                
+                if (actualUID != dial.UID)
+                {
+                    // Dial has reset or been replaced!
+                    await TriggerRecoveryAsync();
+                    break;
+                }
+                
+                // Reset failure count on success
+                _failureCounts[dial.UID] = 0;
+            }
+            catch (TimeoutException)
+            {
+                // Track failures
+                _failureCounts.TryGetValue(dial.UID, out int count);
+                _failureCounts[dial.UID] = count + 1;
+                
+                if (_failureCounts[dial.UID] >= 3)
+                {
+                    // Multiple consecutive failures - trigger recovery
+                    await TriggerRecoveryAsync();
+                    break;
+                }
             }
         }
     }
     
-    void TriggerRecovery() {
-        Log.Warning("Dial configuration mismatch detected, re-provisioning...");
-        RescanBus();
-        ProvisionDevices();
-        RestoreConfiguration();
+    private async Task TriggerRecoveryAsync()
+    {
+        Debug.WriteLine("Dial configuration mismatch detected, re-provisioning...");
+        
+        // Re-initialize entire system
+        await _controller.InitializeAsync();
+        
+        // Application should restore user configurations after recovery
+        OnRecoveryComplete?.Invoke(this, EventArgs.Empty);
     }
+    
+    public event EventHandler? OnRecoveryComplete;
 }
+
+// Usage in application
+var healthMonitor = new DialHealthMonitor(vu1Controller);
+healthMonitor.OnRecoveryComplete += (s, e) => {
+    // Restore user dial configurations
+    RestoreDialConfigurations();
+};
 ```
 
 ### Provisioning Failures
 
-**Common Causes:**
-- Too many dials on bus (>100)
-- I2C address conflicts
-- Power supply issues
-- Cable/connection problems
-
-**Mitigation:**
-- Multiple provision attempts (3x with 200ms delay)
-- Full bus reset between attempts
-- User notification if no dials found
-
 ### Known Implementation Issue: Stale Data After Power Cycle
 
 **Symptom:**
-After a power cycle, multiple dials may display the same value. You must add devices one-by-one, re-discovering after each addition.
+After a power cycle, multiple dials may display the same value if not properly cleared.
 
 **Root Cause:**
-Inconsistent dictionary key usage between layers:
+Device cache not cleared during re-discovery.
 
-```python
-# dial_driver.py uses INDEX as key:
-self.dials[dialIndex] = {...}  # Key: 0, 1, 2...
+**Prevention in VUWare.Lib:**
 
-# server_dial_handler.py uses UID as key:
-self.dials[dial['uid']] = dial  # Key: "ABC123...", "DEF456..."
-```
+The library prevents this by clearing the device cache during re-discovery:
 
-**What Happens:**
-
-```
-1. Before power cycle:
-   dial_driver.dials = {
-       0: {uid: "ABC123", ...},
-       1: {uid: "DEF456", ...},
-       2: {uid: "GHI789", ...}
-   }
-
-2. Power cycle occurs, all dials reset to address 0x09
-
-3. Provisioning starts, but only partially completes:
-   - First dial provisioned → index 0, UID "ABC123"
-   - dial_driver.dials[0] updated with new data
-   - BUT indices 1 and 2 still contain STALE DATA
-
-4. get_dial_list() iterates self.dials.items():
-   - Returns entries for indices 0, 1, 2
-   - Only index 0 is actually online!
-   - Indices 1 and 2 are ghosts from previous session
-
-5. Server tries to communicate with non-existent dials:
-   - Commands to indices 1, 2 fail or hit wrong devices
-   - Results in duplicate values on wrong dials
-```
-
-**Why One-By-One Works:**
-- Forces `rescan=True` after each dial addition
-- Each rescan queries actual hardware state (GET_DEVICES_MAP)
-- But doesn't clear the stale entries in dial_driver.dials
-- Works by accident because latest rescan data overwrites stale data
-
-**Proper Fix:**
-The `get_dial_list()` method should:
-1. Clear `self.dials = {}` when `rescan=True`
-2. Only populate with dials actually reported by hardware
-3. Never return stale index-based entries
-
-```python
-def get_dial_list(self, rescan=False):
-    if rescan:
-        self.dials = {}  # CLEAR STALE DATA
-        self.bus_rescan()
-        resp = self._sendCommand(self.commands.COMM_CMD_GET_DEVICES_MAP, ...)
+```csharp
+// VUWare.Lib/DeviceManager.cs
+public async Task<Dictionary<string, DialState>> DiscoverDialsAsync(bool rescan = false)
+{
+    if (rescan)
+    {
+        // CRITICAL: Clear stale data before rescanning
+        _dials.Clear();
         
-        # Only add dials actually reported by hardware
-        onlineDials = []
-        for key, elem in enumerate(resp):
-            if int(elem, 16) == 1:
-                onlineDials.append(key)
+        await BusRescanAsync();
         
-        # Build fresh dial list
-        for dialIndex in onlineDials:
-            deviceUID = self.dial_get_uid(dialIndex)
-            self.dials[dialIndex] = {...}
+        // Get fresh device map from hardware
+        string response = await SendCommandAsync(CommandBuilder.GetDevicesMap());
+        
+        // Parse device map - only add devices reported as online
+        var onlineDials = new List<byte>();
+        for (int i = 0; i < response.Length; i += 2)
+        {
+            byte status = Convert.ToByte(response.Substring(i, 2), 16);
+            if (status == 1)  // Only add if actually online
+            {
+                onlineDials.Add((byte)(i / 2));
+            }
+        }
+        
+        // Build fresh dial list from hardware state only
+        foreach (byte dialIndex in onlineDials)
+        {
+            string deviceUID = await GetDeviceUIDAsync(dialIndex);
+            _dials[deviceUID] = new DialState
+            {
+                Index = dialIndex,
+                UID = deviceUID,
+                Name = $"Dial {dialIndex}",
+                // Fresh state only
+            };
+        }
+    }
+    
+    return _dials;
+}
 ```
 
-**C# Implementation Note:**
-When implementing your C# library, ensure:
-- Clear device cache on discovery/rescan
-- Only track devices confirmed by GET_DEVICES_MAP
-- Use UID as primary key throughout all layers
-- Maintain index-to-UID mapping separately if needed
+**Key Implementation Points:**
+
+1. **Always clear cache on rescan** - `_dials.Clear()` when `rescan=true`
+2. **Only add confirmed devices** - Check GET_DEVICES_MAP response
+3. **Use UID as primary key** - Dictionary<string UID, DialState>
+4. **Never assume previous state** - Build from hardware truth each time
+
+**Application Layer Best Practice:**
+
+```csharp
+// After power cycle or connection issues
+public async Task ReconnectAndRestoreAsync()
+{
+    // 1. Re-initialize (clears cache, rescans, provisions)
+    await vu1Controller.InitializeAsync();
+    
+    // 2. Restore user configurations from app storage
+    var savedConfigs = LoadSavedDialConfigurations();
+    
+    foreach (var config in savedConfigs)
+    {
+        var dial = vu1Controller.GetDial(config.UID);
+        if (dial != null)
+        {
+            // Dial still exists, restore configuration
+            dial.Name = config.Name;
+            await vu1Controller.SetEasingConfigAsync(config.UID, config.Easing);
+        }
+    }
+}
+```
 
 ### Database Corruption
 
-**Detection:**
-- SQLite errors on query
-- Missing required tables
+**Note:** VUWare.Lib does not include database functionality. Applications using VUWare.Lib are responsible for:
+- Storing dial configurations (UID → Name, Easing, etc.)
+- Persisting user preferences
+- Implementing backup/recovery strategies
 
-**Recovery:**
-```python
-def __init__(self, database_file='vudials.db', init_if_missing=False):
-    """Initialize database, create schema if missing"""
-    if not os.path.exists(self.database_file) and not init_if_missing:
-        raise SystemError("Database file does not exist!")
+**Recommended Application Pattern:**
+
+```csharp
+// Application-side persistence using JSON files, SQLite, etc.
+public class DialConfigurationStore
+{
+    private readonly string _configPath = "dial_configs.json";
     
-    self.connection = sqlite3.connect(self.database_file)
+    public void SaveConfiguration(string uid, DialConfiguration config)
+    {
+        var configs = LoadAllConfigurations();
+        configs[uid] = config;
+        
+        string json = JsonSerializer.Serialize(configs);
+        File.WriteAllText(_configPath, json);
+    }
     
-    if init_if_missing:
-        self._init_database()  # Create tables if missing
+    public Dictionary<string, DialConfiguration> LoadAllConfigurations()
+    {
+        if (!File.Exists(_configPath))
+        {
+            return new Dictionary<string, DialConfiguration>();
+        }
+        
+        string json = File.ReadAllText(_configPath);
+        return JsonSerializer.Deserialize<Dictionary<string, DialConfiguration>>(json) 
+               ?? new Dictionary<string, DialConfiguration>();
+    }
+}
 ```
 
 ## API Key and Access Control
+
+**Note:** VUWare.Lib is a direct hardware control library and does not implement authentication or access control. These features would be implemented at the application layer (e.g., in a REST API server or desktop application).
+
+**If Building a Multi-User Server:**
+
+Applications that expose dial control via network API should implement authentication. Example architecture:
 
 ### Authentication System
 
 **Three-Level Hierarchy:**
 
 1. **Master Key** (Level 99)
-   - Defined in `config.yaml`
    - Full system access
    - Can create/delete other keys
    - Can manage all dials
 
 2. **Admin Keys** (Level 10-98)
-   - Created by master key
    - Can manage assigned dials
    - Cannot create new keys
 
@@ -1242,189 +1169,4 @@ def __init__(self, database_file='vudials.db', init_if_missing=False):
    - Limited read/write access
    - Access to specific dials only
 
-### Database Schema
-
-```sql
-CREATE TABLE api_keys (
-    key_id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,
-    key_name TEXT,
-    key_uid TEXT NOT NULL UNIQUE,
-    key_level INTEGER
-);
-
-CREATE TABLE dial_access (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    dial_uid TEXT NOT NULL,
-    key_id INTEGER NOT NULL
-);
-```
-
-### Access Control Flow
-
-```
-REST API Request
-    ↓
-Extract API Key from Request
-    ↓
-Validate Key Exists in Database
-    ↓
-Check Key Level:
-    - Level 99: Allow all operations
-    - Level <99: Check dial_access table
-    ↓
-Verify Key Has Access to Requested Dial UID
-    ↓
-Process Request or Return 401 Unauthorized
-```
-
-## Implementation Checklist for C# Library
-
-### Core Components
-
-- [ ] **SerialPortManager**
-  - USB device detection (VID:0x0403, PID:0x6015)
-  - Serial port configuration (115200 8N1)
-  - Thread-safe send/receive
-  - Timeout handling
-
-- [ ] **ProtocolHandler**
-  - Message encoding (hex ASCII format)
-  - Message decoding
-  - Response parsing
-  - Status code validation
-
-- [ ] **DeviceManager**
-  - Device discovery (rescan, provision, get map)
-  - UID tracking
-  - Index-to-UID mapping
-  - State synchronization
-
-- [ ] **CommandBuilder**
-  - Type-safe command construction
-  - Data type handling
-  - Length calculation
-  - Checksum (if needed)
-
-- [ ] **ImageProcessor**
-  - Image loading (PNG, BMP, JPEG)
-  - Grayscale conversion
-  - Bit packing (vertical 8-pixel bytes)
-  - Chunking (1000-byte segments)
-
-### Advanced Features
-
-- [ ] **StateManager**
-  - In-memory dial state
-  - Persistence (file or database)
-  - Change tracking
-
-- [ ] **EasingController**
-  - Configuration management
-  - Validation (ranges, types)
-
-- [ ] **CommandQueue**
-  - Asynchronous command execution
-  - Priority handling (values → backlight → images)
-  - Batch operations
-
-- [ ] **ErrorHandler**
-  - Retry logic
-  - Connection recovery
-  - Logging
-
-### Testing Considerations
-
-1. **Mock Serial Port** - Test without hardware
-2. **Device Simulator** - Simulate hub responses
-3. **Stress Testing** - Rapid commands, large images
-4. **Edge Cases** - Disconnection, invalid data, timeouts
-
-## Firmware Update Process (Bootloader)
-
-The system supports firmware updates via bootloader commands (0xF0-0xF8 range):
-
-**Bootloader Commands:**
-- `DG_HUB_TO_DEV_BTL_JUMP_TO_BOOTLOADER` (0xF0)
-- `DG_HUB_TO_DEV_BTL_BOOTLOADER_INFO` (0xF1)
-- `DG_HUB_TO_DEV_BTL_GET_CRC` (0xF2)
-- `DG_HUB_TO_DEV_BTL_ERASE_APP` (0xF3)
-- `DG_HUB_TO_DEV_FWUP_PACKAGE` (0xF4)
-- `DG_HUB_TO_DEV_FWUP_FINISHED` (0xF5)
-- `DG_HUB_TO_DEV_BTL_EXIT` (0xF6)
-- `DG_HUB_TO_DEV_BTL_RESTART_UPLOAD` (0xF7)
-- `DG_HUB_TO_DEV_BTL_READ_STATUS_CODE` (0xF8)
-
-**Update Sequence:**
-1. Enter bootloader mode
-2. Erase application flash
-3. Send firmware packages (chunked)
-4. Verify CRC
-5. Mark upload finished
-6. Exit bootloader (reboot)
-
-**Safety Keys:**
-```
-GAUGE_I2C_JUMP_TO_BTL_KEY1 = 0x53
-GAUGE_I2C_JUMP_TO_BTL_KEY2 = 0x4B
-```
-
-These keys must be sent to prevent accidental bootloader entry.
-
-## Additional Notes
-
-### Power Management
-
-- `COMM_CMD_DIAL_POWER` (0x0A) controls power to all dials
-- Useful for power saving or emergency stop
-- Power off preserves dial EEPROM data
-
-### Debug Commands
-
-- `COMM_CMD_DEBUG_I2C_SCAN` (0xF3) - Scan I2C bus
-- Returns list of responding addresses
-- Useful for diagnosing connection issues
-
-### Configuration Reset
-
-- `COMM_CMD_RESET_CFG` (0x12) - Reset dial to factory defaults
-- Clears stored easing, calibration
-- Does not affect UID or firmware
-
-### Keep-Alive (Deprecated)
-
-The codebase shows remnants of a keep-alive mechanism:
-- `DG_HUB_TO_DEV_KEEP_ALIVE` (0x19)
-- `DG_HUB_TO_DEV_SERVER_ABSENT` (0x1A)
-- `DG_HUB_TO_DEV_SERVER_PRESENT` (0x1B)
-
-**Currently disabled** - Communication timeout is used instead.
-
-## Summary
-
-The VU1 system uses a sophisticated multi-layer architecture:
-
-1. **Hardware Layer**: I2C bus with dynamic addressing
-2. **Protocol Layer**: ASCII-hex serial protocol
-3. **State Layer**: Server-side persistence + dial EEPROM
-4. **API Layer**: REST interface with key-based access
-
-Key implementation insights:
-
-- **All dials share factory address 0x09** - Enables interchangeable units
-- **Provisioning is stateless** - I2C addresses stored in RAM, reset on power cycle
-- **UIDs are permanent** - Factory-programmed in flash, never change
-- **UID-based addressing** - Hub uses UID to target specific dial during provisioning
-- **Dual persistence** - Server DB for discovery, dial EEPROM for config
-- **Queued updates** - Prevents blocking on slow operations
-- **Easing is transparent** - Dials handle animation autonomously
-
-When implementing a C# library, focus on:
-1. Robust serial communication
-2. Reliable device discovery/provisioning
-3. Efficient image encoding
-4. Clean state management
-5. Comprehensive error handling
-
----
-
-*This implementation guide complements the SERIAL_PROTOCOL.md document.*
+### Example Database Schema
