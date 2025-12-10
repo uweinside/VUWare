@@ -10,7 +10,6 @@
         Width="656"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
-        WindowState="Minimized"
         Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True">

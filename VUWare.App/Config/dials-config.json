@@ -6,7 +6,8 @@
     "globalUpdateIntervalMs": 1000,
     "logFilePath": "",
     "debugMode": false,
-    "serialCommandDelayMs": 150
+    "serialCommandDelayMs": 150,
+    "startMinimized": true
   },
   "dials": [
     {

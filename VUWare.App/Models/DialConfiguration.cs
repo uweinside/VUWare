@@ -220,5 +220,9 @@ namespace VUWare.App.Models
         /// <summary>Delay in milliseconds between firmware detail queries during initialization (default: 50ms)</summary>
         [JsonPropertyName("serialCommandDelayMs")]
         public int SerialCommandDelayMs { get; set; } = 50;
+
+        /// <summary>Start the application minimized to system tray</summary>
+        [JsonPropertyName("startMinimized")]
+        public bool StartMinimized { get; set; } = true;
     }
 }
