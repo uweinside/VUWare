@@ -64,6 +64,14 @@ namespace VUWare.App
             
             // Then load configuration and start monitoring
             LoadConfiguration();
+            
+            // Apply startMinimized setting from configuration
+            if (_config?.AppSettings.StartMinimized == true)
+            {
+                WindowState = WindowState.Minimized;
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Starting minimized based on configuration");
+            }
+            
             StartInitialization();
         }
 
