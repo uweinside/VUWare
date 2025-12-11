@@ -202,52 +202,6 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <!-- Available Sensors Tab -->
-                <TabItem Header="Available Sensors">
-                    <Grid Margin="15">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="Browse available HWInfo64 sensors" 
-                                 Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,15" Grid.Row="0"/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15" Grid.Row="1">
-                            <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="#CCCCCC" Margin="0,0,10,0"/>
-                            <TextBox x:Name="SensorSearchTextBox" Width="300" Height="30" Padding="8" 
-                                   Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" 
-                                   TextChanged="SensorSearchTextBox_TextChanged"/>
-                            <Button x:Name="RefreshSensorsButton" Content="Refresh" Click="RefreshSensorsButton_Click"
-                                  Style="{StaticResource ModernButton}"
-                                  Width="100" Margin="10,0,0,0"/>
-                        </StackPanel>
-
-                        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Grid.Row="2">
-                            <ListBox x:Name="SensorsListBox" Background="Transparent" Foreground="#CCCCCC" 
-                                   BorderThickness="0" ItemsSource="{Binding FilteredSensors}" 
-                                   SelectedItem="{Binding SelectedSensor}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Margin="5">
-                                            <TextBlock Text="{Binding DisplayText}" Foreground="#CCCCCC" FontSize="12"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
-
-                        <StackPanel Grid.Row="3" Margin="0,15,0,0">
-                            <TextBlock x:Name="SensorCountText" Text="No sensors loaded" 
-                                     Foreground="#888888" FontSize="11"/>
-                            <TextBlock Text="Note: HWInfo64 must be running with 'Shared Memory Support' enabled" 
-                                     Foreground="#888888" FontSize="10" Margin="0,5,0,0"/>
-                        </StackPanel>
-                    </Grid>
-                </TabItem>
-
                 <!-- Dial Images Tab -->
                 <TabItem Header="Dial Images">
                     <Grid Margin="15">

@@ -19,7 +19,6 @@ namespace VUWare.App
     {
         private DialsConfiguration _configuration;
         private SettingsViewModel _settingsViewModel;
-        private AvailableSensorsViewModel _sensorsViewModel;
         private List<DialConfigurationViewModel> _dialViewModels;
         private HWInfo64Controller? _hwInfoController;
         private VUWare.Lib.VU1Controller? _vu1Controller;
@@ -33,7 +32,6 @@ namespace VUWare.App
             
             // Initialize view models
             _settingsViewModel = new SettingsViewModel(_configuration.AppSettings);
-            _sensorsViewModel = new AvailableSensorsViewModel();
             _dialViewModels = new List<DialConfigurationViewModel>();
 
             // Initialize after InitializeComponent
@@ -51,9 +49,6 @@ namespace VUWare.App
             if (_hwInfoController != null && _hwInfoController.IsConnected)
             {
                 System.Diagnostics.Debug.WriteLine($"[SettingsWindow] HWInfo controller is connected");
-                
-                _sensorsViewModel.LoadSensors(_hwInfoController);
-                UpdateSensorCount();
                 
                 // Load sensor data for all dial view models
                 var readings = _hwInfoController.GetAllSensorReadings();
@@ -90,13 +85,6 @@ namespace VUWare.App
             
             // Initialize dial selection for image upload
             InitializeDialSelection();
-
-            // Refresh sensors if HWInfo is available
-            if (_hwInfoController != null && _hwInfoController.IsConnected)
-            {
-                _sensorsViewModel.LoadSensors(_hwInfoController);
-                UpdateSensorCount();
-            }
         }
 
         /// <summary>
@@ -121,20 +109,6 @@ namespace VUWare.App
                     if (scrollViewer?.Content is Border border)
                     {
                         border.DataContext = _settingsViewModel;
-                    }
-                }
-            }
-
-            // Set Available Sensors tab data context
-            if (mainTabControl.Items.Count > 2)
-            {
-                var sensorsTab = mainTabControl.Items[2] as TabItem;
-                if (sensorsTab != null)
-                {
-                    var grid = sensorsTab.Content as Grid;
-                    if (grid != null)
-                    {
-                        grid.DataContext = _sensorsViewModel;
                     }
                 }
             }
@@ -198,76 +172,6 @@ namespace VUWare.App
             if (dialComboBox == null) return;
 
             dialComboBox.ItemsSource = _dialViewModels;
-        }
-
-        /// <summary>
-        /// Updates the sensor count display.
-        /// </summary>
-        private void UpdateSensorCount()
-        {
-            var sensorCountText = this.FindName("SensorCountText") as TextBlock;
-            if (sensorCountText == null) return;
-
-            int totalCount = _sensorsViewModel.AllSensors.Count;
-            int filteredCount = _sensorsViewModel.FilteredSensors.Count;
-            
-            if (totalCount == 0)
-            {
-                sensorCountText.Text = "No sensors available. Ensure HWInfo64 is running with Shared Memory Support enabled.";
-            }
-            else if (string.IsNullOrWhiteSpace(_sensorsViewModel.SearchText))
-            {
-                sensorCountText.Text = $"Total sensors: {totalCount}";
-            }
-            else
-            {
-                sensorCountText.Text = $"Showing {filteredCount} of {totalCount} sensors";
-            }
-        }
-
-        /// <summary>
-        /// Handles sensor search text changes.
-        /// </summary>
-        private void SensorSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            var textBox = sender as TextBox;
-            if (textBox == null) return;
-
-            _sensorsViewModel.SearchText = textBox.Text;
-            UpdateSensorCount();
-        }
-
-        /// <summary>
-        /// Refreshes the available sensors list.
-        /// </summary>
-        private void RefreshSensorsButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_hwInfoController == null || !_hwInfoController.IsConnected)
-            {
-                MessageBox.Show(
-                    "HWInfo64 is not connected. Please ensure HWInfo64 is running with Shared Memory Support enabled.",
-                    "HWInfo64 Not Available",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
-
-            // Reload sensors for the available sensors view
-            _sensorsViewModel.LoadSensors(_hwInfoController);
-            UpdateSensorCount();
-            
-            // Reload sensor data for all dial view models
-            var readings = _hwInfoController.GetAllSensorReadings();
-            foreach (var dialViewModel in _dialViewModels)
-            {
-                dialViewModel.LoadSensorData(readings);
-            }
-            
-            MessageBox.Show(
-                $"Loaded {_sensorsViewModel.AllSensors.Count} sensors from HWInfo64.",
-                "Sensors Refreshed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
         }
 
         /// <summary>
