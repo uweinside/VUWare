@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="VU1_Icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VUWare.HWInfo64\VUWare.HWInfo64.csproj" />
     <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
   </ItemGroup>
@@ -20,14 +24,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="VU1_Icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Copy configuration files to output directory -->
     <None Update="Config\dials-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="VU1_Icon.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="VU1_Icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -45,6 +45,69 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Dark ScrollBar Thumb Style -->
+        <Style x:Key="DarkScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbBorder" Background="#555555" CornerRadius="3"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#666666"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#777777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ScrollBar Style -->
+        <Style x:Key="DarkScrollBar" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="1">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ScrollViewer Style -->
+        <Style x:Key="DarkScrollViewer" TargetType="{x:Type ScrollViewer}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ScrollContentPresenter Grid.Column="0"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" 
+                                     Grid.Column="1" 
+                                     Margin="10,0,0,0"
+                                     Style="{StaticResource DarkScrollBar}"
+                                     Value="{TemplateBinding VerticalOffset}"
+                                     Maximum="{TemplateBinding ScrollableHeight}"
+                                     ViewportSize="{TemplateBinding ViewportHeight}"
+                                     Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     
     <Border Background="#2a2a2a" CornerRadius="8" BorderBrush="#444444" BorderThickness="1">
@@ -88,12 +151,16 @@
             </Border>
 
             <!-- Content Area -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20">
+            <ScrollViewer Grid.Row="1" 
+                        Style="{StaticResource DarkScrollViewer}"
+                        VerticalScrollBarVisibility="Auto" 
+                        Margin="20,20,20,20">
                 <StackPanel>
-                    <!-- App Icon/Logo Area -->
-                    <Border Background="#1a1a1a" CornerRadius="50" Width="100" Height="100" HorizontalAlignment="Center" Margin="0,20,0,20">
-                        <TextBlock Text="&#x2699;" FontSize="60" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#0078d4"/>
-                    </Border>
+                    <Image Source="/VU1_Icon.png" 
+                           Width="32" 
+                           Height="32" 
+                           HorizontalAlignment="Center" 
+                           Margin="0,0,0,10"/>
 
                     <!-- App Name and Version -->
                     <TextBlock Text="VU1 Dial Sensor Monitor" 
@@ -113,6 +180,31 @@
                     <!-- Separator -->
                     <Border Height="1" Background="#444444" Margin="0,10,0,20"/>
 
+                    <!-- App Description -->
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,10" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="A desktop application that brings your PC's hardware sensor data to life on VU1 analog-style dials. Monitor CPU temperature, GPU usage, and more with beautiful retro-style gauges developed by "/><Hyperlink x:Name="DescriptionAuthorLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Sasa Karanovic"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,10" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="Learn more about the VU1 hardware on the official "/><Hyperlink x:Name="VUDialsLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="VU Dials website"/></Hyperlink><Run Text=". The source code for this application is available on "/><Hyperlink x:Name="GitHubLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="GitHub"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,20" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="This app uses "/><Hyperlink x:Name="HWiNFO64Link" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="HWiNFO64"/></Hyperlink><Run Text=" for real-time hardware sensor monitoring. Visit the "/><Hyperlink x:Name="HWiNFOLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="HWiNFO website"/></Hyperlink><Run Text=" to download and configure this essential companion software."/>
+                    </TextBlock>
+
                     <!-- Copyright Information -->
                     <TextBlock Text="Copyright Information" 
                              FontSize="14" 
@@ -121,7 +213,7 @@
                              Margin="0,0,0,10"/>
                     
                     <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
-                        <Run Text="&#x00A9; 2024 VUWare Contributors"/>
+                        <Run Text="&#x00A9; 2024 "/><Hyperlink x:Name="CopyrightLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Uwe Baumann"/></Hyperlink>
                     </TextBlock>
                     
                     <TextBlock Text="All rights reserved." 
@@ -138,63 +230,8 @@
                              Margin="0,0,0,10"/>
                     
                     <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
-                        <Run Text="VU1 Dial Control Library originally developed by "/>
-                        <Hyperlink x:Name="OriginalAuthorLink" 
-                                 Foreground="#0078d4" 
-                                 TextDecorations="None"
-                                 RequestNavigate="Hyperlink_RequestNavigate">
-                            <Run Text="VU Dials"/>
-                        </Hyperlink>
+                        <Run Text="The VU1 Dial Control Library was originally developed by "/><Hyperlink x:Name="OriginalAuthorLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Sasa Karanovic"/></Hyperlink><Run Text="."/>
                     </TextBlock>
-                    
-                    <TextBlock Text="HWiNFO64 integration for real-time hardware monitoring" 
-                             FontSize="12" 
-                             Foreground="#CCCCCC" 
-                             Margin="0,0,0,20" 
-                             TextWrapping="Wrap"/>
-
-                    <!-- Links -->
-                    <TextBlock Text="Links" 
-                             FontSize="14" 
-                             FontWeight="Bold" 
-                             Foreground="#FFFF99" 
-                             Margin="0,0,0,10"/>
-                    
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <TextBlock Text="GitHub: " FontSize="12" Foreground="#CCCCCC"/>
-                        <TextBlock FontSize="12">
-                            <Hyperlink x:Name="GitHubLink" 
-                                     Foreground="#0078d4" 
-                                     TextDecorations="None"
-                                     RequestNavigate="Hyperlink_RequestNavigate">
-                                <Run Text="https://github.com/uweinside/VUWare"/>
-                            </Hyperlink>
-                        </TextBlock>
-                    </StackPanel>
-                    
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <TextBlock Text="VU Dials: " FontSize="12" Foreground="#CCCCCC"/>
-                        <TextBlock FontSize="12">
-                            <Hyperlink x:Name="VUDialsLink" 
-                                     Foreground="#0078d4" 
-                                     TextDecorations="None"
-                                     RequestNavigate="Hyperlink_RequestNavigate">
-                                <Run Text="https://vudials.com"/>
-                            </Hyperlink>
-                        </TextBlock>
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                        <TextBlock Text="HWiNFO: " FontSize="12" Foreground="#CCCCCC"/>
-                        <TextBlock FontSize="12">
-                            <Hyperlink x:Name="HWiNFOLink" 
-                                     Foreground="#0078d4" 
-                                     TextDecorations="None"
-                                     RequestNavigate="Hyperlink_RequestNavigate">
-                                <Run Text="https://www.hwinfo.com"/>
-                            </Hyperlink>
-                        </TextBlock>
-                    </StackPanel>
 
                     <!-- License -->
                     <TextBlock Text="License" 
@@ -203,7 +240,11 @@
                              Foreground="#FFFF99" 
                              Margin="0,0,0,10"/>
                     
-                    <TextBlock Text="This software is provided 'as-is', without any express or implied warranty." 
+                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
+                        <Run Text="This software is licensed under the "/><Hyperlink x:Name="LicenseLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="MIT License"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock Text="THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT." 
                              FontSize="11" 
                              Foreground="#999999" 
                              Margin="0,0,0,10" 
@@ -218,6 +259,7 @@
                       Style="{StaticResource ModernButton}"
                       Content="OK" 
                       Width="120" 
+                      Height="35"
                       HorizontalAlignment="Center"/>
             </Border>
         </Grid>

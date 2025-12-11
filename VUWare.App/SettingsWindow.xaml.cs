@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Uwe Baumann
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,10 +58,13 @@ namespace VUWare.App
                 System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Got {readings?.Count ?? 0} readings from HWInfo");
                 System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading sensor data for {_dialViewModels.Count} dial view models");
                 
-                foreach (var dialViewModel in _dialViewModels)
+                if (readings != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading data for Dial #{dialViewModel.DialNumber}");
-                    dialViewModel.LoadSensorData(readings);
+                    foreach (var dialViewModel in _dialViewModels)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading data for Dial #{dialViewModel.DialNumber}");
+                        dialViewModel.LoadSensorData(readings);
+                    }
                 }
             }
             else
@@ -115,7 +121,10 @@ namespace VUWare.App
                 if (_hwInfoController != null && _hwInfoController.IsConnected)
                 {
                     var readings = _hwInfoController.GetAllSensorReadings();
-                    viewModel.LoadSensorData(readings);
+                    if (readings != null)
+                    {
+                        viewModel.LoadSensorData(readings);
+                    }
                 }
 
                 var panel = new DialConfigurationPanel

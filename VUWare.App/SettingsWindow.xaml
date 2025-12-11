@@ -86,6 +86,69 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Dark ScrollBar Thumb Style -->
+        <Style x:Key="DarkScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbBorder" Background="#555555" CornerRadius="3"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#666666"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#777777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ScrollBar Style -->
+        <Style x:Key="DarkScrollBar" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="1">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ScrollViewer Style -->
+        <Style x:Key="DarkScrollViewer" TargetType="{x:Type ScrollViewer}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ScrollContentPresenter Grid.Column="0"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" 
+                                     Grid.Column="1" 
+                                     Margin="10,0,0,0"
+                                     Style="{StaticResource DarkScrollBar}"
+                                     Value="{TemplateBinding VerticalOffset}"
+                                     Maximum="{TemplateBinding ScrollableHeight}"
+                                     ViewportSize="{TemplateBinding ViewportHeight}"
+                                     Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Border Background="#2a2a2a" CornerRadius="8" BorderBrush="#444444" BorderThickness="1">
         <Grid>
@@ -128,7 +191,10 @@
             </Border>
 
             <!-- Content Area with ScrollViewer -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="15">
+            <ScrollViewer Grid.Row="1" 
+                        Style="{StaticResource DarkScrollViewer}"
+                        VerticalScrollBarVisibility="Auto" 
+                        Margin="15">
                 <StackPanel>
                     <!-- General Settings Section -->
                     <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,0,0,4"/>

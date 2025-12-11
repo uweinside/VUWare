@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Uwe Baumann
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -34,14 +37,17 @@ namespace VUWare.App
                 var assembly = Assembly.GetExecutingAssembly();
                 var version = assembly.GetName().Version;
                 
-                if (version != null)
+                if (version != null && VersionText != null)
                 {
                     VersionText.Text = $"Version {version.Major}.{version.Minor}.{version.Build}";
                 }
             }
             catch
             {
-                VersionText.Text = "Version 1.0.0";
+                if (VersionText != null)
+                {
+                    VersionText.Text = "Version 1.0.0";
+                }
             }
         }
 
@@ -50,10 +56,29 @@ namespace VUWare.App
         /// </summary>
         private void SetHyperlinkUrls()
         {
-            GitHubLink.NavigateUri = new Uri("https://github.com/uweinside/VUWare");
-            VUDialsLink.NavigateUri = new Uri("https://vudials.com");
-            HWiNFOLink.NavigateUri = new Uri("https://www.hwinfo.com");
-            OriginalAuthorLink.NavigateUri = new Uri("https://vudials.com");
+            if (CopyrightLink != null)
+                CopyrightLink.NavigateUri = new Uri("https://de.linkedin.com/in/uwe-baumann-15991922a");
+            
+            if (DescriptionAuthorLink != null)
+                DescriptionAuthorLink.NavigateUri = new Uri("https://sasakaranovic.com");
+            
+            if (GitHubLink != null)
+                GitHubLink.NavigateUri = new Uri("https://github.com/uweinside/VUWare");
+            
+            if (VUDialsLink != null)
+                VUDialsLink.NavigateUri = new Uri("https://vudials.com");
+            
+            if (HWiNFOLink != null)
+                HWiNFOLink.NavigateUri = new Uri("https://www.hwinfo.com");
+            
+            if (HWiNFO64Link != null)
+                HWiNFO64Link.NavigateUri = new Uri("https://www.hwinfo.com");
+            
+            if (OriginalAuthorLink != null)
+                OriginalAuthorLink.NavigateUri = new Uri("https://sasakaranovic.com");
+            
+            if (LicenseLink != null)
+                LicenseLink.NavigateUri = new Uri("https://github.com/uweinside/VUWare/blob/main/LICENSE");
         }
 
         /// <summary>
@@ -61,6 +86,9 @@ namespace VUWare.App
         /// </summary>
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
+            if (e?.Uri == null)
+                return;
+
             try
             {
                 Process.Start(new ProcessStartInfo
@@ -85,7 +113,7 @@ namespace VUWare.App
         /// </summary>
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ClickCount == 1)
+            if (e?.ClickCount == 1)
             {
                 DragMove();
             }
