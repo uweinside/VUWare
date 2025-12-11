@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using VUWare.App.Models;
 
@@ -33,6 +34,7 @@ namespace VUWare.App.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string DialUid { get; }
+        public int DialNumber { get; }
 
         public string DisplayName
         {
@@ -43,7 +45,14 @@ namespace VUWare.App.ViewModels
         public string SensorName
         {
             get => _sensorName;
-            set => SetProperty(ref _sensorName, value);
+            set
+            {
+                if (SetProperty(ref _sensorName, value))
+                {
+                    // When sensor name changes, update available entries
+                    UpdateAvailableEntries();
+                }
+            }
         }
 
         public string EntryName
@@ -133,11 +142,17 @@ namespace VUWare.App.ViewModels
         public ObservableCollection<string> AvailableColors { get; }
         public ObservableCollection<string> ColorModes { get; }
         public ObservableCollection<string> DisplayFormats { get; }
+        public ObservableCollection<string> AvailableSensors { get; }
+        public ObservableCollection<string> AvailableEntries { get; }
 
-        public DialConfigurationViewModel(DialConfig config)
+        // Store all sensor data for filtering entries
+        private System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> _sensorEntryMap;
+
+        public DialConfigurationViewModel(DialConfig config, int dialNumber)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             DialUid = config.DialUid;
+            DialNumber = dialNumber;
 
             // Initialize properties from config
             _displayName = config.DisplayName;
@@ -173,6 +188,91 @@ namespace VUWare.App.ViewModels
             {
                 "percentage", "value"
             };
+
+            AvailableSensors = new ObservableCollection<string>();
+            AvailableEntries = new ObservableCollection<string>();
+            _sensorEntryMap = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
+        }
+
+        /// <summary>
+        /// Loads sensor data from HWInfo64 readings.
+        /// </summary>
+        public void LoadSensorData(System.Collections.Generic.List<VUWare.HWInfo64.SensorReading> readings)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] LoadSensorData called with {readings?.Count ?? 0} readings");
+            
+            _sensorEntryMap.Clear();
+            AvailableSensors.Clear();
+
+            if (readings == null || readings.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] No readings provided");
+                return;
+            }
+
+            // Group readings by sensor name
+            var groupedBySensor = readings.GroupBy(r => r.SensorName).OrderBy(g => g.Key);
+
+            int sensorCount = 0;
+            foreach (var sensorGroup in groupedBySensor)
+            {
+                var sensorName = sensorGroup.Key;
+                AvailableSensors.Add(sensorName);
+                sensorCount++;
+
+                // Store all entries for this sensor
+                var entries = sensorGroup.Select(r => r.EntryName).Distinct().OrderBy(e => e).ToList();
+                _sensorEntryMap[sensorName] = entries;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Loaded {sensorCount} sensors");
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] AvailableSensors.Count = {AvailableSensors.Count}");
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Current SensorName = '{_sensorName}'");
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Current EntryName = '{_entryName}'");
+
+            // Update available entries for current sensor
+            UpdateAvailableEntries();
+            
+            // Notify UI that sensor and entry names should be re-evaluated
+            OnPropertyChanged(nameof(SensorName));
+            OnPropertyChanged(nameof(EntryName));
+        }
+
+        /// <summary>
+        /// Updates the available entries based on the currently selected sensor.
+        /// </summary>
+        private void UpdateAvailableEntries()
+        {
+            AvailableEntries.Clear();
+
+            if (!string.IsNullOrWhiteSpace(_sensorName) && _sensorEntryMap.ContainsKey(_sensorName))
+            {
+                foreach (var entry in _sensorEntryMap[_sensorName])
+                {
+                    AvailableEntries.Add(entry);
+                }
+                
+                // Auto-select the first entry if available and no entry is currently selected or the current entry is not in the list
+                if (AvailableEntries.Count > 0)
+                {
+                    // Only auto-select if current entry is not in the new list
+                    if (string.IsNullOrWhiteSpace(_entryName) || !AvailableEntries.Contains(_entryName))
+                    {
+                        EntryName = AvailableEntries[0];
+                        System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Auto-selected first entry: '{EntryName}'");
+                    }
+                }
+            }
+            else
+            {
+                // Clear entry name if no sensor selected or sensor not found
+                if (!string.IsNullOrWhiteSpace(_entryName))
+                {
+                    EntryName = string.Empty;
+                }
+            }
+
+            OnPropertyChanged(nameof(AvailableEntries));
         }
 
         /// <summary>
@@ -238,13 +338,15 @@ namespace VUWare.App.ViewModels
             OnPropertyChanged(nameof(Enabled));
         }
 
-        protected void SetProperty<T>(ref T backingField, T value, [CallerMemberName] string propertyName = "")
+        protected bool SetProperty<T>(ref T backingField, T value, [CallerMemberName] string propertyName = "")
         {
             if (!Equals(backingField, value))
             {
                 backingField = value;
                 OnPropertyChanged(propertyName);
+                return true;
             }
+            return false;
         }
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "")

@@ -45,12 +45,30 @@ namespace VUWare.App
         /// </summary>
         public void SetHWInfo64Controller(HWInfo64Controller controller)
         {
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] SetHWInfo64Controller called");
             _hwInfoController = controller;
             
             if (_hwInfoController != null && _hwInfoController.IsConnected)
             {
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] HWInfo controller is connected");
+                
                 _sensorsViewModel.LoadSensors(_hwInfoController);
                 UpdateSensorCount();
+                
+                // Load sensor data for all dial view models
+                var readings = _hwInfoController.GetAllSensorReadings();
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Got {readings?.Count ?? 0} readings from HWInfo");
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading sensor data for {_dialViewModels.Count} dial view models");
+                
+                foreach (var dialViewModel in _dialViewModels)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading data for Dial #{dialViewModel.DialNumber}");
+                    dialViewModel.LoadSensorData(readings);
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] HWInfo controller is null or not connected");
             }
         }
 
@@ -148,10 +166,18 @@ namespace VUWare.App
             var dialsPanel = this.FindName("DialsPanel") as StackPanel;
             if (dialsPanel == null) return;
 
+            int dialNumber = 1;
             foreach (var dialConfig in _configuration.Dials)
             {
-                var viewModel = new DialConfigurationViewModel(dialConfig);
+                var viewModel = new DialConfigurationViewModel(dialConfig, dialNumber);
                 _dialViewModels.Add(viewModel);
+
+                // Load sensor data if HWInfo is available
+                if (_hwInfoController != null && _hwInfoController.IsConnected)
+                {
+                    var readings = _hwInfoController.GetAllSensorReadings();
+                    viewModel.LoadSensorData(readings);
+                }
 
                 var panel = new DialConfigurationPanel
                 {
@@ -159,6 +185,7 @@ namespace VUWare.App
                 };
 
                 dialsPanel.Children.Add(panel);
+                dialNumber++;
             }
         }
 
@@ -225,8 +252,16 @@ namespace VUWare.App
                 return;
             }
 
+            // Reload sensors for the available sensors view
             _sensorsViewModel.LoadSensors(_hwInfoController);
             UpdateSensorCount();
+            
+            // Reload sensor data for all dial view models
+            var readings = _hwInfoController.GetAllSensorReadings();
+            foreach (var dialViewModel in _dialViewModels)
+            {
+                dialViewModel.LoadSensorData(readings);
+            }
             
             MessageBox.Show(
                 $"Loaded {_sensorsViewModel.AllSensors.Count} sensors from HWInfo64.",

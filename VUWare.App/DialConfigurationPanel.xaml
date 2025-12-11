@@ -164,7 +164,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding DisplayName, FallbackValue='Dial Configuration'}" 
+                <TextBlock Text="{Binding DialNumber, StringFormat='Dial #{0}'}" 
                            FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Grid.Column="0"/>
                 <CheckBox x:Name="EnabledCheckBox" IsChecked="{Binding Enabled}" 
                          VerticalAlignment="Center" Grid.Column="1" Foreground="#CCCCCC" Content="Enabled"/>
@@ -191,12 +191,16 @@
                         Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"/>
 
                 <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
-                <TextBox Text="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="1" MinWidth="400"/>
+                <ComboBox ItemsSource="{Binding AvailableSensors}" 
+                         SelectedItem="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
+                         Height="28" Grid.Row="2" Grid.Column="1" 
+                         MinWidth="400" IsTextSearchEnabled="True"/>
 
                 <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
-                <TextBox Text="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="4" Grid.Column="1" MinWidth="300"/>
+                <ComboBox ItemsSource="{Binding AvailableEntries}" 
+                         SelectedItem="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}"
+                         Height="28" Grid.Row="4" Grid.Column="1" 
+                         MinWidth="300" IsTextSearchEnabled="True"/>
             </Grid>
 
             <!-- Display Format Section -->

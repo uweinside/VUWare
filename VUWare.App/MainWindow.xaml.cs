@@ -106,7 +106,7 @@ namespace VUWare.App
                 _initService.GetHWInfo64Controller().Disconnect();
             }
             
-            // Give loops time to stop
+            // Give loops to stop
             System.Threading.Thread.Sleep(200);
             
             // Step 3: Send shutdown commands directly using simple synchronous serial commands
@@ -751,7 +751,7 @@ namespace VUWare.App
             SettingsWindow settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             
-            // Pass controllers to the settings window if they're initialized
+            // Pass controllers to the settings window BEFORE showing it
             if (_initService != null)
             {
                 if (_initService.GetHWInfo64Controller() != null)
@@ -765,6 +765,7 @@ namespace VUWare.App
                 }
             }
             
+            // Now show the dialog
             bool? result = settingsWindow.ShowDialog();
             
             // If settings were saved, reload configuration
