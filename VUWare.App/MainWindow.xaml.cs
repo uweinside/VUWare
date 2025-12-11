@@ -885,7 +885,10 @@ namespace VUWare.App
                     {
                         Id = dial.DialUid,
                         SensorName = dial.SensorName,
+                        SensorId = dial.SensorId,
+                        SensorInstance = dial.SensorInstance,
                         EntryName = dial.EntryName,
+                        EntryId = dial.EntryId,
                         MinValue = dial.MinValue,
                         MaxValue = dial.MaxValue,
                         WarningThreshold = dial.WarningThreshold,

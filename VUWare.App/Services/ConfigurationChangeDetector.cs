@@ -54,7 +54,10 @@ namespace VUWare.App.Services
 
                 // Check sensor mapping changes
                 if (oldDial.SensorName != newDial.SensorName ||
-                    oldDial.EntryName != newDial.EntryName)
+                    oldDial.SensorId != newDial.SensorId ||
+                    oldDial.SensorInstance != newDial.SensorInstance ||
+                    oldDial.EntryName != newDial.EntryName ||
+                    oldDial.EntryId != newDial.EntryId)
                 {
                     changes |= ConfigChangeType.SensorMappings;
                 }
