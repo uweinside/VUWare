@@ -82,54 +82,19 @@ namespace VUWare.App
             
             // Initialize dial configuration panels
             InitializeDialPanels();
-            
-            // Initialize dial selection for image upload
-            InitializeDialSelection();
         }
 
         /// <summary>
-        /// Sets data contexts for various tabs after controls are loaded.
+        /// Sets data contexts for General Settings and other controls.
         /// </summary>
         private void SetDataContexts()
         {
-            // Find the TabControl
-            var tabControl = this.Content as Grid;
-            if (tabControl == null) return;
-
-            var mainTabControl = FindVisualChild<TabControl>(tabControl);
-            if (mainTabControl == null) return;
-
-            // Set Application Settings tab data context
-            if (mainTabControl.Items.Count > 1)
+            // Set General Settings data context
+            var generalSettingsBorder = this.FindName("GeneralSettingsBorder") as Border;
+            if (generalSettingsBorder != null)
             {
-                var appSettingsTab = mainTabControl.Items[1] as TabItem;
-                if (appSettingsTab != null)
-                {
-                    var scrollViewer = appSettingsTab.Content as ScrollViewer;
-                    if (scrollViewer?.Content is Border border)
-                    {
-                        border.DataContext = _settingsViewModel;
-                    }
-                }
+                generalSettingsBorder.DataContext = _settingsViewModel;
             }
-        }
-
-        /// <summary>
-        /// Helper method to find a child control by type.
-        /// </summary>
-        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
-        {
-            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
-            {
-                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
-                if (child is T result)
-                    return result;
-                
-                var childOfChild = FindVisualChild<T>(child);
-                if (childOfChild != null)
-                    return childOfChild;
-            }
-            return null;
         }
 
         /// <summary>
@@ -157,109 +122,12 @@ namespace VUWare.App
                 {
                     DataContext = viewModel
                 };
+                
+                // Set VU1 controller for image uploads
+                panel.SetVU1Controller(_vu1Controller);
 
                 dialsPanel.Children.Add(panel);
                 dialNumber++;
-            }
-        }
-
-        /// <summary>
-        /// Initializes the dial selection combo box for image uploads.
-        /// </summary>
-        private void InitializeDialSelection()
-        {
-            var dialComboBox = this.FindName("DialSelectionComboBox") as ComboBox;
-            if (dialComboBox == null) return;
-
-            dialComboBox.ItemsSource = _dialViewModels;
-        }
-
-        /// <summary>
-        /// Handles dial selection change for image upload.
-        /// </summary>
-        private void DialSelectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var comboBox = sender as ComboBox;
-            var uploadButton = this.FindName("UploadImageButton") as Button;
-            if (comboBox == null || uploadButton == null) return;
-
-            uploadButton.IsEnabled = comboBox.SelectedItem != null;
-        }
-
-        /// <summary>
-        /// Handles image upload button click.
-        /// </summary>
-        private async void UploadImageButton_Click(object sender, RoutedEventArgs e)
-        {
-            var dialComboBox = this.FindName("DialSelectionComboBox") as ComboBox;
-            var statusText = this.FindName("ImageUploadStatusText") as TextBlock;
-            
-            if (dialComboBox == null || statusText == null) return;
-
-            if (_vu1Controller == null || !_vu1Controller.IsConnected)
-            {
-                MessageBox.Show(
-                    "VU1 Hub is not connected. Please ensure the hub is connected before uploading images.",
-                    "VU1 Not Connected",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
-
-            var selectedViewModel = dialComboBox.SelectedItem as DialConfigurationViewModel;
-            if (selectedViewModel == null)
-                return;
-
-            // Find the dial configuration
-            var dialConfig = _configuration.Dials.FirstOrDefault(d => d.DialUid == selectedViewModel.DialUid);
-            if (dialConfig == null)
-                return;
-
-            // Open file dialog
-            var openFileDialog = new OpenFileDialog
-            {
-                Title = "Select Dial Face Image",
-                Filter = "Image Files|*.png;*.bmp;*.jpg;*.jpeg|All Files|*.*",
-                CheckFileExists = true
-            };
-
-            if (openFileDialog.ShowDialog() != true)
-                return;
-
-            try
-            {
-                statusText.Text = "Loading and processing image...";
-                statusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Yellow);
-
-                // Load and process the image
-                byte[] imageData = VUWare.Lib.ImageProcessor.LoadImageFile(openFileDialog.FileName);
-
-                statusText.Text = $"Uploading to {selectedViewModel.DisplayName}...";
-
-                // Upload to the dial
-                bool success = await _vu1Controller.SetDisplayImageAsync(dialConfig.DialUid, imageData);
-
-                if (success)
-                {
-                    statusText.Text = $"? Image successfully uploaded to {selectedViewModel.DisplayName}";
-                    statusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
-                }
-                else
-                {
-                    statusText.Text = $"? Failed to upload image to {selectedViewModel.DisplayName}";
-                    statusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
-                }
-            }
-            catch (Exception ex)
-            {
-                statusText.Text = $"? Error: {ex.Message}";
-                statusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
-                
-                MessageBox.Show(
-                    $"Failed to upload image:\n\n{ex.Message}",
-                    "Upload Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
             }
         }
 

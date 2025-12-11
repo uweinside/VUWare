@@ -249,6 +249,42 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        
+        <!-- Small Button Style for Upload -->
+        <Style x:Key="SmallButton" TargetType="Button">
+            <Setter Property="Background" Value="#0078d4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#005a9e"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#004578"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#3a3a3a"/>
+                                <Setter Property="Foreground" Value="#888888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
     <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
         <StackPanel>
@@ -312,6 +348,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Display Format:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
@@ -341,6 +378,19 @@
                              IsEditable="True" IsTextSearchEnabled="True"
                              Style="{StaticResource EditableComboBoxStyle}"
                              ToolTip="Unit suffix for 'Value' display format (e.g., '°C', 'MHz', 'RPM'). Select from common units or type your own. Leave empty for no unit."/>
+                </Grid>
+                
+                <!-- Dial Image Upload -->
+                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Text="Dial Face Image:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
+                    <Button x:Name="UploadImageButton" Content="Upload Custom Image..." Click="UploadImageButton_Click"
+                           Style="{StaticResource SmallButton}" Grid.Column="1" HorizontalAlignment="Left" Width="150"
+                           ToolTip="Upload a custom dial face image (PNG/BMP/JPEG, will be scaled to 200x144 pixels)"/>
                 </Grid>
             </Grid>
 
