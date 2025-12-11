@@ -11,6 +11,7 @@
         <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
         <converters:UpperCaseConverter x:Key="UpperCaseConverter"/>
         <converters:DisplayFormatToVisibilityConverter x:Key="DisplayFormatToVisibilityConverter"/>
+        <converters:ColorNameToBrushConverter x:Key="ColorNameToBrushConverter"/>
         
         <!-- TextBox Style -->
         <Style TargetType="TextBox">
@@ -422,7 +423,23 @@
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding StaticColor}" Height="28" Grid.Column="1"
                          Width="150" HorizontalAlignment="Left"
-                         ToolTip="The fixed backlight color to use when in Static mode"/>
+                         ToolTip="The fixed backlight color to use when in Static mode">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="16" Height="16" 
+                                        Background="{Binding Converter={StaticResource ColorNameToBrushConverter}}"
+                                        BorderBrush="#666666" 
+                                        BorderThickness="1" 
+                                        CornerRadius="2"
+                                        Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding}" 
+                                           Foreground="#FFFFFF"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
 
             <!-- Threshold Colors (visible when ColorMode == "threshold") -->
@@ -443,19 +460,67 @@
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding NormalColor}" Height="28" Grid.Row="0" Grid.Column="1"
                          Width="150" HorizontalAlignment="Left"
-                         ToolTip="Backlight color when sensor value is below warning threshold"/>
+                         ToolTip="Backlight color when sensor value is below warning threshold">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="16" Height="16" 
+                                        Background="{Binding Converter={StaticResource ColorNameToBrushConverter}}"
+                                        BorderBrush="#666666" 
+                                        BorderThickness="1" 
+                                        CornerRadius="2"
+                                        Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding}" 
+                                           Foreground="#FFFFFF"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
                 <TextBlock Text="Warning Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding WarningColor}" Height="28" Grid.Row="2" Grid.Column="1"
                          Width="150" HorizontalAlignment="Left"
-                         ToolTip="Backlight color when sensor value exceeds warning threshold"/>
+                         ToolTip="Backlight color when sensor value exceeds warning threshold">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="16" Height="16" 
+                                        Background="{Binding Converter={StaticResource ColorNameToBrushConverter}}"
+                                        BorderBrush="#666666" 
+                                        BorderThickness="1" 
+                                        CornerRadius="2"
+                                        Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding}" 
+                                           Foreground="#FFFFFF"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
                 <TextBlock Text="Critical Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding CriticalColor}" Height="28" Grid.Row="4" Grid.Column="1"
                          Width="150" HorizontalAlignment="Left"
-                         ToolTip="Backlight color when sensor value exceeds critical threshold"/>
+                         ToolTip="Backlight color when sensor value exceeds critical threshold">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="16" Height="16" 
+                                        Background="{Binding Converter={StaticResource ColorNameToBrushConverter}}"
+                                        BorderBrush="#666666" 
+                                        BorderThickness="1" 
+                                        CornerRadius="2"
+                                        Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding}" 
+                                           Foreground="#FFFFFF"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
         </StackPanel>
     </Border>
