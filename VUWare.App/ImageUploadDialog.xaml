@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Upload Dial Image"
-        Height="500"
-        Width="600"
+        Height="400"
+        Width="700"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#2a2a2a"
@@ -98,76 +98,78 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="DialogTitle" Text="Upload Image for Dial #1" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
-                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="?" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1"/>
+                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="&#x2715;" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1"/>
                 </Grid>
             </Border>
 
-            <!-- Content Area -->
+            <!-- Content Area - Two Column Layout -->
             <Grid Grid.Row="1" Margin="20">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="270"/>
+                </Grid.ColumnDefinitions>
 
-                <!-- Instructions -->
-                <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Grid.Row="0" Margin="0,0,0,15">
-                    <StackPanel>
+                <!-- Left Column - Instructions and File Selection -->
+                <StackPanel Grid.Column="0">
+                    <!-- Instructions (No Border) -->
+                    <StackPanel Margin="0,0,0,20">
                         <TextBlock Text="Upload Custom Dial Face Image" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10"/>
                         <TextBlock Text="- Supported formats: PNG, BMP, JPEG" Foreground="#CCCCCC" FontSize="11" Margin="0,0,0,3"/>
                         <TextBlock Text="- Image will be automatically scaled to 200x144 pixels" Foreground="#CCCCCC" FontSize="11" Margin="0,0,0,3"/>
                         <TextBlock Text="- Black and white images work best for e-paper display" Foreground="#CCCCCC" FontSize="11"/>
                     </StackPanel>
-                </Border>
 
-                <!-- File Selection -->
-                <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Grid.Row="1" Margin="0,0,0,15">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        
-                        <TextBlock Text="Select Image File" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" Grid.Row="0"/>
-                        
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                    <!-- File Selection -->
+                    <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                             
-                            <TextBox x:Name="FilePathTextBox" IsReadOnly="True" Background="#2a2a2a" Foreground="#CCCCCC" 
-                                   BorderBrush="#444444" BorderThickness="1" Padding="8" VerticalContentAlignment="Center"
-                                   Grid.Column="0" Margin="0,0,10,0" Text="No file selected"/>
+                            <TextBlock Text="Select Image File" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" Grid.Row="0"/>
                             
-                            <Button x:Name="BrowseButton" Content="Browse..." Click="BrowseButton_Click" 
-                                  Style="{StaticResource ModernButton}" Width="120" Grid.Column="1"/>
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBox x:Name="FilePathTextBox" IsReadOnly="True" Background="#2a2a2a" Foreground="#CCCCCC" 
+                                       BorderBrush="#444444" BorderThickness="1" Padding="8" VerticalContentAlignment="Center"
+                                       Grid.Column="0" Margin="0,0,10,0" Text="No file selected"/>
+                                
+                                <Button x:Name="BrowseButton" Content="Browse..." Click="BrowseButton_Click" 
+                                      Style="{StaticResource ModernButton}" Width="120" Grid.Column="1"/>
+                            </Grid>
                         </Grid>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <!-- Image Preview -->
-                <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Grid.Row="2" Margin="0,0,0,15">
+                    <!-- Upload Status (No Border) -->
+                    <TextBlock x:Name="StatusText" Text="Ready to upload" Foreground="#888888" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                </StackPanel>
+
+                <!-- Right Column - Image Preview -->
+                <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Grid.Column="2">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         
-                        <TextBlock Text="Preview (200x144 pixels)" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" Grid.Row="0"/>
+                        <TextBlock Text="Preview" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10" Grid.Row="0"/>
                         
                         <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#444444" BorderThickness="1" 
-                              HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Image x:Name="PreviewImage" Width="200" Height="144" Stretch="None" 
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Width="220" Height="164" Padding="10" Margin="0,0,0,25">
+                            <Image x:Name="PreviewImage" Width="200" Height="144" Stretch="Uniform" 
                                  RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                         </Border>
+                        
+                        <TextBlock Grid.Row="1" Text="200 &#x00D7; 144 pixels" Foreground="#888888" FontSize="10" 
+                                 HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5"/>
                     </Grid>
-                </Border>
-
-                <!-- Upload Status -->
-                <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="10" Grid.Row="3">
-                    <TextBlock x:Name="StatusText" Text="Ready to upload" Foreground="#888888" FontSize="11" TextWrapping="Wrap"/>
                 </Border>
             </Grid>
 

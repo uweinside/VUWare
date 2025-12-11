@@ -84,7 +84,7 @@ namespace VUWare.App
                 UploadButton.IsEnabled = true;
                 
                 var fileInfo = new FileInfo(filePath);
-                StatusText.Text = $"? Image loaded and processed successfully ({fileInfo.Length:N0} bytes source, {_processedImageData.Length} bytes processed)";
+                StatusText.Text = $"Image loaded and processed successfully ({fileInfo.Length:N0} bytes source, {_processedImageData.Length} bytes processed)";
                 StatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.LightGreen);
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@ namespace VUWare.App
                 PreviewImage.Source = null;
                 FilePathTextBox.Text = "No file selected";
                 
-                StatusText.Text = $"? Error loading image: {ex.Message}";
+                StatusText.Text = $"Error loading image: {ex.Message}";
                 StatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
                 
                 MessageBox.Show(
@@ -177,21 +177,25 @@ namespace VUWare.App
 
                 if (success)
                 {
-                    StatusText.Text = $"? Image successfully uploaded to {_dialDisplayName}!";
+                    StatusText.Text = $"Image successfully uploaded to {_dialDisplayName}.";
                     StatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.LightGreen);
                     
-                    MessageBox.Show(
-                        $"Image has been successfully uploaded to {_dialDisplayName}.",
-                        "Upload Successful",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                    // Hide Cancel button and change Upload to Done
+                    CancelButton.Visibility = Visibility.Collapsed;
+                    UploadButton.Content = "Done";
+                    UploadButton.IsEnabled = true;
                     
-                    DialogResult = true;
-                    Close();
+                    // Rewire Done button to close with success
+                    UploadButton.Click -= UploadButton_Click;
+                    UploadButton.Click += (s, args) =>
+                    {
+                        DialogResult = true;
+                        Close();
+                    };
                 }
                 else
                 {
-                    StatusText.Text = $"? Failed to upload image to {_dialDisplayName}";
+                    StatusText.Text = $"Failed to upload image to {_dialDisplayName}";
                     StatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
                     
                     MessageBox.Show(
@@ -208,7 +212,7 @@ namespace VUWare.App
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"? Error: {ex.Message}";
+                StatusText.Text = $"Error: {ex.Message}";
                 StatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
                 
                 MessageBox.Show(
