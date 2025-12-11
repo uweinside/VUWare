@@ -43,128 +43,52 @@
             <!-- Dials Row -->
             <StackPanel Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
                 <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
-                    <Grid>
-                        <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                                <TextBlock x:Name="Dial1DisplayName" Text="CPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
-                            </Grid>
-                        </Border>
-                        <Button x:Name="Dial1ConfigButton" Content="☰" FontSize="12" Width="18" Height="18" 
-                                Background="Transparent" BorderThickness="0" Foreground="#777777" 
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                                Margin="0,0,4,4" Padding="0" Opacity="0.7"
-                                ToolTip="Configure Dial 1">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                                            <Setter Property="Opacity" Value="1"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
+                    <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial1DisplayName" Text="CPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                        </Grid>
+                    </Border>
                 </Border>
                 <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
-                    <Grid>
-                        <Border x:Name="Dial2Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                                <TextBlock x:Name="Dial2DisplayName" Text="CPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
-                            </Grid>
-                        </Border>
-                        <Button x:Name="Dial2ConfigButton" Content="☰" FontSize="12" Width="18" Height="18" 
-                                Background="Transparent" BorderThickness="0" Foreground="#777777" 
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                                Margin="0,0,4,4" Padding="0" Opacity="0.7"
-                                ToolTip="Configure Dial 2">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                                            <Setter Property="Opacity" Value="1"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
+                    <Border x:Name="Dial2Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial2DisplayName" Text="CPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                        </Grid>
+                    </Border>
                 </Border>
                 <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
-                    <Grid>
-                        <Border x:Name="Dial3Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                                <TextBlock x:Name="Dial3DisplayName" Text="GPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
-                            </Grid>
-                        </Border>
-                        <Button x:Name="Dial3ConfigButton" Content="☰" FontSize="12" Width="18" Height="18" 
-                                Background="Transparent" BorderThickness="0" Foreground="#777777" 
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                                Margin="0,0,4,4" Padding="0" Opacity="0.7"
-                                ToolTip="Configure Dial 3">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                                            <Setter Property="Opacity" Value="1"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
+                    <Border x:Name="Dial3Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial3DisplayName" Text="GPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                        </Grid>
+                    </Border>
                 </Border>
                 <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
-                    <Grid>
-                        <Border x:Name="Dial4Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                                <TextBlock x:Name="Dial4DisplayName" Text="GPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
-                            </Grid>
-                        </Border>
-                        <Button x:Name="Dial4ConfigButton" Content="☰" FontSize="12" Width="18" Height="18" 
-                                Background="Transparent" BorderThickness="0" Foreground="#777777" 
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                                Margin="0,0,4,4" Padding="0" Opacity="0.7"
-                                ToolTip="Configure Dial 4">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Cursor" Value="Hand"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="#AAAAAA"/>
-                                            <Setter Property="Opacity" Value="1"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
+                    <Border x:Name="Dial4Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial4DisplayName" Text="GPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
+                        </Grid>
+                    </Border>
                 </Border>
             </StackPanel>
             <!-- Status Row -->
