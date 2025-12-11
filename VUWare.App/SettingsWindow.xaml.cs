@@ -143,17 +143,17 @@ namespace VUWare.App
         /// <summary>
         /// Applies changes without closing the window.
         /// </summary>
-        private void ApplyButton_Click(object sender, RoutedEventArgs e)
+        private async void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 ApplyChanges();
-                
-                MessageBox.Show(
-                    "Settings applied successfully.\n\nNote: Some changes may require restarting the application to take full effect.",
-                    "Settings Applied",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+
+                // Trigger reload in MainWindow if available
+                if (Owner is MainWindow mainWindow)
+                {
+                    await mainWindow.ReloadConfiguration();
+                }
             }
             catch (Exception ex)
             {
@@ -168,11 +168,18 @@ namespace VUWare.App
         /// <summary>
         /// Closes the settings window and saves changes.
         /// </summary>
-        private void OKButton_Click(object sender, RoutedEventArgs e)
+        private async void OKButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 ApplyChanges();
+
+                // Trigger reload in MainWindow if available
+                if (Owner is MainWindow mainWindow)
+                {
+                    await mainWindow.ReloadConfiguration();
+                }
+
                 DialogResult = true;
                 Close();
             }

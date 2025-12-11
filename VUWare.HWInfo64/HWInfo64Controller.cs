@@ -268,6 +268,63 @@ namespace VUWare.HWInfo64
             }
         }
 
+        /// <summary>
+        /// Updates the poll interval dynamically without restarting polling.
+        /// </summary>
+        /// <param name="newIntervalMs">New polling interval in milliseconds (minimum 100ms)</param>
+        public void UpdatePollInterval(int newIntervalMs)
+        {
+            _pollIntervalMs = Math.Max(100, newIntervalMs);
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Poll interval updated to {_pollIntervalMs}ms");
+        }
+
+        /// <summary>
+        /// Updates an existing dial mapping with new configuration.
+        /// </summary>
+        /// <param name="mappingId">The dial UID to update</param>
+        /// <param name="newMapping">The new mapping configuration</param>
+        public void UpdateDialMapping(string mappingId, DialSensorMapping newMapping)
+        {
+            if (string.IsNullOrWhiteSpace(mappingId))
+                throw new ArgumentException("Mapping ID cannot be empty", nameof(mappingId));
+
+            if (string.IsNullOrWhiteSpace(newMapping.Id))
+                throw new ArgumentException("New mapping ID cannot be empty", nameof(newMapping));
+
+            _dialMappings[mappingId] = newMapping;
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Updated mapping for {mappingId}");
+        }
+
+        /// <summary>
+        /// Clears all registered dial mappings.
+        /// </summary>
+        public void ClearAllMappings()
+        {
+            int count = _dialMappings.Count;
+            _dialMappings.Clear();
+            _currentReadings.Clear();
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Cleared {count} dial mapping(s)");
+        }
+
+        /// <summary>
+        /// Registers multiple dial mappings at once.
+        /// </summary>
+        /// <param name="mappings">Collection of mappings to register</param>
+        public void RegisterMappings(IEnumerable<DialSensorMapping> mappings)
+        {
+            if (mappings == null)
+                throw new ArgumentNullException(nameof(mappings));
+
+            int count = 0;
+            foreach (var mapping in mappings)
+            {
+                RegisterDialMapping(mapping);
+                count++;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Registered {count} dial mapping(s)");
+        }
+
         public void Dispose()
         {
             if (!_disposed)

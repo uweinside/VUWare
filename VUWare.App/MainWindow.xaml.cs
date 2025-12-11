@@ -3,7 +3,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -15,9 +16,9 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using VUWare.App.Models;
 using VUWare.App.Services;
-using System.Linq;
-using WpfColors = System.Windows.Media.Colors;
+using VUWare.HWInfo64;
 using VULib = VUWare.Lib;
+using WpfColors = System.Windows.Media.Colors;
 
 namespace VUWare.App
 {
@@ -755,6 +756,227 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Reloads configuration from disk and applies changes dynamically without restarting.
+        /// </summary>
+        /// <returns>True if reload succeeded, false otherwise</returns>
+        public async Task<bool> ReloadConfiguration()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Starting configuration reload");
+
+                // Load new configuration
+                string configPath = ConfigManager.GetDefaultConfigPath();
+                var newConfig = ConfigManager.LoadDefault();
+
+                if (newConfig == null)
+                {
+                    MessageBox.Show(
+                        $"Failed to load configuration from {configPath}",
+                        "Configuration Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
+                // Validate configuration
+                if (!newConfig.Validate(out var errors))
+                {
+                    string errorMessage = string.Join(Environment.NewLine, errors);
+                    MessageBox.Show(
+                        $"Configuration validation failed:\n\n{errorMessage}",
+                        "Configuration Invalid",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
+                // Detect what changed
+                var changes = _config != null 
+                    ? ConfigurationChangeDetector.DetectChanges(_config, newConfig)
+                    : ConfigChangeType.All; // If no previous config, treat everything as changed
+
+                if (changes == ConfigChangeType.None)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] No configuration changes detected");
+                    return true;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration changes detected: {ConfigurationChangeDetector.GetChangeDescription(changes)}");
+
+                // Apply changes based on type
+                bool success = true;
+
+                if (changes.HasFlag(ConfigChangeType.SensorMappings))
+                {
+                    success = success && await ReloadSensorMappings(newConfig);
+                }
+
+                if (changes.HasFlag(ConfigChangeType.UpdateIntervals))
+                {
+                    ApplyIntervalChanges(newConfig);
+                }
+
+                if (changes.HasFlag(ConfigChangeType.DialSettings))
+                {
+                    await ApplyDialSettingsChanges(newConfig);
+                }
+
+                // Update current config reference
+                _config = newConfig;
+
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Configuration reload complete");
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration reload failed: {ex.Message}");
+                MessageBox.Show(
+                    $"Failed to reload configuration:\n\n{ex.Message}",
+                    "Configuration Reload Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Reloads sensor mappings by stopping monitoring, clearing old mappings,
+        /// and registering new ones.
+        /// </summary>
+        private async Task<bool> ReloadSensorMappings(DialsConfiguration newConfig)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Reloading sensor mappings");
+
+                // Pause monitoring temporarily
+                _monitoringService?.Stop();
+                await Task.Delay(200); // Allow monitoring thread to stop
+
+                // Get HWInfo controller
+                var hwInfo = _initService?.GetHWInfo64Controller();
+                if (hwInfo == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] HWInfo controller not available");
+                    return false;
+                }
+
+                // Clear old mappings
+                hwInfo.ClearAllMappings();
+
+                // Register new mappings
+                var mappings = new System.Collections.Generic.List<DialSensorMapping>();
+                foreach (var dial in newConfig.Dials.Where(d => d.Enabled))
+                {
+                    var mapping = new DialSensorMapping
+                    {
+                        Id = dial.DialUid,
+                        SensorName = dial.SensorName,
+                        EntryName = dial.EntryName,
+                        MinValue = dial.MinValue,
+                        MaxValue = dial.MaxValue,
+                        WarningThreshold = dial.WarningThreshold,
+                        CriticalThreshold = dial.CriticalThreshold,
+                        DisplayName = dial.DisplayName
+                    };
+                    mappings.Add(mapping);
+                }
+
+                hwInfo.RegisterMappings(mappings);
+
+                // Restart monitoring
+                _monitoringService?.Start();
+
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Reloaded {mappings.Count} sensor mappings");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to reload sensor mappings: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Applies update interval changes to HWInfo64 controller and monitoring service.
+        /// </summary>
+        private void ApplyIntervalChanges(DialsConfiguration newConfig)
+        {
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying interval changes");
+
+            var hwInfo = _initService?.GetHWInfo64Controller();
+            if (hwInfo != null)
+            {
+                hwInfo.UpdatePollInterval(newConfig.AppSettings.GlobalUpdateIntervalMs);
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated HWInfo poll interval to {newConfig.AppSettings.GlobalUpdateIntervalMs}ms");
+            }
+
+            // Monitoring service will pick up new interval from updated config
+            _monitoringService?.UpdateConfiguration(newConfig);
+        }
+
+        /// <summary>
+        /// Applies dial settings changes (thresholds, colors, formats).
+        /// </summary>
+        private async Task ApplyDialSettingsChanges(DialsConfiguration newConfig)
+        {
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying dial settings changes");
+
+            // Update monitoring service with new config
+            _monitoringService?.UpdateConfiguration(newConfig);
+
+            // If color mode changed to static, immediately apply static color
+            var vu1 = _initService?.GetVU1Controller();
+            if (vu1 != null && _config != null)
+            {
+                foreach (var newDial in newConfig.Dials.Where(d => d.Enabled))
+                {
+                    var oldDial = _config.Dials.FirstOrDefault(d => d.DialUid == newDial.DialUid);
+
+                    // Check if switched to static mode OR static color changed
+                    if ((oldDial?.ColorConfig.ColorMode != "static" && newDial.ColorConfig.ColorMode == "static") ||
+                        (oldDial?.ColorConfig.ColorMode == "static" && newDial.ColorConfig.ColorMode == "static" &&
+                         oldDial.ColorConfig.StaticColor != newDial.ColorConfig.StaticColor))
+                    {
+                        var colorName = newDial.ColorConfig.StaticColor;
+                        var color = GetColorByName(colorName);
+                        if (color != null)
+                        {
+                            await vu1.SetBacklightColorAsync(newDial.DialUid, color);
+                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applied static color {colorName} to {newDial.DisplayName}");
+                        }
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Dial settings changes applied");
+        }
+
+        /// <summary>
+        /// Gets a NamedColor by name string.
+        /// </summary>
+        private VULib.NamedColor? GetColorByName(string colorName)
+        {
+            return colorName switch
+            {
+                "Red" => VULib.Colors.Red,
+                "Green" => VULib.Colors.Green,
+                "Blue" => VULib.Colors.Blue,
+                "Yellow" => VULib.Colors.Yellow,
+                "Cyan" => VULib.Colors.Cyan,
+                "Magenta" => VULib.Colors.Magenta,
+                "Orange" => VULib.Colors.Orange,
+                "Purple" => VULib.Colors.Purple,
+                "Pink" => VULib.Colors.Pink,
+                "White" => VULib.Colors.White,
+                "Off" => VULib.Colors.Off,
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Opens the settings dialog.
         /// </summary>
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -777,18 +999,7 @@ namespace VUWare.App
             }
             
             // Now show the dialog
-            bool? result = settingsWindow.ShowDialog();
-            
-            // If settings were saved, reload configuration
-            if (result == true)
-            {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Settings saved, configuration may need reload on next restart");
-                MessageBox.Show(
-                    "Settings have been saved.\n\nSome changes may require restarting the application to take full effect.",
-                    "Settings Saved",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-            }
+            settingsWindow.ShowDialog();
         }
 
         /// <summary>

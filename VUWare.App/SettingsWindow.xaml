@@ -204,10 +204,34 @@
                     <Border x:Name="GeneralSettingsBorder" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
                         <StackPanel>
                             <TextBlock Text="Startup Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,3,0,14"/>
-                            <CheckBox x:Name="StartMinimizedCheckBox" Content="Minimize at Startup" 
-                                    Foreground="#CCCCCC" Margin="0,0,0,10" IsChecked="{Binding StartMinimized}"
-                                    ToolTip="Application will start minimized to system tray"/>
-                       
+                            
+                            <!-- Start Minimized Setting (Requires Restart) -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
+                                <CheckBox x:Name="StartMinimizedCheckBox" 
+                                        Content="Minimize at Startup" 
+                                        Foreground="#CCCCCC" 
+                                        IsChecked="{Binding StartMinimized}"
+                                        Grid.Column="0" Grid.Row="0"
+                                        VerticalAlignment="Center"/>
+                                
+                                <!-- Restart Required Indicator - Inline -->
+                                <TextBlock Grid.Column="1" Grid.Row="0"
+                                         Foreground="#FFB900" 
+                                         FontSize="11"
+                                         FontStyle="Italic"
+                                         Margin="10,0,0,0"
+                                         VerticalAlignment="Center"
+                                         Text="(Requires application restart)"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
