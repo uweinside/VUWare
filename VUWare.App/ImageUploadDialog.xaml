@@ -176,10 +176,10 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
                     <Button x:Name="UploadButton" Click="UploadButton_Click" 
                           Style="{StaticResource ModernButton}"
-                          Content="Upload to Dial" Margin="0,0,10,0" Width="140" IsEnabled="False"/>
+                          Content="Upload" Margin="0,0,10,0" Width="120" IsEnabled="False"/>
                     <Button x:Name="CancelButton" Click="CancelButton_Click" 
                           Style="{StaticResource SecondaryButton}"
-                          Content="Cancel" Width="100"/>
+                          Content="Cancel" Width="120"/>
                 </StackPanel>
             </Border>
         </Grid>

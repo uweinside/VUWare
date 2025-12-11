@@ -131,23 +131,24 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="15">
                 <StackPanel>
                     <!-- General Settings Section -->
+                    <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,0,0,4"/>
+                    <TextBlock Text="Other settings can be edited in the configuration file." 
+                             Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
+
                     <Border x:Name="GeneralSettingsBorder" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
                         <StackPanel>
-                            <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
-                            
+                            <TextBlock Text="Startup Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,3,0,14"/>
                             <CheckBox x:Name="StartMinimizedCheckBox" Content="Minimize at Startup" 
                                     Foreground="#CCCCCC" Margin="0,0,0,10" IsChecked="{Binding StartMinimized}"
                                     ToolTip="Application will start minimized to system tray"/>
-                            
-                            <TextBlock Text="Other settings can be edited in the configuration file." 
-                                     Foreground="#888888" FontSize="10" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                       
                         </StackPanel>
                     </Border>
 
                     <!-- Dial Configuration Section -->
-                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,5,0,10"/>
+                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,5,0,4"/>
                     <TextBlock Text="Configure individual dial settings" 
-                             Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,15"/>
+                             Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
                     
                     <StackPanel x:Name="DialsPanel">
                         <!-- Dial configuration panels will be dynamically added here -->
