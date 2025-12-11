@@ -354,7 +354,10 @@ namespace VUWare.App.Services
                         {
                             Id = dialConfig.DialUid,
                             SensorName = dialConfig.SensorName,
+                            SensorId = dialConfig.SensorId,
+                            SensorInstance = dialConfig.SensorInstance,
                             EntryName = dialConfig.EntryName,
+                            EntryId = dialConfig.EntryId,
                             MinValue = dialConfig.MinValue,
                             MaxValue = dialConfig.MaxValue,
                             WarningThreshold = dialConfig.WarningThreshold,

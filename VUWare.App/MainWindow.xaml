@@ -99,7 +99,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial1Percentage" Text="--" FontSize="20" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
                             <TextBlock x:Name="Dial1DisplayName" Text="CPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
                         </Grid>
                     </Border>
@@ -111,7 +111,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial2Percentage" Text="--" FontSize="20" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
                             <TextBlock x:Name="Dial2DisplayName" Text="CPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
                         </Grid>
                     </Border>
@@ -123,7 +123,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial3Percentage" Text="--" FontSize="20" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
                             <TextBlock x:Name="Dial3DisplayName" Text="GPU Load" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
                         </Grid>
                     </Border>
@@ -135,7 +135,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="28" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                            <TextBlock x:Name="Dial4Percentage" Text="--" FontSize="20" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
                             <TextBlock x:Name="Dial4DisplayName" Text="GPU Temperature" FontSize="9" TextAlignment="Center" Foreground="#666666" TextTrimming="CharacterEllipsis" Grid.Row="1" Margin="0,2,0,8"/>
                         </Grid>
                     </Border>

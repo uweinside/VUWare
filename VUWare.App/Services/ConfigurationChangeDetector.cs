@@ -110,6 +110,7 @@ namespace VUWare.App.Services
                 oldDial.CriticalThreshold != newDial.CriticalThreshold ||
                 oldDial.DisplayFormat != newDial.DisplayFormat ||
                 oldDial.DisplayUnit != newDial.DisplayUnit ||
+                oldDial.DecimalPlaces != newDial.DecimalPlaces ||
                 oldDial.Enabled != newDial.Enabled)
             {
                 return true;

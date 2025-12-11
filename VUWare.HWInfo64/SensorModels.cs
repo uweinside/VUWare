@@ -112,8 +112,17 @@ namespace VUWare.HWInfo64
         /// <summary>Name of the sensor to display (from HWInfo64)</summary>
         public string SensorName { get; set; } = string.Empty;
 
+        /// <summary>Sensor ID for unique identification (for sensors with duplicate names)</summary>
+        public uint SensorId { get; set; } = 0;
+
+        /// <summary>Sensor instance for unique identification (for sensors with duplicate names)</summary>
+        public uint SensorInstance { get; set; } = 0;
+
         /// <summary>Name of the specific entry to display (from HWInfo64)</summary>
         public string EntryName { get; set; } = string.Empty;
+
+        /// <summary>Entry ID for unique identification (for entries with duplicate names)</summary>
+        public uint EntryId { get; set; } = 0;
 
         /// <summary>Minimum value for dial display (0%)</summary>
         public double MinValue { get; set; }

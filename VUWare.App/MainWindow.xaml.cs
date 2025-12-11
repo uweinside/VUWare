@@ -583,17 +583,25 @@ namespace VUWare.App
 
                 // Get dial configuration for this UID
                 var dialConfig = _config.Dials.FirstOrDefault(d => d.DialUid == dialUid);
+                
+                System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] {dialConfig?.DisplayName}: Format={dialConfig?.DisplayFormat}, DecimalPlaces={dialConfig?.DecimalPlaces}, Unit={dialConfig?.DisplayUnit}");
+                
                 string displayValue;
 
                 if (dialConfig?.DisplayFormat == "value")
                 {
-                    // Display actual sensor value with unit
-                    displayValue = $"{update.SensorValue:F1}{dialConfig!.DisplayUnit}";
+                    // Display actual sensor value with unit, respecting decimal places configuration
+                    string formatString = $"F{dialConfig.DecimalPlaces}";
+                    displayValue = $"{update.SensorValue.ToString(formatString)}{dialConfig!.DisplayUnit}";
+                    
+                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Value mode: {update.SensorValue} -> {displayValue} (format={formatString})");
                 }
                 else
                 {
                     // Display percentage (default)
                     displayValue = $"{update.DialPercentage}%";
+                    
+                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Percentage mode: {displayValue}");
                 }
 
                 // Update text blocks
@@ -791,9 +799,12 @@ namespace VUWare.App
                     return false;
                 }
 
+                // IMPORTANT: Save old config for comparison BEFORE updating
+                var oldConfig = _config;
+
                 // Detect what changed
-                var changes = _config != null 
-                    ? ConfigurationChangeDetector.DetectChanges(_config, newConfig)
+                var changes = oldConfig != null 
+                    ? ConfigurationChangeDetector.DetectChanges(oldConfig, newConfig)
                     : ConfigChangeType.All; // If no previous config, treat everything as changed
 
                 if (changes == ConfigChangeType.None)
@@ -819,10 +830,10 @@ namespace VUWare.App
 
                 if (changes.HasFlag(ConfigChangeType.DialSettings))
                 {
-                    await ApplyDialSettingsChanges(newConfig);
+                    await ApplyDialSettingsChanges(oldConfig, newConfig);
                 }
 
-                // Update current config reference
+                // Update current config reference AFTER all comparisons
                 _config = newConfig;
 
                 System.Diagnostics.Debug.WriteLine("[MainWindow] Configuration reload complete");
@@ -918,22 +929,53 @@ namespace VUWare.App
         }
 
         /// <summary>
-        /// Applies dial settings changes (thresholds, colors, formats).
+        /// Applies dial settings changes (thresholds, colors, formats, decimal places).
+        /// Forces immediate UI refresh for display format changes.
         /// </summary>
-        private async Task ApplyDialSettingsChanges(DialsConfiguration newConfig)
+        private async Task ApplyDialSettingsChanges(DialsConfiguration? oldConfig, DialsConfiguration newConfig)
         {
             System.Diagnostics.Debug.WriteLine("[MainWindow] Applying dial settings changes");
 
             // Update monitoring service with new config
             _monitoringService?.UpdateConfiguration(newConfig);
 
+            // Update _config reference immediately so UI updates use new config
+            _config = newConfig;
+            
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Updated _config reference to new configuration");
+
+            // Give the monitoring service a moment to apply the new configuration
+            await Task.Delay(100);
+
+            // Track which dials need display refresh
+            var dialsNeedingRefresh = new HashSet<string>();
+
             // If color mode changed to static, immediately apply static color
             var vu1 = _initService?.GetVU1Controller();
-            if (vu1 != null && _config != null)
+            if (vu1 != null)
             {
                 foreach (var newDial in newConfig.Dials.Where(d => d.Enabled))
                 {
-                    var oldDial = _config.Dials.FirstOrDefault(d => d.DialUid == newDial.DialUid);
+                    var oldDial = oldConfig?.Dials.FirstOrDefault(d => d.DialUid == newDial.DialUid);
+
+                    // Debug output
+                    if (oldDial != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Comparing {newDial.DisplayName}:");
+                        System.Diagnostics.Debug.WriteLine($"  - DisplayFormat: {oldDial.DisplayFormat} -> {newDial.DisplayFormat}");
+                        System.Diagnostics.Debug.WriteLine($"  - DisplayUnit: '{oldDial.DisplayUnit}' -> '{newDial.DisplayUnit}'");
+                        System.Diagnostics.Debug.WriteLine($"  - DecimalPlaces: {oldDial.DecimalPlaces} -> {newDial.DecimalPlaces}");
+                    }
+
+                    // Check if display format, unit, or decimal places changed
+                    if (oldDial != null && 
+                        (oldDial.DisplayFormat != newDial.DisplayFormat ||
+                         oldDial.DisplayUnit != newDial.DisplayUnit ||
+                         oldDial.DecimalPlaces != newDial.DecimalPlaces))
+                    {
+                        dialsNeedingRefresh.Add(newDial.DialUid);
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Display format/unit/decimals changed for {newDial.DisplayName} - needs refresh");
+                    }
 
                     // Check if switched to static mode OR static color changed
                     if ((oldDial?.ColorConfig.ColorMode != "static" && newDial.ColorConfig.ColorMode == "static") ||
@@ -949,6 +991,39 @@ namespace VUWare.App
                         }
                     }
                 }
+            }
+
+            // Force immediate UI refresh for dials with display format changes
+            if (dialsNeedingRefresh.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Forcing immediate UI refresh for {dialsNeedingRefresh.Count} dial(s)");
+                
+                foreach (var dialUid in dialsNeedingRefresh)
+                {
+                    // Get current sensor status and trigger UI update
+                    var status = _monitoringService?.GetDialStatus(dialUid);
+                    if (status != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Got status for {status.DisplayName}: {status.SensorValue:F2} {status.SensorUnit}");
+                        
+                        // Manually invoke the dial updated event to refresh the display
+                        Dispatcher.Invoke(() =>
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Invoking MonitoringService_OnDialUpdated for {status.DisplayName}");
+                            MonitoringService_OnDialUpdated(dialUid, status);
+                        });
+                        
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Refreshed display for {status.DisplayName}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] WARNING: Could not get status for dial {dialUid}");
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] No dials need UI refresh");
             }
 
             System.Diagnostics.Debug.WriteLine("[MainWindow] Dial settings changes applied");

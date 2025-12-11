@@ -231,9 +231,39 @@ namespace VUWare.HWInfo64
                         // Update current readings for registered mappings
                         foreach (var mapping in _dialMappings.Values)
                         {
-                            var reading = readings.FirstOrDefault(r =>
-                                r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
-                                r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                            SensorReading? reading = null;
+                            
+                            // IMPORTANT: Match by SensorName + SensorId + SensorInstance + EntryId for unique identification
+                            // BUT: If IDs are 0 (not set), fall back to name-only matching for backward compatibility
+                            if (mapping.SensorId == 0 && mapping.SensorInstance == 0)
+                            {
+                                // Backward compatibility: Match by name only (old configs without ID/instance)
+                                reading = readings.FirstOrDefault(r =>
+                                    r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                    r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                            }
+                            else
+                            {
+                                // New behavior: Match by composite key (name + ID + instance + entry ID)
+                                if (mapping.EntryId == 0)
+                                {
+                                    // No entry ID set - match by sensor + entry name
+                                    reading = readings.FirstOrDefault(r =>
+                                        r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                        r.SensorId == mapping.SensorId &&
+                                        r.SensorInstance == mapping.SensorInstance &&
+                                        r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                                }
+                                else
+                                {
+                                    // Full precision match - use entry ID for exact identification
+                                    reading = readings.FirstOrDefault(r =>
+                                        r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                        r.SensorId == mapping.SensorId &&
+                                        r.SensorInstance == mapping.SensorInstance &&
+                                        r.EntryId == mapping.EntryId);
+                                }
+                            }
 
                             if (reading != null)
                             {
