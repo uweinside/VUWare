@@ -14,9 +14,9 @@
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="#2a2a2a"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="FontSize" Value="12"/>
@@ -27,7 +27,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3">
+                                CornerRadius="6">
                             <ScrollViewer x:Name="PART_ContentHost" 
                                         Padding="{TemplateBinding Padding}"
                                         VerticalScrollBarVisibility="Disabled"
@@ -36,11 +36,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="BorderBrush" Value="#0078d4"/>
+                                <Setter Property="Background" Value="#333333"/>
                             </Trigger>
                             <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#0078d4"/>
-                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Background" Value="#3a3a3a"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="#888888"/>
@@ -56,9 +55,9 @@
         <Style TargetType="ComboBox">
             <Setter Property="Background" Value="#2a2a2a"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -76,11 +75,11 @@
                                         <Border Background="{TemplateBinding Background}"
                                               BorderBrush="{TemplateBinding BorderBrush}"
                                               BorderThickness="{TemplateBinding BorderThickness}"
-                                              CornerRadius="3">
+                                              CornerRadius="6">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="30"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Path Grid.Column="1"
                                                     HorizontalAlignment="Center"
@@ -89,6 +88,11 @@
                                                     Fill="#CCCCCC"/>
                                             </Grid>
                                         </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#333333"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
@@ -109,20 +113,17 @@
                                 <Grid MinWidth="{TemplateBinding ActualWidth}"
                                     MaxHeight="200">
                                     <Border Background="#2a2a2a"
-                                          BorderBrush="#555555"
-                                          BorderThickness="1">
-                                        <ScrollViewer>
+                                          BorderBrush="Transparent"
+                                          BorderThickness="0"
+                                          CornerRadius="6"
+                                          Margin="0,4,0,0">
+                                        <ScrollViewer Margin="4">
                                             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
                                         </ScrollViewer>
                                     </Border>
                                 </Grid>
                             </Popup>
                         </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="BorderBrush" Value="#0078d4"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -130,14 +131,16 @@
         
         <!-- ComboBoxItem Style -->
         <Style TargetType="ComboBoxItem">
-            <Setter Property="Background" Value="#2a2a2a"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Padding" Value="10,6"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBoxItem">
                         <Border Background="{TemplateBinding Background}"
-                              Padding="{TemplateBinding Padding}">
+                              Padding="{TemplateBinding Padding}"
+                              CornerRadius="4"
+                              Margin="2">
                             <ContentPresenter/>
                         </Border>
                         <ControlTemplate.Triggers>

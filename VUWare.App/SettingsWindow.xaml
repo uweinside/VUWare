@@ -18,23 +18,105 @@
         AllowsTransparency="True">
     <Window.Resources>
         <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
+        
+        <!-- Modern Flat Tab Style -->
         <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border Name="Border" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" Padding="15,10" Margin="0,0,2,0">
-                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header"/>
+                        <Border Name="Border" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="20,12"
+                                Margin="4,0"
+                                CornerRadius="8,8,0,0">
+                            <ContentPresenter x:Name="ContentSite" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center" 
+                                            ContentSource="Header"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="#0078d4"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="False">
-                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Border" Property="Background" Value="#2a2a2a"/>
+                                <Setter TargetName="Border" Property="Background">
+                                    <Setter.Value>
+                                        <SolidColorBrush Color="#0078d4" Opacity="0.3"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Modern Flat Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#0078d4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#005a9e"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#004578"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#3a3a3a"/>
+                                <Setter Property="Foreground" Value="#888888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Secondary Button Style (Cancel) -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#3a3a3a"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#4a4a4a"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#2a2a2a"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -139,8 +221,8 @@
                                    Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" 
                                    TextChanged="SensorSearchTextBox_TextChanged"/>
                             <Button x:Name="RefreshSensorsButton" Content="Refresh" Click="RefreshSensorsButton_Click"
-                                  Width="100" Height="30" Background="#0078d4" Foreground="White" 
-                                  BorderThickness="0" Margin="10,0,0,0"/>
+                                  Style="{StaticResource ModernButton}"
+                                  Width="100" Margin="10,0,0,0"/>
                         </StackPanel>
 
                         <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Grid.Row="2">
@@ -193,9 +275,9 @@
                                 </ComboBox>
 
                                 <Button x:Name="UploadImageButton" Content="Browse and Upload Image..." 
-                                      Click="UploadImageButton_Click" Width="200" Height="35" 
-                                      Background="#0078d4" Foreground="White" BorderThickness="0" 
-                                      HorizontalAlignment="Left" IsEnabled="False"/>
+                                      Click="UploadImageButton_Click" 
+                                      Style="{StaticResource ModernButton}"
+                                      Width="220" HorizontalAlignment="Left" IsEnabled="False"/>
 
                                 <TextBlock Text="Supported formats: PNG, BMP, JPEG (will be converted to 200x144 pixels)" 
                                          Foreground="#888888" FontSize="10" Margin="0,10,0,0"/>
@@ -217,15 +299,15 @@
             <!-- Button Bar -->
             <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,1,0,0" Height="60" Grid.Row="2" CornerRadius="0,0,8,8">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
-                    <Button x:Name="ApplyButton" Click="ApplyButton_Click" Width="100" Height="35" 
-                          Background="#0078d4" Foreground="White" Content="Apply" FontSize="12" 
-                          FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
-                    <Button x:Name="OKButton" Click="OKButton_Click" Width="100" Height="35" 
-                          Background="#0078d4" Foreground="White" Content="OK" FontSize="12" 
-                          FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
-                    <Button x:Name="CancelButton" Click="CancelButton_Click" Width="100" Height="35" 
-                          Background="#404040" Foreground="White" Content="Cancel" FontSize="12" 
-                          FontWeight="SemiBold" Padding="5"/>
+                    <Button x:Name="ApplyButton" Click="ApplyButton_Click" 
+                          Style="{StaticResource ModernButton}"
+                          Content="Apply" Margin="0,0,10,0"/>
+                    <Button x:Name="OKButton" Click="OKButton_Click" 
+                          Style="{StaticResource ModernButton}"
+                          Content="OK" Margin="0,0,10,0"/>
+                    <Button x:Name="CancelButton" Click="CancelButton_Click" 
+                          Style="{StaticResource SecondaryButton}"
+                          Content="Cancel"/>
                 </StackPanel>
             </Border>
         </Grid>
