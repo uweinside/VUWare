@@ -144,6 +144,7 @@ namespace VUWare.App.ViewModels
         public ObservableCollection<string> DisplayFormats { get; }
         public ObservableCollection<string> AvailableSensors { get; }
         public ObservableCollection<string> AvailableEntries { get; }
+        public ObservableCollection<string> AvailableDisplayUnits { get; }
 
         // Store all sensor data for filtering entries
         private System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> _sensorEntryMap;
@@ -187,6 +188,25 @@ namespace VUWare.App.ViewModels
             DisplayFormats = new ObservableCollection<string>
             {
                 "percentage", "value"
+            };
+
+            AvailableDisplayUnits = new ObservableCollection<string>
+            {
+                "°C",      // Celsius (temperature)
+                "°F",      // Fahrenheit (temperature)
+                "W",       // Watts (power)
+                "V",       // Volts (voltage)
+                "mV",      // Millivolts (voltage)
+                "A",       // Amperes (current)
+                "MHz",     // Megahertz (frequency)
+                "GHz",     // Gigahertz (frequency)
+                "RPM",     // Revolutions per minute (fan speed)
+                "MB/s",    // Megabytes per second (transfer rate)
+                "GB/s",    // Gigabytes per second (transfer rate)
+                "%",       // Percentage
+                "MB",      // Megabytes (memory)
+                "GB",      // Gigabytes (memory)
+                ""         // Empty option for no unit
             };
 
             AvailableSensors = new ObservableCollection<string>();

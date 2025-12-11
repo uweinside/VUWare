@@ -10,9 +10,15 @@ namespace VUWare.App.Models
     /// </summary>
     public class DialColorConfig
     {
+        private string _colorMode = "threshold";
+
         /// <summary>Color mode: "threshold" (uses thresholds), "static" (fixed color), or "off" (no color/hidden)</summary>
         [JsonPropertyName("colorMode")]
-        public string ColorMode { get; set; } = "threshold";
+        public string ColorMode
+        {
+            get => _colorMode;
+            set => _colorMode = value?.ToLowerInvariant() ?? "threshold";
+        }
 
         /// <summary>Static color when colorMode is "static" (e.g., "Green", "Cyan", "Blue")</summary>
         [JsonPropertyName("staticColor")]
@@ -64,6 +70,8 @@ namespace VUWare.App.Models
     /// </summary>
     public class DialConfig
     {
+        private string _displayFormat = "percentage";
+
         /// <summary>Unique identifier of the VU1 dial (from device discovery)</summary>
         [JsonPropertyName("dialUid")]
         public string DialUid { get; set; } = string.Empty;
@@ -110,7 +118,11 @@ namespace VUWare.App.Models
 
         /// <summary>Display format: "percentage" for %, "value" for actual sensor value (default: "percentage")</summary>
         [JsonPropertyName("displayFormat")]
-        public string DisplayFormat { get; set; } = "percentage";
+        public string DisplayFormat
+        {
+            get => _displayFormat;
+            set => _displayFormat = value?.ToLowerInvariant() ?? "percentage";
+        }
 
         /// <summary>Unit suffix for value display (e.g., "°C", "MHz") - only used when displayFormat is "value"</summary>
         [JsonPropertyName("displayUnit")]
