@@ -9,6 +9,7 @@
              Foreground="#CCCCCC">
     <UserControl.Resources>
         <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
+        <converters:UpperCaseConverter x:Key="UpperCaseConverter"/>
         
         <!-- TextBox Style -->
         <Style TargetType="TextBox">
@@ -219,12 +220,18 @@
 
                 <TextBlock Text="Display Format:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding DisplayFormats}" 
-                         SelectedItem="{Binding DisplayFormat}" Height="28" Grid.Row="0" Grid.Column="1" 
-                         Width="250" HorizontalAlignment="Left"/>
-
+                         SelectedItem="{Binding DisplayFormat}" Height="28" Width="150" Grid.Row="0" Grid.Column="1" 
+                         HorizontalAlignment="Left">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource UpperCaseConverter}}" Foreground="#FFFFFF"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+     
                 <TextBlock Text="Display Unit:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <TextBox Text="{Binding DisplayUnit, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="1" MaxWidth="150" HorizontalAlignment="Left"/>
+                        Height="28" Width="150" Grid.Row="2" Grid.Column="1"  HorizontalAlignment="Left"/>
             </Grid>
 
             <!-- Value Range Section -->
@@ -248,23 +255,23 @@
 
                 <TextBlock Text="Min Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <TextBox Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="0" Grid.Column="1"/>
+                        Height="28" Grid.Row="0" Grid.Column="1" Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Max Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="3"/>
                 <TextBox Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="0" Grid.Column="4" MaxWidth="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="0" Grid.Column="4" Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Warning Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <TextBox Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="1"/>
+                        Height="28" Grid.Row="2" Grid.Column="1" Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Critical Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="3"/>
                 <TextBox Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="4" MaxWidth="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="2" Grid.Column="4" Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <TextBox Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="4" Grid.Column="1"/>
+                        Height="28" Grid.Row="4" Grid.Column="1" Width="150" HorizontalAlignment="Left" TextChanged="TextBox_TextChanged"/>
             </Grid>
 
             <!-- Color Configuration Section -->
@@ -279,7 +286,13 @@
                 <TextBlock Text="Color Mode:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding ColorModes}" 
                          SelectedItem="{Binding ColorMode}" Height="28" Grid.Row="0" Grid.Column="1"
-                         Width="250" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource UpperCaseConverter}}" Foreground="#FFFFFF"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
 
             <!-- Static Color (visible when ColorMode == "static") -->
@@ -293,7 +306,7 @@
                 <TextBlock Text="Static Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding StaticColor}" Height="28" Grid.Column="1"
-                         Width="250" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"/>
             </Grid>
 
             <!-- Threshold Colors (visible when ColorMode == "threshold") -->
@@ -313,17 +326,17 @@
                 <TextBlock Text="Normal Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding NormalColor}" Height="28" Grid.Row="0" Grid.Column="1"
-                         Width="250" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Warning Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding WarningColor}" Height="28" Grid.Row="2" Grid.Column="1"
-                         Width="250" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"/>
 
                 <TextBlock Text="Critical Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding CriticalColor}" Height="28" Grid.Row="4" Grid.Column="1"
-                         Width="250" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"/>
             </Grid>
         </StackPanel>
     </Border>
