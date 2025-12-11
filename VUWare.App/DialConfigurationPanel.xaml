@@ -3,9 +3,156 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:converters="clr-namespace:VUWare.App.Converters"
              mc:Ignorable="d"
              Background="#2a2a2a"
              Foreground="#CCCCCC">
+    <UserControl.Resources>
+        <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
+        
+        <!-- TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2a2a2a"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CaretBrush" Value="#FFFFFF"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ScrollViewer x:Name="PART_ContentHost" 
+                                        Padding="{TemplateBinding Padding}"
+                                        VerticalScrollBarVisibility="Disabled"
+                                        HorizontalScrollBarVisibility="Auto"
+                                        Focusable="False"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#0078d4"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#0078d4"/>
+                                <Setter Property="Background" Value="#333333"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#888888"/>
+                                <Setter Property="Background" Value="#1a1a1a"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- ComboBox Style -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#2a2a2a"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                        Focusable="False"
+                                        ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              CornerRadius="3">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="20"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="1"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    Data="M 0 0 L 4 4 L 8 0 Z"
+                                                    Fill="#CCCCCC"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                            IsHitTestVisible="False"
+                                            Content="{TemplateBinding SelectionBoxItem}"
+                                            ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                            ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                            Margin="{TemplateBinding Padding}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"/>
+                            <Popup x:Name="Popup"
+                                 Placement="Bottom"
+                                 IsOpen="{TemplateBinding IsDropDownOpen}"
+                                 AllowsTransparency="True"
+                                 Focusable="False"
+                                 PopupAnimation="Slide">
+                                <Grid MinWidth="{TemplateBinding ActualWidth}"
+                                    MaxHeight="200">
+                                    <Border Background="#2a2a2a"
+                                          BorderBrush="#555555"
+                                          BorderThickness="1">
+                                        <ScrollViewer>
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#0078d4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- ComboBoxItem Style -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2a2a2a"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border Background="{TemplateBinding Background}"
+                              Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="#0078d4"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#0078d4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
         <StackPanel>
             <!-- Dial Header with Enable Toggle -->
@@ -23,119 +170,154 @@
             <!-- Sensor Configuration Section -->
             <TextBlock Text="Sensor Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,0,0,10"/>
             
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Display Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <TextBox x:Name="DisplayNameTextBox" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" 
-                        Width="200" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="Display Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
+                <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <TextBox x:Name="SensorNameTextBox" Text="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
-                        Width="300" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+                <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
+                <TextBox Text="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="2" Grid.Column="1" MinWidth="400"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <TextBox x:Name="EntryNameTextBox" Text="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}" 
-                        Width="200" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+                <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
+                <TextBox Text="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="4" Grid.Column="1" MinWidth="300"/>
+            </Grid>
 
             <!-- Display Format Section -->
             <TextBlock Text="Display Settings" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Display Format:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <ComboBox x:Name="DisplayFormatComboBox" ItemsSource="{Binding DisplayFormats}" 
-                         SelectedItem="{Binding DisplayFormat}" Width="150" Height="25" 
-                         Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Display Unit:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <TextBox x:Name="DisplayUnitTextBox" Text="{Binding DisplayUnit, UpdateSourceTrigger=PropertyChanged}" 
-                        Width="100" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+                <TextBlock Text="Display Format:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding DisplayFormats}" 
+                         SelectedItem="{Binding DisplayFormat}" Height="28" Grid.Row="0" Grid.Column="1" 
+                         Width="250" HorizontalAlignment="Left"/>
+
+                <TextBlock Text="Display Unit:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
+                <TextBox Text="{Binding DisplayUnit, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="2" Grid.Column="1" MaxWidth="150" HorizontalAlignment="Left"/>
+            </Grid>
 
             <!-- Value Range Section -->
             <TextBlock Text="Value Range" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
 
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Min Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
-                <TextBox x:Name="MinValueTextBox" Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" Grid.Row="0" Grid.Column="1"/>
+                <TextBox Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="0" Grid.Column="1"/>
 
-                <TextBlock Text="Max Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="2" Margin="15,0,0,0"/>
-                <TextBox x:Name="MaxValueTextBox" Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" Grid.Row="0" Grid.Column="3"/>
+                <TextBlock Text="Max Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="3"/>
+                <TextBox Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="0" Grid.Column="4" MaxWidth="150" HorizontalAlignment="Left"/>
 
-                <TextBlock Text="Warning Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="1" Grid.Column="0" Margin="0,8,0,0"/>
-                <TextBox x:Name="WarningThresholdTextBox" Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" Grid.Row="1" Grid.Column="1" Margin="0,8,0,0"/>
+                <TextBlock Text="Warning Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
+                <TextBox Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="2" Grid.Column="1"/>
 
-                <TextBlock Text="Critical Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="1" Grid.Column="2" Margin="15,8,0,0"/>
-                <TextBox x:Name="CriticalThresholdTextBox" Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" Grid.Row="1" Grid.Column="3" Margin="15,8,0,0"/>
+                <TextBlock Text="Critical Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="3"/>
+                <TextBox Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="2" Grid.Column="4" MaxWidth="150" HorizontalAlignment="Left"/>
 
-                <TextBlock Text="Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0" Margin="0,8,0,0"/>
-                <TextBox x:Name="UpdateIntervalTextBox" Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" Grid.Row="2" Grid.Column="1" Margin="0,8,0,0"/>
+                <TextBlock Text="Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
+                <TextBox Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
+                        Height="28" Grid.Row="4" Grid.Column="1"/>
             </Grid>
 
             <!-- Color Configuration Section -->
             <TextBlock Text="Color Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Color Mode:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <ComboBox x:Name="ColorModeComboBox" ItemsSource="{Binding ColorModes}" 
-                         SelectedItem="{Binding ColorMode}" Width="150" Height="25" 
-                         Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Color Mode:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding ColorModes}" 
+                         SelectedItem="{Binding ColorMode}" Height="28" Grid.Row="0" Grid.Column="1"
+                         Width="250" HorizontalAlignment="Left"/>
+            </Grid>
 
             <!-- Static Color (visible when ColorMode == "static") -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10" 
-                       Visibility="{Binding ColorMode, Converter={StaticResource ColorModeToVisibilityConverter}, ConverterParameter=static}">
-                <TextBlock Text="Static Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                <ComboBox x:Name="StaticColorComboBox" ItemsSource="{Binding AvailableColors}" 
-                         SelectedItem="{Binding StaticColor}" Width="150" Height="25" 
-                         Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-            </StackPanel>
+            <Grid Margin="0,0,0,10" 
+                  Visibility="{Binding ColorMode, Converter={StaticResource ColorModeToVisibilityConverter}, ConverterParameter=static}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Text="Static Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding AvailableColors}" 
+                         SelectedItem="{Binding StaticColor}" Height="28" Grid.Column="1"
+                         Width="250" HorizontalAlignment="Left"/>
+            </Grid>
 
             <!-- Threshold Colors (visible when ColorMode == "threshold") -->
-            <StackPanel Visibility="{Binding ColorMode, Converter={StaticResource ColorModeToVisibilityConverter}, ConverterParameter=threshold}">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="Normal Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                    <ComboBox x:Name="NormalColorComboBox" ItemsSource="{Binding AvailableColors}" 
-                             SelectedItem="{Binding NormalColor}" Width="150" Height="25" 
-                             Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-                </StackPanel>
+            <Grid Visibility="{Binding ColorMode, Converter={StaticResource ColorModeToVisibilityConverter}, ConverterParameter=threshold}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="Warning Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                    <ComboBox x:Name="WarningColorComboBox" ItemsSource="{Binding AvailableColors}" 
-                             SelectedItem="{Binding WarningColor}" Width="150" Height="25" 
-                             Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-                </StackPanel>
+                <TextBlock Text="Normal Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding AvailableColors}" 
+                         SelectedItem="{Binding NormalColor}" Height="28" Grid.Row="0" Grid.Column="1"
+                         Width="250" HorizontalAlignment="Left"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="Critical Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Width="140"/>
-                    <ComboBox x:Name="CriticalColorComboBox" ItemsSource="{Binding AvailableColors}" 
-                             SelectedItem="{Binding CriticalColor}" Width="150" Height="25" 
-                             Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
-                </StackPanel>
-            </StackPanel>
+                <TextBlock Text="Warning Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding AvailableColors}" 
+                         SelectedItem="{Binding WarningColor}" Height="28" Grid.Row="2" Grid.Column="1"
+                         Width="250" HorizontalAlignment="Left"/>
+
+                <TextBlock Text="Critical Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
+                <ComboBox ItemsSource="{Binding AvailableColors}" 
+                         SelectedItem="{Binding CriticalColor}" Height="28" Grid.Row="4" Grid.Column="1"
+                         Width="250" HorizontalAlignment="Left"/>
+            </Grid>
         </StackPanel>
     </Border>
 </UserControl>

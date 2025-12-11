@@ -7,7 +7,7 @@
     "logFilePath": "",
     "debugMode": false,
     "serialCommandDelayMs": 150,
-    "startMinimized": true
+    "startMinimized": false
   },
   "dials": [
     {

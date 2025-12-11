@@ -750,7 +750,33 @@ namespace VUWare.App
         {
             SettingsWindow settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
-            settingsWindow.ShowDialog();
+            
+            // Pass controllers to the settings window if they're initialized
+            if (_initService != null)
+            {
+                if (_initService.GetHWInfo64Controller() != null)
+                {
+                    settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
+                }
+                
+                if (_initService.GetVU1Controller() != null)
+                {
+                    settingsWindow.SetVU1Controller(_initService.GetVU1Controller());
+                }
+            }
+            
+            bool? result = settingsWindow.ShowDialog();
+            
+            // If settings were saved, reload configuration
+            if (result == true)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Settings saved, configuration may need reload on next restart");
+                MessageBox.Show(
+                    "Settings have been saved.\n\nSome changes may require restarting the application to take full effect.",
+                    "Settings Saved",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
 
         /// <summary>

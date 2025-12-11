@@ -4,15 +4,44 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VUWare.App"
+        xmlns:converters="clr-namespace:VUWare.App.Converters"
         mc:Ignorable="d"
         Title="Settings"
-        Height="300"
-        Width="400"
-        ResizeMode="NoResize"
+        Height="700"
+        Width="900"
+        ResizeMode="CanResize"
+        MinHeight="600"
+        MinWidth="800"
         WindowStartupLocation="CenterOwner"
         Background="#2a2a2a"
         WindowStyle="None"
         AllowsTransparency="True">
+    <Window.Resources>
+        <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
+        <Style TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" Padding="15,10" Margin="0,0,2,0">
+                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#0078d4"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#2a2a2a"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Border Background="#2a2a2a" CornerRadius="8" BorderBrush="#444444" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
@@ -22,25 +51,181 @@
             </Grid.RowDefinitions>
 
             <!-- Title Bar -->
-            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,0,0,1" Height="40" Grid.Row="0" CornerRadius="8,8,0,0">
+            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,0,0,1" Height="40" Grid.Row="0" CornerRadius="8,8,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Settings" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="16" FontWeight="Bold" Grid.Column="0"/>
-                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="X" FontSize="24" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1"/>
+                    <TextBlock Text="Configuration" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="16" FontWeight="Bold" Grid.Column="0"/>
+                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="?" FontSize="24" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1"/>
                 </Grid>
             </Border>
 
-            <!-- Content Area (Empty - to be rebuilt) -->
-            <Grid Grid.Row="1"/>
+            <!-- Content Area with TabControl -->
+            <TabControl Grid.Row="1" Background="#2a2a2a" BorderThickness="0" Margin="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabControl">
+                        <Setter Property="Background" Value="#2a2a2a"/>
+                    </Style>
+                </TabControl.Resources>
+                
+                <!-- Dial Configuration Tab -->
+                <TabItem Header="Dial Configuration">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="15">
+                        <StackPanel x:Name="DialsPanel">
+                            <TextBlock Text="Configure individual dial settings" 
+                                     Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,15"/>
+                            <!-- Dial configuration panels will be dynamically added here -->
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Application Settings Tab -->
+                <TabItem Header="Application Settings">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="15">
+                        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="20">
+                            <StackPanel>
+                                <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+
+                                <CheckBox x:Name="StartMinimizedCheckBox" Content="Start Minimized" 
+                                        Foreground="#CCCCCC" Margin="0,0,0,15" IsChecked="{Binding StartMinimized}"/>
+
+                                <CheckBox x:Name="AutoConnectCheckBox" Content="Auto-connect to VU1 Hub on startup" 
+                                        Foreground="#CCCCCC" Margin="0,0,0,15" IsChecked="{Binding AutoConnect}"/>
+
+                                <CheckBox x:Name="EnablePollingCheckBox" Content="Enable HWInfo64 Polling" 
+                                        Foreground="#CCCCCC" Margin="0,0,0,15" IsChecked="{Binding EnablePolling}"/>
+
+                                <CheckBox x:Name="DebugModeCheckBox" Content="Enable Debug Mode" 
+                                        Foreground="#CCCCCC" Margin="0,0,0,20" IsChecked="{Binding DebugMode}"/>
+
+                                <TextBlock Text="Performance Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,10,0,15"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                    <TextBlock Text="Global Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Width="200"/>
+                                    <TextBox x:Name="GlobalUpdateIntervalTextBox" Text="{Binding GlobalUpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
+                                           Width="100" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
+                                    <TextBlock Text="Recommended: 500-1000" VerticalAlignment="Center" Foreground="#888888" FontSize="10" Margin="10,0,0,0"/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                    <TextBlock Text="Serial Command Delay (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Width="200"/>
+                                    <TextBox x:Name="SerialCommandDelayTextBox" Text="{Binding SerialCommandDelayMs, UpdateSourceTrigger=PropertyChanged}" 
+                                           Width="100" Height="25" Padding="8" Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444"/>
+                                    <TextBlock Text="Recommended: 50-200" VerticalAlignment="Center" Foreground="#888888" FontSize="10" Margin="10,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Available Sensors Tab -->
+                <TabItem Header="Available Sensors">
+                    <Grid Margin="15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Browse available HWInfo64 sensors" 
+                                 Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,15" Grid.Row="0"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15" Grid.Row="1">
+                            <TextBlock Text="Search:" VerticalAlignment="Center" Foreground="#CCCCCC" Margin="0,0,10,0"/>
+                            <TextBox x:Name="SensorSearchTextBox" Width="300" Height="30" Padding="8" 
+                                   Background="#2a2a2a" Foreground="#CCCCCC" BorderBrush="#444444" 
+                                   TextChanged="SensorSearchTextBox_TextChanged"/>
+                            <Button x:Name="RefreshSensorsButton" Content="Refresh" Click="RefreshSensorsButton_Click"
+                                  Width="100" Height="30" Background="#0078d4" Foreground="White" 
+                                  BorderThickness="0" Margin="10,0,0,0"/>
+                        </StackPanel>
+
+                        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Grid.Row="2">
+                            <ListBox x:Name="SensorsListBox" Background="Transparent" Foreground="#CCCCCC" 
+                                   BorderThickness="0" ItemsSource="{Binding FilteredSensors}" 
+                                   SelectedItem="{Binding SelectedSensor}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="5">
+                                            <TextBlock Text="{Binding DisplayText}" Foreground="#CCCCCC" FontSize="12"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <StackPanel Grid.Row="3" Margin="0,15,0,0">
+                            <TextBlock x:Name="SensorCountText" Text="No sensors loaded" 
+                                     Foreground="#888888" FontSize="11"/>
+                            <TextBlock Text="Note: HWInfo64 must be running with 'Shared Memory Support' enabled" 
+                                     Foreground="#888888" FontSize="10" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <!-- Dial Images Tab -->
+                <TabItem Header="Dial Images">
+                    <Grid Margin="15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Upload custom dial face images" 
+                                 Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,15" Grid.Row="0"/>
+
+                        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="20" Grid.Row="1">
+                            <StackPanel>
+                                <TextBlock Text="Select a dial to upload an image:" Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,10"/>
+                                
+                                <ComboBox x:Name="DialSelectionComboBox" Height="30" Background="#2a2a2a" 
+                                        Foreground="#CCCCCC" BorderBrush="#444444" Margin="0,0,0,15"
+                                        SelectionChanged="DialSelectionComboBox_SelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="#CCCCCC"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                                <Button x:Name="UploadImageButton" Content="Browse and Upload Image..." 
+                                      Click="UploadImageButton_Click" Width="200" Height="35" 
+                                      Background="#0078d4" Foreground="White" BorderThickness="0" 
+                                      HorizontalAlignment="Left" IsEnabled="False"/>
+
+                                <TextBlock Text="Supported formats: PNG, BMP, JPEG (will be converted to 200x144 pixels)" 
+                                         Foreground="#888888" FontSize="10" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" 
+                              Padding="20" Grid.Row="2" Margin="0,15,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Upload Status" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,10"/>
+                                <TextBlock x:Name="ImageUploadStatusText" Text="No image uploaded" 
+                                         Foreground="#888888" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
 
             <!-- Button Bar -->
-            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,1,0,0" Height="50" Grid.Row="2" CornerRadius="0,0,8,8">
+            <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,1,0,0" Height="60" Grid.Row="2" CornerRadius="0,0,8,8">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
-                    <Button x:Name="OKButton" Click="OKButton_Click" Width="80" Height="35" Background="#0078d4" Foreground="White" Content="OK" FontSize="12" FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
-                    <Button x:Name="CancelButton" Click="CancelButton_Click" Width="80" Height="35" Background="#404040" Foreground="White" Content="Cancel" FontSize="12" FontWeight="SemiBold" Padding="5"/>
+                    <Button x:Name="ApplyButton" Click="ApplyButton_Click" Width="100" Height="35" 
+                          Background="#0078d4" Foreground="White" Content="Apply" FontSize="12" 
+                          FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
+                    <Button x:Name="OKButton" Click="OKButton_Click" Width="100" Height="35" 
+                          Background="#0078d4" Foreground="White" Content="OK" FontSize="12" 
+                          FontWeight="SemiBold" Margin="0,0,10,0" Padding="5"/>
+                    <Button x:Name="CancelButton" Click="CancelButton_Click" Width="100" Height="35" 
+                          Background="#404040" Foreground="White" Content="Cancel" FontSize="12" 
+                          FontWeight="SemiBold" Padding="5"/>
                 </StackPanel>
             </Border>
         </Grid>
