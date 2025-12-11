@@ -789,6 +789,16 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Opens the about dialog.
+        /// </summary>
+        private void InfoButton_Click(object sender, RoutedEventArgs e)
+        {
+            AboutDialog aboutDialog = new AboutDialog();
+            aboutDialog.Owner = this;
+            aboutDialog.ShowDialog();
+        }
+
+        /// <summary>
         /// Initializes the system tray manager with the main window.
         /// </summary>
         private void InitializeSystemTray()
