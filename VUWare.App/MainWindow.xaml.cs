@@ -32,6 +32,9 @@ namespace VUWare.App
         {
             InitializeComponent();
             
+            // Disable settings button until initialization is complete
+            SettingsButton.IsEnabled = false;
+            
             // Set window icon from PNG file
             try
             {
@@ -463,6 +466,11 @@ namespace VUWare.App
             {
                 // Start monitoring
                 StartMonitoring();
+                
+                // Enable settings button now that monitoring is running
+                SettingsButton.IsEnabled = true;
+                SettingsButton.ToolTip = "Settings";
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Settings button enabled - initialization complete");
 
                 if (_config?.AppSettings.DebugMode == true)
                 {
