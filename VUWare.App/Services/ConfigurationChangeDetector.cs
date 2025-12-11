@@ -57,7 +57,8 @@ namespace VUWare.App.Services
                     oldDial.SensorId != newDial.SensorId ||
                     oldDial.SensorInstance != newDial.SensorInstance ||
                     oldDial.EntryName != newDial.EntryName ||
-                    oldDial.EntryId != newDial.EntryId)
+                    oldDial.EntryId != newDial.EntryId ||
+                    MappingValuesChanged(oldDial, newDial))  // NEW: Also check min/max/thresholds
                 {
                     changes |= ConfigChangeType.SensorMappings;
                 }
@@ -107,10 +108,6 @@ namespace VUWare.App.Services
         {
             // Check basic settings
             if (oldDial.DisplayName != newDial.DisplayName ||
-                oldDial.MinValue != newDial.MinValue ||
-                oldDial.MaxValue != newDial.MaxValue ||
-                oldDial.WarningThreshold != newDial.WarningThreshold ||
-                oldDial.CriticalThreshold != newDial.CriticalThreshold ||
                 oldDial.DisplayFormat != newDial.DisplayFormat ||
                 oldDial.DisplayUnit != newDial.DisplayUnit ||
                 oldDial.DecimalPlaces != newDial.DecimalPlaces ||
@@ -133,6 +130,17 @@ namespace VUWare.App.Services
             }
 
             return false;
+        }
+        
+        /// <summary>
+        /// Checks if mapping-related values changed (min/max/thresholds affect percentage calculation).
+        /// </summary>
+        private static bool MappingValuesChanged(DialConfig oldDial, DialConfig newDial)
+        {
+            return oldDial.MinValue != newDial.MinValue ||
+                   oldDial.MaxValue != newDial.MaxValue ||
+                   oldDial.WarningThreshold != newDial.WarningThreshold ||
+                   oldDial.CriticalThreshold != newDial.CriticalThreshold;
         }
 
         /// <summary>
