@@ -10,6 +10,7 @@
     <UserControl.Resources>
         <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
         <converters:UpperCaseConverter x:Key="UpperCaseConverter"/>
+        <converters:DisplayFormatToVisibilityConverter x:Key="DisplayFormatToVisibilityConverter"/>
         
         <!-- TextBox Style -->
         <Style TargetType="TextBox">
@@ -259,7 +260,8 @@
                 <TextBlock Text="{Binding DialNumber, StringFormat='Dial #{0}'}" 
                            FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Grid.Column="0"/>
                 <CheckBox x:Name="EnabledCheckBox" IsChecked="{Binding Enabled}" 
-                         VerticalAlignment="Center" Grid.Column="1" Foreground="#CCCCCC" Content="Enabled"/>
+                         VerticalAlignment="Center" Grid.Column="1" Foreground="#CCCCCC" Content="Enabled"
+                         ToolTip="Enable or disable updates for this dial"/>
             </Grid>
 
             <!-- Sensor Configuration Section -->
@@ -280,19 +282,22 @@
                 
                 <TextBlock Text="Display Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"/>
+                        Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"
+                        ToolTip="Friendly name for this dial (e.g., 'CPU Temperature', 'GPU Load')"/>
 
                 <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableSensors}" 
                          SelectedItem="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
                          Height="28" Grid.Row="2" Grid.Column="1" 
-                         MinWidth="400" IsTextSearchEnabled="True"/>
+                         MinWidth="400" IsTextSearchEnabled="True"
+                         ToolTip="Select the HWInfo64 sensor to monitor (e.g., 'CPU [#0]: Intel Core i7-9700K')"/>
 
                 <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableEntries}" 
                          SelectedItem="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}"
                          Height="28" Grid.Row="4" Grid.Column="1" 
-                         MinWidth="300" IsTextSearchEnabled="True"/>
+                         MinWidth="300" IsTextSearchEnabled="True"
+                         ToolTip="Select the specific reading from the sensor (e.g., 'Core Temperature', 'GPU Core Load')"/>
             </Grid>
 
             <!-- Display Format Section -->
@@ -305,14 +310,14 @@
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Display Format:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding DisplayFormats}" 
                          SelectedItem="{Binding DisplayFormat}" Height="28" Width="150" Grid.Row="0" Grid.Column="1" 
-                         HorizontalAlignment="Left">
+                         HorizontalAlignment="Left"
+                         ToolTip="'Percentage': Show dial position as 0-100%&#x0a;'Value': Show actual sensor value with unit">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource UpperCaseConverter}}" Foreground="#FFFFFF"/>
@@ -320,12 +325,22 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
      
-                <TextBlock Text="Display Unit:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
-                <ComboBox ItemsSource="{Binding AvailableDisplayUnits}" 
-                         Text="{Binding DisplayUnit, UpdateSourceTrigger=PropertyChanged}"
-                         Height="28" Width="150" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left"
-                         IsEditable="True" IsTextSearchEnabled="True"
-                         Style="{StaticResource EditableComboBoxStyle}"/>
+                <!-- Display Unit (visible only when DisplayFormat == "value") -->
+                <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,10,0,0"
+                      Visibility="{Binding DisplayFormat, Converter={StaticResource DisplayFormatToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Text="Display Unit:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
+                    <ComboBox ItemsSource="{Binding AvailableDisplayUnits}" 
+                             Text="{Binding DisplayUnit, UpdateSourceTrigger=PropertyChanged}"
+                             Height="28" Width="150" Grid.Column="1" HorizontalAlignment="Left"
+                             IsEditable="True" IsTextSearchEnabled="True"
+                             Style="{StaticResource EditableComboBoxStyle}"
+                             ToolTip="Unit suffix for 'Value' display format (e.g., '°C', 'MHz', 'RPM'). Select from common units or type your own. Leave empty for no unit."/>
+                </Grid>
             </Grid>
 
             <!-- Value Range Section -->
@@ -349,23 +364,28 @@
 
                 <TextBlock Text="Min Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <TextBox Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="0" Grid.Column="1" Width="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="0" Grid.Column="1" Width="150" HorizontalAlignment="Left"
+                        ToolTip="Sensor value that maps to 0% on the dial (e.g., 0 for percentage, 20 for temperature)"/>
 
                 <TextBlock Text="Max Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="3"/>
                 <TextBox Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="0" Grid.Column="4" Width="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="0" Grid.Column="4" Width="150" HorizontalAlignment="Left"
+                        ToolTip="Sensor value that maps to 100% on the dial (e.g., 100 for percentage, 90 for temperature)"/>
 
                 <TextBlock Text="Warning Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <TextBox Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="1" Width="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="2" Grid.Column="1" Width="150" HorizontalAlignment="Left"
+                        ToolTip="Sensor value above which the warning color is shown (optional)"/>
 
                 <TextBlock Text="Critical Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="3"/>
                 <TextBox Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="2" Grid.Column="4" Width="150" HorizontalAlignment="Left"/>
+                        Height="28" Grid.Row="2" Grid.Column="4" Width="150" HorizontalAlignment="Left"
+                        ToolTip="Sensor value above which the critical color is shown (optional, must be > warning threshold)"/>
 
                 <TextBlock Text="Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <TextBox Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
-                        Height="28" Grid.Row="4" Grid.Column="1" Width="150" HorizontalAlignment="Left" TextChanged="TextBox_TextChanged"/>
+                        Height="28" Grid.Row="4" Grid.Column="1" Width="150" HorizontalAlignment="Left" TextChanged="TextBox_TextChanged"
+                        ToolTip="How often to update this dial in milliseconds (min: 100ms, recommended: 500-1000ms)"/>
             </Grid>
 
             <!-- Color Configuration Section -->
@@ -380,7 +400,8 @@
                 <TextBlock Text="Color Mode:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding ColorModes}" 
                          SelectedItem="{Binding ColorMode}" Height="28" Grid.Row="0" Grid.Column="1"
-                         Width="150" HorizontalAlignment="Left">
+                         Width="150" HorizontalAlignment="Left"
+                         ToolTip="'Threshold': Change color based on sensor value&#x0a;'Static': Use one fixed color&#x0a;'Off': Disable backlight">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource UpperCaseConverter}}" Foreground="#FFFFFF"/>
@@ -400,7 +421,8 @@
                 <TextBlock Text="Static Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding StaticColor}" Height="28" Grid.Column="1"
-                         Width="150" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"
+                         ToolTip="The fixed backlight color to use when in Static mode"/>
             </Grid>
 
             <!-- Threshold Colors (visible when ColorMode == "threshold") -->
@@ -420,17 +442,20 @@
                 <TextBlock Text="Normal Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding NormalColor}" Height="28" Grid.Row="0" Grid.Column="1"
-                         Width="150" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"
+                         ToolTip="Backlight color when sensor value is below warning threshold"/>
 
                 <TextBlock Text="Warning Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding WarningColor}" Height="28" Grid.Row="2" Grid.Column="1"
-                         Width="150" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"
+                         ToolTip="Backlight color when sensor value exceeds warning threshold"/>
 
                 <TextBlock Text="Critical Color:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableColors}" 
                          SelectedItem="{Binding CriticalColor}" Height="28" Grid.Row="4" Grid.Column="1"
-                         Width="150" HorizontalAlignment="Left"/>
+                         Width="150" HorizontalAlignment="Left"
+                         ToolTip="Backlight color when sensor value exceeds critical threshold"/>
             </Grid>
         </StackPanel>
     </Border>
