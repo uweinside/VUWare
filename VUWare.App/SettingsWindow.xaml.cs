@@ -111,8 +111,13 @@ namespace VUWare.App
             var dialsPanel = this.FindName("DialsPanel") as StackPanel;
             if (dialsPanel == null) return;
 
+            // Get active dials based on effective dial count (respects dialCountOverride)
+            var activeDials = _configuration.GetActiveDials();
+            
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Initializing {activeDials.Count} active dial panels (out of {_configuration.Dials.Count} total configured)");
+
             int dialNumber = 1;
-            foreach (var dialConfig in _configuration.Dials)
+            foreach (var dialConfig in activeDials)
             {
                 var viewModel = new DialConfigurationViewModel(dialConfig, dialNumber);
                 _dialViewModels.Add(viewModel);
@@ -138,6 +143,8 @@ namespace VUWare.App
                 dialsPanel.Children.Add(panel);
                 dialNumber++;
             }
+            
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Created {_dialViewModels.Count} dial configuration panels");
         }
 
         /// <summary>
