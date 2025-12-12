@@ -1,6 +1,10 @@
+// Copyright (c) 2025 Uwe Baumann
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -12,9 +16,9 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using VUWare.App.Models;
 using VUWare.App.Services;
-using System.Linq;
-using WpfColors = System.Windows.Media.Colors;
+using VUWare.HWInfo64;
 using VULib = VUWare.Lib;
+using WpfColors = System.Windows.Media.Colors;
 
 namespace VUWare.App
 {
@@ -31,6 +35,9 @@ namespace VUWare.App
         public MainWindow()
         {
             InitializeComponent();
+            
+            // Disable settings button until initialization is complete
+            SettingsButton.IsEnabled = false;
             
             // Set window icon from PNG file
             try
@@ -106,7 +113,7 @@ namespace VUWare.App
                 _initService.GetHWInfo64Controller().Disconnect();
             }
             
-            // Give loops time to stop
+            // Give loops to stop
             System.Threading.Thread.Sleep(200);
             
             // Step 3: Send shutdown commands directly using simple synchronous serial commands
@@ -463,6 +470,11 @@ namespace VUWare.App
             {
                 // Start monitoring
                 StartMonitoring();
+                
+                // Enable settings button now that monitoring is running
+                SettingsButton.IsEnabled = true;
+                SettingsButton.ToolTip = "Settings";
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Settings button enabled - initialization complete");
 
                 if (_config?.AppSettings.DebugMode == true)
                 {
@@ -571,17 +583,25 @@ namespace VUWare.App
 
                 // Get dial configuration for this UID
                 var dialConfig = _config.Dials.FirstOrDefault(d => d.DialUid == dialUid);
+                
+                System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] {dialConfig?.DisplayName}: Format={dialConfig?.DisplayFormat}, DecimalPlaces={dialConfig?.DecimalPlaces}, Unit={dialConfig?.DisplayUnit}");
+                
                 string displayValue;
 
                 if (dialConfig?.DisplayFormat == "value")
                 {
-                    // Display actual sensor value with unit
-                    displayValue = $"{update.SensorValue:F1}{dialConfig!.DisplayUnit}";
+                    // Display actual sensor value with unit, respecting decimal places configuration
+                    string formatString = $"F{dialConfig.DecimalPlaces}";
+                    displayValue = $"{update.SensorValue.ToString(formatString)}{dialConfig!.DisplayUnit}";
+                    
+                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Value mode: {update.SensorValue} -> {displayValue} (format={formatString})");
                 }
                 else
                 {
                     // Display percentage (default)
                     displayValue = $"{update.DialPercentage}%";
+                    
+                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Percentage mode: {displayValue}");
                 }
 
                 // Update text blocks
@@ -744,13 +764,330 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Reloads configuration from disk and applies changes dynamically without restarting.
+        /// </summary>
+        /// <returns>True if reload succeeded, false otherwise</returns>
+        public async Task<bool> ReloadConfiguration()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Starting configuration reload");
+
+                // Load new configuration
+                string configPath = ConfigManager.GetDefaultConfigPath();
+                var newConfig = ConfigManager.LoadDefault();
+
+                if (newConfig == null)
+                {
+                    MessageBox.Show(
+                        $"Failed to load configuration from {configPath}",
+                        "Configuration Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
+                // Validate configuration
+                if (!newConfig.Validate(out var errors))
+                {
+                    string errorMessage = string.Join(Environment.NewLine, errors);
+                    MessageBox.Show(
+                        $"Configuration validation failed:\n\n{errorMessage}",
+                        "Configuration Invalid",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
+                // IMPORTANT: Save old config for comparison BEFORE updating
+                var oldConfig = _config;
+
+                // Detect what changed
+                var changes = oldConfig != null 
+                    ? ConfigurationChangeDetector.DetectChanges(oldConfig, newConfig)
+                    : ConfigChangeType.All; // If no previous config, treat everything as changed
+
+                if (changes == ConfigChangeType.None)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] No configuration changes detected");
+                    return true;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration changes detected: {ConfigurationChangeDetector.GetChangeDescription(changes)}");
+
+                // Apply changes based on type
+                bool success = true;
+
+                if (changes.HasFlag(ConfigChangeType.SensorMappings))
+                {
+                    success = success && await ReloadSensorMappings(newConfig);
+                }
+
+                if (changes.HasFlag(ConfigChangeType.UpdateIntervals))
+                {
+                    ApplyIntervalChanges(newConfig);
+                }
+
+                if (changes.HasFlag(ConfigChangeType.DialSettings))
+                {
+                    await ApplyDialSettingsChanges(oldConfig, newConfig);
+                }
+
+                // Update current config reference AFTER all comparisons
+                _config = newConfig;
+
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Configuration reload complete");
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration reload failed: {ex.Message}");
+                MessageBox.Show(
+                    $"Failed to reload configuration:\n\n{ex.Message}",
+                    "Configuration Reload Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Reloads sensor mappings by stopping monitoring, clearing old mappings,
+        /// and registering new ones.
+        /// </summary>
+        private async Task<bool> ReloadSensorMappings(DialsConfiguration newConfig)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Reloading sensor mappings");
+
+                // Pause monitoring temporarily
+                _monitoringService?.Stop();
+                await Task.Delay(200); // Allow monitoring thread to stop
+
+                // Get HWInfo controller
+                var hwInfo = _initService?.GetHWInfo64Controller();
+                if (hwInfo == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] HWInfo controller not available");
+                    return false;
+                }
+
+                // Clear old mappings
+                hwInfo.ClearAllMappings();
+
+                // Register new mappings
+                var mappings = new System.Collections.Generic.List<DialSensorMapping>();
+                foreach (var dial in newConfig.Dials.Where(d => d.Enabled))
+                {
+                    var mapping = new DialSensorMapping
+                    {
+                        Id = dial.DialUid,
+                        SensorName = dial.SensorName,
+                        SensorId = dial.SensorId,
+                        SensorInstance = dial.SensorInstance,
+                        EntryName = dial.EntryName,
+                        EntryId = dial.EntryId,
+                        MinValue = dial.MinValue,
+                        MaxValue = dial.MaxValue,
+                        WarningThreshold = dial.WarningThreshold,
+                        CriticalThreshold = dial.CriticalThreshold,
+                        DisplayName = dial.DisplayName
+                    };
+                    mappings.Add(mapping);
+                }
+
+                hwInfo.RegisterMappings(mappings);
+
+                // Restart monitoring
+                _monitoringService?.Start();
+
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Reloaded {mappings.Count} sensor mappings");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to reload sensor mappings: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Applies update interval changes to HWInfo64 controller and monitoring service.
+        /// </summary>
+        private void ApplyIntervalChanges(DialsConfiguration newConfig)
+        {
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying interval changes");
+
+            var hwInfo = _initService?.GetHWInfo64Controller();
+            if (hwInfo != null)
+            {
+                hwInfo.UpdatePollInterval(newConfig.AppSettings.GlobalUpdateIntervalMs);
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated HWInfo poll interval to {newConfig.AppSettings.GlobalUpdateIntervalMs}ms");
+            }
+
+            // Monitoring service will pick up new interval from updated config
+            _monitoringService?.UpdateConfiguration(newConfig);
+        }
+
+        /// <summary>
+        /// Applies dial settings changes (thresholds, colors, formats, decimal places).
+        /// Forces immediate UI refresh for display format changes.
+        /// </summary>
+        private async Task ApplyDialSettingsChanges(DialsConfiguration? oldConfig, DialsConfiguration newConfig)
+        {
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying dial settings changes");
+
+            // Update monitoring service with new config
+            _monitoringService?.UpdateConfiguration(newConfig);
+
+            // Update _config reference immediately so UI updates use new config
+            _config = newConfig;
+            
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Updated _config reference to new configuration");
+
+            // Give the monitoring service a moment to apply the new configuration
+            await Task.Delay(100);
+
+            // Track which dials need display refresh
+            var dialsNeedingRefresh = new HashSet<string>();
+
+            // If color mode changed to static, immediately apply static color
+            var vu1 = _initService?.GetVU1Controller();
+            if (vu1 != null)
+            {
+                foreach (var newDial in newConfig.Dials.Where(d => d.Enabled))
+                {
+                    var oldDial = oldConfig?.Dials.FirstOrDefault(d => d.DialUid == newDial.DialUid);
+
+                    // Debug output
+                    if (oldDial != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Comparing {newDial.DisplayName}:");
+                        System.Diagnostics.Debug.WriteLine($"  - DisplayFormat: {oldDial.DisplayFormat} -> {newDial.DisplayFormat}");
+                        System.Diagnostics.Debug.WriteLine($"  - DisplayUnit: '{oldDial.DisplayUnit}' -> '{newDial.DisplayUnit}'");
+                        System.Diagnostics.Debug.WriteLine($"  - DecimalPlaces: {oldDial.DecimalPlaces} -> {newDial.DecimalPlaces}");
+                    }
+
+                    // Check if display format, unit, or decimal places changed
+                    if (oldDial != null && 
+                        (oldDial.DisplayFormat != newDial.DisplayFormat ||
+                         oldDial.DisplayUnit != newDial.DisplayUnit ||
+                         oldDial.DecimalPlaces != newDial.DecimalPlaces))
+                    {
+                        dialsNeedingRefresh.Add(newDial.DialUid);
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Display format/unit/decimals changed for {newDial.DisplayName} - needs refresh");
+                    }
+
+                    // Check if switched to static mode OR static color changed
+                    if ((oldDial?.ColorConfig.ColorMode != "static" && newDial.ColorConfig.ColorMode == "static") ||
+                        (oldDial?.ColorConfig.ColorMode == "static" && newDial.ColorConfig.ColorMode == "static" &&
+                         oldDial.ColorConfig.StaticColor != newDial.ColorConfig.StaticColor))
+                    {
+                        var colorName = newDial.ColorConfig.StaticColor;
+                        var color = GetColorByName(colorName);
+                        if (color != null)
+                        {
+                            await vu1.SetBacklightColorAsync(newDial.DialUid, color);
+                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applied static color {colorName} to {newDial.DisplayName}");
+                        }
+                    }
+                }
+            }
+
+            // Force immediate UI refresh for dials with display format changes
+            if (dialsNeedingRefresh.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Forcing immediate UI refresh for {dialsNeedingRefresh.Count} dial(s)");
+                
+                foreach (var dialUid in dialsNeedingRefresh)
+                {
+                    // Get current sensor status and trigger UI update
+                    var status = _monitoringService?.GetDialStatus(dialUid);
+                    if (status != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Got status for {status.DisplayName}: {status.SensorValue:F2} {status.SensorUnit}");
+                        
+                        // Manually invoke the dial updated event to refresh the display
+                        Dispatcher.Invoke(() =>
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Invoking MonitoringService_OnDialUpdated for {status.DisplayName}");
+                            MonitoringService_OnDialUpdated(dialUid, status);
+                        });
+                        
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Refreshed display for {status.DisplayName}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] WARNING: Could not get status for dial {dialUid}");
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] No dials need UI refresh");
+            }
+
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Dial settings changes applied");
+        }
+
+        /// <summary>
+        /// Gets a NamedColor by name string.
+        /// </summary>
+        private VULib.NamedColor? GetColorByName(string colorName)
+        {
+            return colorName switch
+            {
+                "Red" => VULib.Colors.Red,
+                "Green" => VULib.Colors.Green,
+                "Blue" => VULib.Colors.Blue,
+                "Yellow" => VULib.Colors.Yellow,
+                "Cyan" => VULib.Colors.Cyan,
+                "Magenta" => VULib.Colors.Magenta,
+                "Orange" => VULib.Colors.Orange,
+                "Purple" => VULib.Colors.Purple,
+                "Pink" => VULib.Colors.Pink,
+                "White" => VULib.Colors.White,
+                "Off" => VULib.Colors.Off,
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Opens the settings dialog.
         /// </summary>
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
             SettingsWindow settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
+            
+            // Pass controllers to the settings window BEFORE showing it
+            if (_initService != null)
+            {
+                if (_initService.GetHWInfo64Controller() != null)
+                {
+                    settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
+                }
+                
+                if (_initService.GetVU1Controller() != null)
+                {
+                    settingsWindow.SetVU1Controller(_initService.GetVU1Controller());
+                }
+            }
+            
+            // Now show the dialog
             settingsWindow.ShowDialog();
+        }
+
+        /// <summary>
+        /// Opens the about dialog.
+        /// </summary>
+        private void InfoButton_Click(object sender, RoutedEventArgs e)
+        {
+            AboutDialog aboutDialog = new AboutDialog();
+            aboutDialog.Owner = this;
+            aboutDialog.ShowDialog();
         }
 
         /// <summary>

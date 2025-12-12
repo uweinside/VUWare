@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using VUWare.App.Models;
@@ -17,9 +18,10 @@ namespace VUWare.App.Services
     {
         private readonly VU1Controller _vuController;
         private readonly HWInfo64Controller _hwInfoController;
-        private readonly DialsConfiguration _config;
+        private DialsConfiguration _config; // Changed from readonly to allow updates
         private readonly Dictionary<string, DialMonitoringState> _dialStates;
         private readonly Dictionary<string, SensorReading> _lastKnownReadings = new();  // Cache for HWInfo64 timeouts
+        private readonly object _configLock = new object(); // Lock for thread-safe config updates
         private CancellationTokenSource? _monitoringCts;
         private Task? _monitoringTask;
         private bool _disposed;
@@ -584,6 +586,88 @@ namespace VUWare.App.Services
             catch
             {
                 OnError?.Invoke(errorMessage);
+            }
+        }
+
+        /// <summary>
+        /// Updates the configuration dynamically without stopping monitoring.
+        /// Refreshes dial states with new thresholds, colors, and settings.
+        /// </summary>
+        /// <param name="newConfig">The new configuration to apply</param>
+        public void UpdateConfiguration(DialsConfiguration newConfig)
+        {
+            if (newConfig == null)
+                throw new ArgumentNullException(nameof(newConfig));
+
+            lock (_configLock)
+            {
+                System.Diagnostics.Debug.WriteLine("[SensorMonitoring] Updating configuration dynamically");
+
+                _config = newConfig;
+
+                // Update existing dial states with new configuration
+                foreach (var dialConfig in _config.Dials.Where(d => d.Enabled))
+                {
+                    if (_dialStates.TryGetValue(dialConfig.DialUid, out var state))
+                    {
+                        // Update the config reference
+                        state.Config = dialConfig;
+                        System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Updated config for dial {dialConfig.DisplayName}");
+                    }
+                    else
+                    {
+                        // New dial added - add to monitoring
+                        _dialStates[dialConfig.DialUid] = new DialMonitoringState
+                        {
+                            DialUid = dialConfig.DialUid,
+                            Config = dialConfig,
+                            LastPercentage = 0,
+                            LastColor = dialConfig.ColorConfig.NormalColor,
+                            LastUpdate = DateTime.Now,
+                            UpdateCount = 0
+                        };
+                        System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Added new dial {dialConfig.DisplayName} to monitoring");
+                    }
+                }
+
+                // Remove disabled dials from monitoring
+                var disabledDials = _dialStates.Keys
+                    .Where(uid => !_config.Dials.Any(d => d.DialUid == uid && d.Enabled))
+                    .ToList();
+
+                foreach (var uid in disabledDials)
+                {
+                    _dialStates.Remove(uid);
+                    _lastKnownReadings.Remove(uid);
+                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Removed disabled dial {uid} from monitoring");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Configuration updated - monitoring {_dialStates.Count} dials");
+            }
+        }
+
+        /// <summary>
+        /// Pauses monitoring temporarily without stopping the thread.
+        /// Useful for configuration changes that need atomic updates.
+        /// </summary>
+        public void Pause()
+        {
+            lock (_configLock)
+            {
+                _isMonitoring = false;
+                System.Diagnostics.Debug.WriteLine("[SensorMonitoring] Monitoring paused");
+            }
+        }
+
+        /// <summary>
+        /// Resumes monitoring after a pause.
+        /// </summary>
+        public void Resume()
+        {
+            lock (_configLock)
+            {
+                _isMonitoring = true;
+                System.Diagnostics.Debug.WriteLine("[SensorMonitoring] Monitoring resumed");
             }
         }
 

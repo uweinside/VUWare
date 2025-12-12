@@ -231,9 +231,39 @@ namespace VUWare.HWInfo64
                         // Update current readings for registered mappings
                         foreach (var mapping in _dialMappings.Values)
                         {
-                            var reading = readings.FirstOrDefault(r =>
-                                r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
-                                r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                            SensorReading? reading = null;
+                            
+                            // IMPORTANT: Match by SensorName + SensorId + SensorInstance + EntryId for unique identification
+                            // BUT: If IDs are 0 (not set), fall back to name-only matching for backward compatibility
+                            if (mapping.SensorId == 0 && mapping.SensorInstance == 0)
+                            {
+                                // Backward compatibility: Match by name only (old configs without ID/instance)
+                                reading = readings.FirstOrDefault(r =>
+                                    r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                    r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                            }
+                            else
+                            {
+                                // New behavior: Match by composite key (name + ID + instance + entry ID)
+                                if (mapping.EntryId == 0)
+                                {
+                                    // No entry ID set - match by sensor + entry name
+                                    reading = readings.FirstOrDefault(r =>
+                                        r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                        r.SensorId == mapping.SensorId &&
+                                        r.SensorInstance == mapping.SensorInstance &&
+                                        r.EntryName.Equals(mapping.EntryName, StringComparison.OrdinalIgnoreCase));
+                                }
+                                else
+                                {
+                                    // Full precision match - use entry ID for exact identification
+                                    reading = readings.FirstOrDefault(r =>
+                                        r.SensorName.Equals(mapping.SensorName, StringComparison.OrdinalIgnoreCase) &&
+                                        r.SensorId == mapping.SensorId &&
+                                        r.SensorInstance == mapping.SensorInstance &&
+                                        r.EntryId == mapping.EntryId);
+                                }
+                            }
 
                             if (reading != null)
                             {
@@ -266,6 +296,63 @@ namespace VUWare.HWInfo64
             {
                 System.Diagnostics.Debug.WriteLine($"Polling loop failure: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Updates the poll interval dynamically without restarting polling.
+        /// </summary>
+        /// <param name="newIntervalMs">New polling interval in milliseconds (minimum 100ms)</param>
+        public void UpdatePollInterval(int newIntervalMs)
+        {
+            _pollIntervalMs = Math.Max(100, newIntervalMs);
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Poll interval updated to {_pollIntervalMs}ms");
+        }
+
+        /// <summary>
+        /// Updates an existing dial mapping with new configuration.
+        /// </summary>
+        /// <param name="mappingId">The dial UID to update</param>
+        /// <param name="newMapping">The new mapping configuration</param>
+        public void UpdateDialMapping(string mappingId, DialSensorMapping newMapping)
+        {
+            if (string.IsNullOrWhiteSpace(mappingId))
+                throw new ArgumentException("Mapping ID cannot be empty", nameof(mappingId));
+
+            if (string.IsNullOrWhiteSpace(newMapping.Id))
+                throw new ArgumentException("New mapping ID cannot be empty", nameof(newMapping));
+
+            _dialMappings[mappingId] = newMapping;
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Updated mapping for {mappingId}");
+        }
+
+        /// <summary>
+        /// Clears all registered dial mappings.
+        /// </summary>
+        public void ClearAllMappings()
+        {
+            int count = _dialMappings.Count;
+            _dialMappings.Clear();
+            _currentReadings.Clear();
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Cleared {count} dial mapping(s)");
+        }
+
+        /// <summary>
+        /// Registers multiple dial mappings at once.
+        /// </summary>
+        /// <param name="mappings">Collection of mappings to register</param>
+        public void RegisterMappings(IEnumerable<DialSensorMapping> mappings)
+        {
+            if (mappings == null)
+                throw new ArgumentNullException(nameof(mappings));
+
+            int count = 0;
+            foreach (var mapping in mappings)
+            {
+                RegisterDialMapping(mapping);
+                count++;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[HWInfo64Controller] Registered {count} dial mapping(s)");
         }
 
         public void Dispose()

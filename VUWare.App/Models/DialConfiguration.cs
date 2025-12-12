@@ -10,9 +10,15 @@ namespace VUWare.App.Models
     /// </summary>
     public class DialColorConfig
     {
+        private string _colorMode = "threshold";
+
         /// <summary>Color mode: "threshold" (uses thresholds), "static" (fixed color), or "off" (no color/hidden)</summary>
         [JsonPropertyName("colorMode")]
-        public string ColorMode { get; set; } = "threshold";
+        public string ColorMode
+        {
+            get => _colorMode;
+            set => _colorMode = value?.ToLowerInvariant() ?? "threshold";
+        }
 
         /// <summary>Static color when colorMode is "static" (e.g., "Green", "Cyan", "Blue")</summary>
         [JsonPropertyName("staticColor")]
@@ -64,6 +70,8 @@ namespace VUWare.App.Models
     /// </summary>
     public class DialConfig
     {
+        private string _displayFormat = "percentage";
+
         /// <summary>Unique identifier of the VU1 dial (from device discovery)</summary>
         [JsonPropertyName("dialUid")]
         public string DialUid { get; set; } = string.Empty;
@@ -76,9 +84,21 @@ namespace VUWare.App.Models
         [JsonPropertyName("sensorName")]
         public string SensorName { get; set; } = string.Empty;
 
+        /// <summary>HWInfo64 sensor ID (for disambiguation when multiple sensors share the same name)</summary>
+        [JsonPropertyName("sensorId")]
+        public uint SensorId { get; set; } = 0;
+
+        /// <summary>HWInfo64 sensor instance (for disambiguation when multiple sensors share the same name)</summary>
+        [JsonPropertyName("sensorInstance")]
+        public uint SensorInstance { get; set; } = 0;
+
         /// <summary>HWInfo64 entry/reading name (e.g., "Temperature", "Load")</summary>
         [JsonPropertyName("entryName")]
         public string EntryName { get; set; } = string.Empty;
+
+        /// <summary>HWInfo64 entry ID (for disambiguation when multiple entries share the same name)</summary>
+        [JsonPropertyName("entryId")]
+        public uint EntryId { get; set; } = 0;
 
         /// <summary>Minimum value to map to 0% on the dial</summary>
         [JsonPropertyName("minValue")]
@@ -110,11 +130,19 @@ namespace VUWare.App.Models
 
         /// <summary>Display format: "percentage" for %, "value" for actual sensor value (default: "percentage")</summary>
         [JsonPropertyName("displayFormat")]
-        public string DisplayFormat { get; set; } = "percentage";
+        public string DisplayFormat
+        {
+            get => _displayFormat;
+            set => _displayFormat = value?.ToLowerInvariant() ?? "percentage";
+        }
 
         /// <summary>Unit suffix for value display (e.g., "°C", "MHz") - only used when displayFormat is "value"</summary>
         [JsonPropertyName("displayUnit")]
         public string DisplayUnit { get; set; } = string.Empty;
+
+        /// <summary>Number of decimal places to display (0 = integer like "3400", 1 = one decimal like "34.2", default: 1)</summary>
+        [JsonPropertyName("decimalPlaces")]
+        public int DecimalPlaces { get; set; } = 1;
 
         /// <summary>Gets the appropriate color based on the current sensor value.</summary>
         public string GetColorForValue(double sensorValue)

@@ -1,4 +1,7 @@
-﻿using System.Configuration;
+﻿// Copyright (c) 2025 Uwe Baumann
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
+using System.Configuration;
 using System.Data;
 using System.Windows;
 using VUWare.App.Services;

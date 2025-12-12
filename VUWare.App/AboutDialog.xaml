@@ -1,25 +1,20 @@
-<Window x:Class="VUWare.App.SettingsWindow"
+<Window x:Class="VUWare.App.AboutDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VUWare.App"
-        xmlns:converters="clr-namespace:VUWare.App.Converters"
         mc:Ignorable="d"
-        Title="Settings"
-        Height="700"
-        Width="900"
-        ResizeMode="CanResize"
-        MinHeight="600"
-        MinWidth="800"
+        Title="About VU1 Dial Sensor Monitor"
+        Height="450"
+        Width="500"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="#2a2a2a"
         WindowStyle="None"
         AllowsTransparency="True">
     <Window.Resources>
-        <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
-        
-        <!-- Modern Flat Button Style -->
+        <!-- Close Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Background" Value="#0078d4"/>
             <Setter Property="Foreground" Value="White"/>
@@ -44,42 +39,6 @@
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter Property="Background" Value="#004578"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#3a3a3a"/>
-                                <Setter Property="Foreground" Value="#888888"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        
-        <!-- Secondary Button Style (Cancel) -->
-        <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#3a3a3a"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="20,10"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#4a4a4a"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#2a2a2a"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -150,6 +109,7 @@
             </Setter>
         </Style>
     </Window.Resources>
+    
     <Border Background="#2a2a2a" CornerRadius="8" BorderBrush="#444444" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
@@ -165,8 +125,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Configuration" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="16" FontWeight="Bold" Grid.Column="0"/>
-                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="✕" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1">
+                    <TextBlock Text="About" VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#CCCCCC" FontSize="16" FontWeight="Bold" Grid.Column="0"/>
+                    <Button x:Name="CloseButton" Click="CloseButton_Click" Width="40" Height="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Content="&#x2715;" FontSize="16" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Grid.Column="1">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Background" Value="Transparent"/>
@@ -190,75 +150,117 @@
                 </Grid>
             </Border>
 
-            <!-- Content Area with ScrollViewer -->
+            <!-- Content Area -->
             <ScrollViewer Grid.Row="1" 
                         Style="{StaticResource DarkScrollViewer}"
                         VerticalScrollBarVisibility="Auto" 
-                        Margin="15">
+                        Margin="20,20,20,20">
                 <StackPanel>
-                    <!-- General Settings Section -->
-                    <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,0,0,4"/>
-                    <TextBlock Text="Other settings can be edited in the configuration file." 
-                             Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
+                    <Image Source="/VU1_Icon.png" 
+                           Width="32" 
+                           Height="32" 
+                           HorizontalAlignment="Center" 
+                           Margin="0,0,0,10"/>
 
-                    <Border x:Name="GeneralSettingsBorder" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
-                        <StackPanel>
-                            <TextBlock Text="Startup Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,3,0,14"/>
-                            
-                            <!-- Start Minimized Setting (Requires Restart) -->
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                
-                                <CheckBox x:Name="StartMinimizedCheckBox" 
-                                        Content="Minimize at Startup" 
-                                        Foreground="#CCCCCC" 
-                                        IsChecked="{Binding StartMinimized}"
-                                        Grid.Column="0" Grid.Row="0"
-                                        VerticalAlignment="Center"/>
-                                
-                                <!-- Restart Required Indicator - Inline -->
-                                <TextBlock Grid.Column="1" Grid.Row="0"
-                                         Foreground="#FFB900" 
-                                         FontSize="11"
-                                         FontStyle="Italic"
-                                         Margin="10,0,0,0"
-                                         VerticalAlignment="Center"
-                                         Text="(Requires application restart)"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Dial Configuration Section -->
-                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,5,0,4"/>
-                    <TextBlock Text="Configure individual dial settings" 
-                             Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
+                    <!-- App Name and Version -->
+                    <TextBlock Text="VU1 Dial Sensor Monitor" 
+                             FontSize="20" 
+                             FontWeight="Bold" 
+                             Foreground="#FFFFFF" 
+                             HorizontalAlignment="Center" 
+                             Margin="0,0,0,5"/>
                     
-                    <StackPanel x:Name="DialsPanel">
-                        <!-- Dial configuration panels will be dynamically added here -->
-                    </StackPanel>
+                    <TextBlock x:Name="VersionText" 
+                             Text="Version 1.0.0" 
+                             FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             HorizontalAlignment="Center" 
+                             Margin="0,0,0,20"/>
+
+                    <!-- Separator -->
+                    <Border Height="1" Background="#444444" Margin="0,10,0,20"/>
+
+                    <!-- App Description -->
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,10" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="A desktop application that brings your PC's hardware sensor data to life on VU1 analog-style dials. Monitor CPU temperature, GPU usage, and more with beautiful retro-style gauges developed by "/><Hyperlink x:Name="DescriptionAuthorLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Sasa Karanovic"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,10" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="Learn more about the VU1 hardware on the official "/><Hyperlink x:Name="VUDialsLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="VU Dials website"/></Hyperlink><Run Text=". The source code for this application is available on "/><Hyperlink x:Name="GitHubLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="GitHub"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,20" 
+                             TextWrapping="Wrap"
+                             TextAlignment="Left">
+                        <Run Text="This app uses "/><Hyperlink x:Name="HWiNFO64Link" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="HWiNFO64"/></Hyperlink><Run Text=" for real-time hardware sensor monitoring. Visit the "/><Hyperlink x:Name="HWiNFOLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="HWiNFO website"/></Hyperlink><Run Text=" to download and configure this essential companion software."/>
+                    </TextBlock>
+
+                    <!-- Copyright Information -->
+                    <TextBlock Text="Copyright Information" 
+                             FontSize="14" 
+                             FontWeight="Bold" 
+                             Foreground="#FFFF99" 
+                             Margin="0,0,0,10"/>
+                    
+                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
+                        <Run Text="&#x00A9; 2024 "/><Hyperlink x:Name="CopyrightLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Uwe Baumann"/></Hyperlink>
+                    </TextBlock>
+                    
+                    <TextBlock Text="All rights reserved." 
+                             FontSize="12" 
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,20" 
+                             TextWrapping="Wrap"/>
+
+                    <!-- Attribution -->
+                    <TextBlock Text="Attribution" 
+                             FontSize="14" 
+                             FontWeight="Bold" 
+                             Foreground="#FFFF99" 
+                             Margin="0,0,0,10"/>
+                    
+                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
+                        <Run Text="The VU1 Dial Control Library was originally developed by "/><Hyperlink x:Name="OriginalAuthorLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Sasa Karanovic"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+
+                    <!-- License -->
+                    <TextBlock Text="License" 
+                             FontSize="14" 
+                             FontWeight="Bold" 
+                             Foreground="#FFFF99" 
+                             Margin="0,0,0,10"/>
+                    
+                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
+                        <Run Text="This software is licensed under the "/><Hyperlink x:Name="LicenseLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="MIT License"/></Hyperlink><Run Text="."/>
+                    </TextBlock>
+                    
+                    <TextBlock Text="THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT." 
+                             FontSize="11" 
+                             Foreground="#999999" 
+                             Margin="0,0,0,10" 
+                             TextWrapping="Wrap"/>
                 </StackPanel>
             </ScrollViewer>
 
             <!-- Button Bar -->
             <Border Background="#1a1a1a" BorderBrush="#444444" BorderThickness="0,1,0,0" Height="60" Grid.Row="2" CornerRadius="0,0,8,8">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
-                    <Button x:Name="ApplyButton" Click="ApplyButton_Click" 
-                          Style="{StaticResource ModernButton}"
-                          Content="Apply" Margin="0,0,10,0" Width="120"/>
-                    <Button x:Name="OKButton" Click="OKButton_Click" 
-                          Style="{StaticResource ModernButton}"
-                          Content="OK" Margin="0,0,10,0" Width="120"/>
-                    <Button x:Name="CancelButton" Click="CancelButton_Click" 
-                          Style="{StaticResource SecondaryButton}"
-                          Content="Cancel" Width="120"/>
-                </StackPanel>
+                <Button x:Name="OKButton" 
+                      Click="OKButton_Click" 
+                      Style="{StaticResource ModernButton}"
+                      Content="OK" 
+                      Width="120" 
+                      Height="35"
+                      HorizontalAlignment="Center"/>
             </Border>
         </Grid>
     </Border>
