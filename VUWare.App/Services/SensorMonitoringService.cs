@@ -83,9 +83,14 @@ namespace VUWare.App.Services
             if (_isMonitoring)
                 return;
 
-            // Initialize monitoring states for all enabled dials
+            // Get active dials based on effective dial count
+            var activeDials = _config.GetActiveDials();
+            
+            System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Starting monitoring for {activeDials.Count} active dials");
+
+            // Initialize monitoring states for all enabled active dials
             _dialStates.Clear();
-            foreach (var dialConfig in _config.Dials)
+            foreach (var dialConfig in activeDials)
             {
                 if (dialConfig.Enabled)
                 {
@@ -98,6 +103,8 @@ namespace VUWare.App.Services
                         LastUpdate = DateTime.Now,
                         UpdateCount = 0
                     };
+                    
+                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Added {dialConfig.DisplayName} to monitoring");
                 }
             }
 
@@ -441,12 +448,12 @@ namespace VUWare.App.Services
                     if (!positionSuccess)
                     {
                         System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update returned FALSE");
-                    }
-                    else
-                    {
+                      }
+                      else
+                      {
                         System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? Position update succeeded");
                         updateSuccess = true;
-                    }
+                      }
                 }
                 catch (TimeoutException)
                 {
@@ -605,8 +612,13 @@ namespace VUWare.App.Services
 
                 _config = newConfig;
 
+                // Get active dials based on effective dial count
+                var activeDials = newConfig.GetActiveDials();
+                
+                System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Active dials after config update: {activeDials.Count}");
+
                 // Update existing dial states with new configuration
-                foreach (var dialConfig in _config.Dials.Where(d => d.Enabled))
+                foreach (var dialConfig in activeDials.Where(d => d.Enabled))
                 {
                     if (_dialStates.TryGetValue(dialConfig.DialUid, out var state))
                     {
@@ -630,16 +642,18 @@ namespace VUWare.App.Services
                     }
                 }
 
-                // Remove disabled dials from monitoring
-                var disabledDials = _dialStates.Keys
-                    .Where(uid => !_config.Dials.Any(d => d.DialUid == uid && d.Enabled))
+                // Remove dials that are no longer active (disabled or beyond effective count)
+                var activeDialUids = activeDials.Where(d => d.Enabled).Select(d => d.DialUid).ToHashSet();
+                var dialsToRemove = _dialStates.Keys
+                    .Where(uid => !activeDialUids.Contains(uid))
                     .ToList();
 
-                foreach (var uid in disabledDials)
+                foreach (var uid in dialsToRemove)
                 {
+                    var displayName = _dialStates[uid].Config?.DisplayName ?? uid;
                     _dialStates.Remove(uid);
                     _lastKnownReadings.Remove(uid);
-                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Removed disabled dial {uid} from monitoring");
+                    System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Removed dial {displayName} from monitoring");
                 }
 
                 System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] Configuration updated - monitoring {_dialStates.Count} dials");

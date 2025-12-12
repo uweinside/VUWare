@@ -92,7 +92,7 @@
             </Border>
             <!-- Dials Row -->
             <StackPanel Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
-                <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
+                <Border x:Name="Dial1Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -104,7 +104,7 @@
                         </Grid>
                     </Border>
                 </Border>
-                <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
+                <Border x:Name="Dial2Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial2Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -116,7 +116,7 @@
                         </Grid>
                     </Border>
                 </Border>
-                <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
+                <Border x:Name="Dial3Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial3Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -128,7 +128,7 @@
                         </Grid>
                     </Border>
                 </Border>
-                <Border Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
+                <Border x:Name="Dial4Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial4Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
                             <Grid.RowDefinitions>

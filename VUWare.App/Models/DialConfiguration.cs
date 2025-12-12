@@ -168,6 +168,36 @@ namespace VUWare.App.Models
         [JsonPropertyName("dials")]
         public List<DialConfig> Dials { get; set; } = new();
 
+        /// <summary>Gets the effective number of dials to use (respects dialCountOverride if set)</summary>
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials. If provided, limits the effective count.</param>
+        public int GetEffectiveDialCount(int? physicalDialCount = null)
+        {
+            // Start with the configured dial count
+            int effectiveCount = Dials.Count;
+            
+            // Apply override if set
+            if (AppSettings.DialCountOverride.HasValue)
+            {
+                effectiveCount = Math.Min(AppSettings.DialCountOverride.Value, effectiveCount);
+            }
+            
+            // Limit to physically detected dials if provided
+            if (physicalDialCount.HasValue)
+            {
+                effectiveCount = Math.Min(effectiveCount, physicalDialCount.Value);
+            }
+            
+            return effectiveCount;
+        }
+
+        /// <summary>Gets the active dials based on effective dial count</summary>
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials. If provided, limits the active dials.</param>
+        public List<DialConfig> GetActiveDials(int? physicalDialCount = null)
+        {
+            int effectiveCount = GetEffectiveDialCount(physicalDialCount);
+            return Dials.Take(effectiveCount).ToList();
+        }
+
         /// <summary>Validates that the configuration is well-formed.</summary>
         public bool Validate(out List<string> errors)
         {
@@ -176,6 +206,21 @@ namespace VUWare.App.Models
             if (Dials.Count > 4)
             {
                 errors.Add($"Maximum 4 dials supported, found {Dials.Count}");
+            }
+
+            // Validate dialCountOverride
+            if (AppSettings.DialCountOverride.HasValue)
+            {
+                int overrideCount = AppSettings.DialCountOverride.Value;
+                if (overrideCount < 1 || overrideCount > 4)
+                {
+                    errors.Add($"dialCountOverride must be between 1 and 4, found {overrideCount}");
+                }
+                
+                if (overrideCount > Dials.Count)
+                {
+                    errors.Add($"dialCountOverride ({overrideCount}) exceeds number of configured dials ({Dials.Count})");
+                }
             }
 
             // Valid color names (from VU1Controller backlight colors)
@@ -252,5 +297,9 @@ namespace VUWare.App.Models
         /// <summary>Start the application minimized to system tray</summary>
         [JsonPropertyName("startMinimized")]
         public bool StartMinimized { get; set; } = true;
+
+        /// <summary>Override the number of active dials (null = use all detected dials, 1-4 = limit to specified count)</summary>
+        [JsonPropertyName("dialCountOverride")]
+        public int? DialCountOverride { get; set; } = null;
     }
 }

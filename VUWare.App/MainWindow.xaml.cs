@@ -317,14 +317,23 @@ namespace VUWare.App
                     return;
                 }
 
+                // Apply dial visibility based on effective dial count
+                ApplyDialVisibility();
+
                 // Initialize dial panel colors based on configuration
                 InitializeDialPanelColors();
 
                 if (_config.AppSettings.DebugMode)
                 {
+                    int effectiveDialCount = _config.GetEffectiveDialCount();
+                    string overrideInfo = _config.AppSettings.DialCountOverride.HasValue 
+                        ? $" (Override: {_config.AppSettings.DialCountOverride.Value})" 
+                        : "";
+                    
                     MessageBox.Show(
                         $"? Configuration loaded successfully\n\n" +
-                        $"Dials: {_config.Dials.Count}\n" +
+                        $"Total Dials Configured: {_config.Dials.Count}\n" +
+                        $"Active Dials: {effectiveDialCount}{overrideInfo}\n" +
                         $"Config file: {configPath}",
                         "Debug: Configuration Loaded",
                         MessageBoxButton.OK,
@@ -345,6 +354,27 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Sets the visibility of dial containers based on the effective dial count from configuration.
+        /// </summary>
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials to limit visibility</param>
+        private void ApplyDialVisibility(int? physicalDialCount = null)
+        {
+            if (_config == null)
+                return;
+
+            int effectiveDialCount = _config.GetEffectiveDialCount(physicalDialCount);
+            
+            string physicalInfo = physicalDialCount.HasValue ? $" (Physical: {physicalDialCount.Value})" : "";
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applying dial visibility: {effectiveDialCount} active dials{physicalInfo}");
+
+            // Set visibility for each dial container
+            Dial1Container.Visibility = effectiveDialCount >= 1 ? Visibility.Visible : Visibility.Collapsed;
+            Dial2Container.Visibility = effectiveDialCount >= 2 ? Visibility.Visible : Visibility.Collapsed;
+            Dial3Container.Visibility = effectiveDialCount >= 3 ? Visibility.Visible : Visibility.Collapsed;
+            Dial4Container.Visibility = effectiveDialCount >= 4 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
         /// Initializes dial panel colors based on their configuration color modes.
         /// </summary>
         private void InitializeDialPanelColors()
@@ -361,7 +391,10 @@ namespace VUWare.App
                 { "31003F000650564139323920", (Dial4Button, Dial4Percentage, Dial4DisplayName) }
             };
 
-            foreach (var dial in _config.Dials)
+            // Get active dials based on effective dial count
+            var activeDials = _config.GetActiveDials();
+
+            foreach (var dial in activeDials)
             {
                 if (!dialPanels.TryGetValue(dial.DialUid, out var elements))
                     continue;
@@ -468,6 +501,14 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
+                // Update UI visibility now that we know how many physical dials exist
+                if (_initService != null)
+                {
+                    int physicalDialCount = _initService.GetVU1Controller().DialCount;
+                    ApplyDialVisibility(physicalDialCount);
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated UI for {physicalDialCount} physical dials");
+                }
+                
                 // Start monitoring
                 StartMonitoring();
                 
@@ -479,11 +520,17 @@ namespace VUWare.App
                 if (_config?.AppSettings.DebugMode == true)
                 {
                     var dialCount = _initService?.GetVU1Controller().DialCount ?? 0;
+                    var effectiveDialCount = _config?.GetEffectiveDialCount(dialCount) ?? 0;
                     var hwInfoConnected = _initService?.GetHWInfo64Controller().IsConnected ?? false;
+                    
+                    string overrideInfo = _config.AppSettings.DialCountOverride.HasValue 
+                        ? $" (Override: {_config.AppSettings.DialCountOverride.Value})" 
+                        : "";
                     
                     MessageBox.Show(
                         $"? Initialization Complete\n\n" +
-                        $"Dials: {dialCount}\n" +
+                        $"Physical Dials Detected: {dialCount}\n" +
+                        $"Active Dials: {effectiveDialCount}{overrideInfo}\n" +
                         $"HWInfo Connected: {hwInfoConnected}",
                         "Debug: Ready",
                         MessageBoxButton.OK,
@@ -549,6 +596,14 @@ namespace VUWare.App
             {
                 if (_config == null)
                     return;
+
+                // Check if this dial is in the active set
+                var activeDials = _config.GetActiveDials();
+                if (!activeDials.Any(d => d.DialUid == dialUid))
+                {
+                    // This dial is not active, skip UI update
+                    return;
+                }
 
                 // Map dial UID to TextBlocks
                 TextBlock? percentageBlock = dialUid switch
