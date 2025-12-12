@@ -261,9 +261,15 @@ namespace VUWare.App.Services
 
                 System.Diagnostics.Debug.WriteLine($"[Init] Discovered {_vuController.DialCount} dial(s)");
 
+                // Get active dials based on effective dial count
+                var activeDials = _config.GetActiveDials();
+                int effectiveCount = _config.GetEffectiveDialCount();
+                
+                System.Diagnostics.Debug.WriteLine($"[Init] Active dials: {effectiveCount} (out of {_config.Dials.Count} configured)");
+
                 // Set default positions and colors based on config
                 var dials = _vuController.GetAllDials();
-                foreach (var dialConfig in _config.Dials.Where(d => d.Enabled))
+                foreach (var dialConfig in activeDials.Where(d => d.Enabled))
                 {
                     // Find matching dial by UID
                     if (dials.TryGetValue(dialConfig.DialUid, out var dial))
@@ -347,8 +353,13 @@ namespace VUWare.App.Services
                         return false;
                     }
 
-                    // Register all enabled dial configurations as sensor mappings
-                    foreach (var dialConfig in _config.Dials.Where(d => d.Enabled))
+                    // Get active dials based on effective dial count
+                    var activeDials = _config.GetActiveDials();
+                    
+                    System.Diagnostics.Debug.WriteLine($"[HWInfo] Registering {activeDials.Count} active dial mappings");
+
+                    // Register all enabled active dial configurations as sensor mappings
+                    foreach (var dialConfig in activeDials.Where(d => d.Enabled))
                     {
                         var mapping = new DialSensorMapping
                         {
@@ -366,6 +377,7 @@ namespace VUWare.App.Services
                         };
 
                         _hwInfoController.RegisterDialMapping(mapping);
+                        System.Diagnostics.Debug.WriteLine($"[HWInfo] Registered mapping for {dialConfig.DisplayName}");
                     }
 
                     // Set polling interval from config
