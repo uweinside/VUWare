@@ -356,14 +356,16 @@ namespace VUWare.App
         /// <summary>
         /// Sets the visibility of dial containers based on the effective dial count from configuration.
         /// </summary>
-        private void ApplyDialVisibility()
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials to limit visibility</param>
+        private void ApplyDialVisibility(int? physicalDialCount = null)
         {
             if (_config == null)
                 return;
 
-            int effectiveDialCount = _config.GetEffectiveDialCount();
+            int effectiveDialCount = _config.GetEffectiveDialCount(physicalDialCount);
             
-            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applying dial visibility: {effectiveDialCount} active dials");
+            string physicalInfo = physicalDialCount.HasValue ? $" (Physical: {physicalDialCount.Value})" : "";
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applying dial visibility: {effectiveDialCount} active dials{physicalInfo}");
 
             // Set visibility for each dial container
             Dial1Container.Visibility = effectiveDialCount >= 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -499,6 +501,14 @@ namespace VUWare.App
         {
             Dispatcher.Invoke(() =>
             {
+                // Update UI visibility now that we know how many physical dials exist
+                if (_initService != null)
+                {
+                    int physicalDialCount = _initService.GetVU1Controller().DialCount;
+                    ApplyDialVisibility(physicalDialCount);
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated UI for {physicalDialCount} physical dials");
+                }
+                
                 // Start monitoring
                 StartMonitoring();
                 
@@ -510,7 +520,7 @@ namespace VUWare.App
                 if (_config?.AppSettings.DebugMode == true)
                 {
                     var dialCount = _initService?.GetVU1Controller().DialCount ?? 0;
-                    var effectiveDialCount = _config?.GetEffectiveDialCount() ?? 0;
+                    var effectiveDialCount = _config?.GetEffectiveDialCount(dialCount) ?? 0;
                     var hwInfoConnected = _initService?.GetHWInfo64Controller().IsConnected ?? false;
                     
                     string overrideInfo = _config.AppSettings.DialCountOverride.HasValue 

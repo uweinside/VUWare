@@ -169,19 +169,32 @@ namespace VUWare.App.Models
         public List<DialConfig> Dials { get; set; } = new();
 
         /// <summary>Gets the effective number of dials to use (respects dialCountOverride if set)</summary>
-        public int GetEffectiveDialCount()
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials. If provided, limits the effective count.</param>
+        public int GetEffectiveDialCount(int? physicalDialCount = null)
         {
+            // Start with the configured dial count
+            int effectiveCount = Dials.Count;
+            
+            // Apply override if set
             if (AppSettings.DialCountOverride.HasValue)
             {
-                return Math.Min(AppSettings.DialCountOverride.Value, Dials.Count);
+                effectiveCount = Math.Min(AppSettings.DialCountOverride.Value, effectiveCount);
             }
-            return Dials.Count;
+            
+            // Limit to physically detected dials if provided
+            if (physicalDialCount.HasValue)
+            {
+                effectiveCount = Math.Min(effectiveCount, physicalDialCount.Value);
+            }
+            
+            return effectiveCount;
         }
 
         /// <summary>Gets the active dials based on effective dial count</summary>
-        public List<DialConfig> GetActiveDials()
+        /// <param name="physicalDialCount">Optional: Number of physically detected dials. If provided, limits the active dials.</param>
+        public List<DialConfig> GetActiveDials(int? physicalDialCount = null)
         {
-            int effectiveCount = GetEffectiveDialCount();
+            int effectiveCount = GetEffectiveDialCount(physicalDialCount);
             return Dials.Take(effectiveCount).ToList();
         }
 

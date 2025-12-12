@@ -111,10 +111,14 @@ namespace VUWare.App
             var dialsPanel = this.FindName("DialsPanel") as StackPanel;
             if (dialsPanel == null) return;
 
-            // Get active dials based on effective dial count (respects dialCountOverride)
-            var activeDials = _configuration.GetActiveDials();
+            // Get physical dial count if VU1 controller is available
+            int? physicalDialCount = _vu1Controller?.DialCount;
+
+            // Get active dials based on effective dial count (respects dialCountOverride and physical dials)
+            var activeDials = _configuration.GetActiveDials(physicalDialCount);
             
-            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Initializing {activeDials.Count} active dial panels (out of {_configuration.Dials.Count} total configured)");
+            string physicalInfo = physicalDialCount.HasValue ? $", Physical: {physicalDialCount.Value}" : "";
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Initializing {activeDials.Count} active dial panels (Configured: {_configuration.Dials.Count}{physicalInfo})");
 
             int dialNumber = 1;
             foreach (var dialConfig in activeDials)

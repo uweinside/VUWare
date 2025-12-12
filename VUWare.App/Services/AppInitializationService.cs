@@ -259,13 +259,14 @@ namespace VUWare.App.Services
                     return false;
                 }
 
-                System.Diagnostics.Debug.WriteLine($"[Init] Discovered {_vuController.DialCount} dial(s)");
+                int physicalDialCount = _vuController.DialCount;
+                System.Diagnostics.Debug.WriteLine($"[Init] Discovered {physicalDialCount} physical dial(s)");
 
-                // Get active dials based on effective dial count
-                var activeDials = _config.GetActiveDials();
-                int effectiveCount = _config.GetEffectiveDialCount();
+                // Get active dials based on effective dial count (considers physical dials, config, and override)
+                var activeDials = _config.GetActiveDials(physicalDialCount);
+                int effectiveCount = _config.GetEffectiveDialCount(physicalDialCount);
                 
-                System.Diagnostics.Debug.WriteLine($"[Init] Active dials: {effectiveCount} (out of {_config.Dials.Count} configured)");
+                System.Diagnostics.Debug.WriteLine($"[Init] Active dials: {effectiveCount} (Physical: {physicalDialCount}, Configured: {_config.Dials.Count})");
 
                 // Set default positions and colors based on config
                 var dials = _vuController.GetAllDials();
@@ -353,10 +354,11 @@ namespace VUWare.App.Services
                         return false;
                     }
 
-                    // Get active dials based on effective dial count
-                    var activeDials = _config.GetActiveDials();
+                    // Get active dials based on effective dial count (considers physical dials)
+                    int physicalDialCount = _vuController.DialCount;
+                    var activeDials = _config.GetActiveDials(physicalDialCount);
                     
-                    System.Diagnostics.Debug.WriteLine($"[HWInfo] Registering {activeDials.Count} active dial mappings");
+                    System.Diagnostics.Debug.WriteLine($"[HWInfo] Registering {activeDials.Count} active dial mappings (Physical: {physicalDialCount})");
 
                     // Register all enabled active dial configurations as sensor mappings
                     foreach (var dialConfig in activeDials.Where(d => d.Enabled))
