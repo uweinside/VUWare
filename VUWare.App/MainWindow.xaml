@@ -12,7 +12,7 @@
         WindowStartupLocation="CenterScreen"
         Background="Transparent"
         WindowStyle="None"
-        AllowsTransparency="True">
+        AllowsTransparency="True" Icon="/VU1_Icon.png">
     <Window.Resources>
         <Style x:Key="DialPanelStyle" TargetType="Border">
             <Setter Property="CornerRadius" Value="4"/>
