@@ -25,6 +25,7 @@ namespace VUWare.App
         private List<DialConfigurationViewModel> _dialViewModels;
         private HWInfo64Controller? _hwInfoController;
         private VUWare.Lib.VU1Controller? _vu1Controller;
+        private bool _isFirstRun = false;
 
         public SettingsWindow()
         {
@@ -39,6 +40,51 @@ namespace VUWare.App
 
             // Initialize after InitializeComponent
             Loaded += SettingsWindow_Loaded;
+        }
+
+        /// <summary>
+        /// Constructor that accepts an existing configuration (used for first-run mode).
+        /// </summary>
+        public SettingsWindow(DialsConfiguration existingConfiguration)
+        {
+            InitializeComponent();
+            
+            // Use the provided configuration (already has discovered dial UIDs)
+            _configuration = existingConfiguration;
+            
+            // Initialize view models
+            _settingsViewModel = new SettingsViewModel(_configuration.AppSettings);
+            _dialViewModels = new List<DialConfigurationViewModel>();
+
+            // Initialize after InitializeComponent
+            Loaded += SettingsWindow_Loaded;
+        }
+
+        /// <summary>
+        /// Sets the window to first-run mode where Cancel button is hidden
+        /// and closing the window exits the application.
+        /// </summary>
+        public void SetFirstRunMode(bool isFirstRun)
+        {
+            _isFirstRun = isFirstRun;
+            
+            if (_isFirstRun)
+            {
+                System.Diagnostics.Debug.WriteLine("[SettingsWindow] First-run mode enabled");
+                Title = "VUWare - Initial Setup";
+                
+                // Hide Cancel button in first-run mode
+                if (CancelButton != null)
+                {
+                    CancelButton.Visibility = Visibility.Collapsed;
+                }
+                
+                // Hide Apply button in first-run mode (confusing for initial setup)
+                if (ApplyButton != null)
+                {
+                    ApplyButton.Visibility = Visibility.Collapsed;
+                }
+            }
         }
 
         /// <summary>
@@ -88,6 +134,17 @@ namespace VUWare.App
             
             // Initialize dial configuration panels
             InitializeDialPanels();
+            
+            // Show welcome message in first-run mode
+            if (_isFirstRun)
+            {
+                var firstRunWelcome = this.FindName("FirstRunWelcome") as Border;
+                if (firstRunWelcome != null)
+                {
+                    firstRunWelcome.Visibility = Visibility.Visible;
+                    System.Diagnostics.Debug.WriteLine("[SettingsWindow] Showing first-run welcome message");
+                }
+            }
         }
 
         /// <summary>
@@ -185,14 +242,25 @@ namespace VUWare.App
             {
                 ApplyChanges();
 
-                // Trigger reload in MainWindow if available
-                if (Owner is MainWindow mainWindow)
+                // In first-run mode, just close with DialogResult = true
+                // MainWindow will handle starting monitoring after the dialog closes
+                if (_isFirstRun)
                 {
-                    await mainWindow.ReloadConfiguration();
+                    System.Diagnostics.Debug.WriteLine("[SettingsWindow] First-run setup complete - closing dialog");
+                    DialogResult = true;
+                    Close();
                 }
+                else
+                {
+                    // Normal mode - trigger reload in MainWindow if available
+                    if (Owner is MainWindow mainWindow)
+                    {
+                        await mainWindow.ReloadConfiguration();
+                    }
 
-                DialogResult = true;
-                Close();
+                    DialogResult = true;
+                    Close();
+                }
             }
             catch (Exception ex)
             {
@@ -218,6 +286,23 @@ namespace VUWare.App
         /// </summary>
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
+            // In first-run mode, ask for confirmation before exiting the application
+            if (_isFirstRun)
+            {
+                var result = MessageBox.Show(
+                    "Are you sure you want to exit?\n\nVUWare requires initial configuration to function properly.",
+                    "Exit VUWare?",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Exit the entire application
+                    Application.Current.Shutdown();
+                }
+                return;
+            }
+            
             DialogResult = false;
             Close();
         }
@@ -247,11 +332,19 @@ namespace VUWare.App
                 viewModel.ApplyChanges();
             }
 
-            // Validate configuration
-            if (!_configuration.Validate(out var errors))
+            // Validate configuration BEFORE changing RunInit
+            // In first-run mode, skip sensor validation since user just configured them
+            if (!_configuration.Validate(out var errors, skipSensorValidation: _isFirstRun))
             {
                 string errorMessage = string.Join(Environment.NewLine, errors);
                 throw new InvalidOperationException($"Configuration validation failed:\n\n{errorMessage}");
+            }
+
+            // If this is first run, set RunInit to false so we don't show setup again
+            if (_isFirstRun)
+            {
+                _configuration.AppSettings.RunInit = false;
+                System.Diagnostics.Debug.WriteLine("[SettingsWindow] Setting RunInit to false - initial setup complete");
             }
 
             // Save to disk
