@@ -199,7 +199,8 @@ namespace VUWare.App.Models
         }
 
         /// <summary>Validates that the configuration is well-formed.</summary>
-        public bool Validate(out List<string> errors)
+        /// <param name="skipSensorValidation">If true, skips validation of sensor/entry names (used during initial setup)</param>
+        public bool Validate(out List<string> errors, bool skipSensorValidation = false)
         {
             errors = new();
 
@@ -226,19 +227,29 @@ namespace VUWare.App.Models
             // Valid color names (from VU1Controller backlight colors)
             var validColors = new[] { "Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange", "Purple", "Pink", "White", "Off" };
 
+            // Skip sensor validation if RunInit is true (initial setup mode)
+            bool isInitialSetup = skipSensorValidation || AppSettings.RunInit;
+
             foreach (var dial in Dials)
             {
+                // Check if this is a placeholder dial
+                bool isPlaceholder = dial.DialUid.StartsWith("PLACEHOLDER_");
+                
                 if (string.IsNullOrWhiteSpace(dial.DialUid))
                     errors.Add($"Dial missing DialUid");
 
                 if (string.IsNullOrWhiteSpace(dial.DisplayName))
                     errors.Add($"Dial '{dial.DialUid}' missing DisplayName");
 
-                if (string.IsNullOrWhiteSpace(dial.SensorName))
-                    errors.Add($"Dial '{dial.DisplayName}' missing SensorName");
+                // Only validate sensor/entry names if not in initial setup mode and not a placeholder
+                if (!isInitialSetup && !isPlaceholder)
+                {
+                    if (string.IsNullOrWhiteSpace(dial.SensorName))
+                        errors.Add($"Dial '{dial.DisplayName}' missing SensorName");
 
-                if (string.IsNullOrWhiteSpace(dial.EntryName))
-                    errors.Add($"Dial '{dial.DisplayName}' missing EntryName");
+                    if (string.IsNullOrWhiteSpace(dial.EntryName))
+                        errors.Add($"Dial '{dial.DisplayName}' missing EntryName");
+                }
 
                 if (dial.MaxValue <= dial.MinValue)
                     errors.Add($"Dial '{dial.DisplayName}': MaxValue must be > MinValue");
@@ -301,5 +312,12 @@ namespace VUWare.App.Models
         /// <summary>Override the number of active dials (null = use all detected dials, 1-4 = limit to specified count)</summary>
         [JsonPropertyName("dialCountOverride")]
         public int? DialCountOverride { get; set; } = null;
+
+        /// <summary>
+        /// Run initial setup on next start. When true, the settings window is shown after 
+        /// dial discovery to allow users to configure sensor mappings. Set to false after setup is complete.
+        /// </summary>
+        [JsonPropertyName("runInit")]
+        public bool RunInit { get; set; } = true;
     }
 }

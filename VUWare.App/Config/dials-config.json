@@ -8,90 +8,93 @@
     "debugMode": false,
     "serialCommandDelayMs": 150,
     "dialCountOverride": null,
-    "startMinimized": false
+    "startMinimized": false,
+    "runInit": true
   },
   "dials": [
     {
-      "dialUid": "290063000750524834313020",
-      "displayName": "CPU Load",
-      "sensorName": "CPU [#0]: AMD Ryzen 7 9700X",
-      "entryName": "Total CPU Usage",
+      "dialUid": "PLACEHOLDER_DIAL_1",
+      "displayName": "Dial 1",
+      "sensorName": "",
+      "entryName": "",
       "minValue": 0,
       "maxValue": 100,
       "warningThreshold": 80,
       "criticalThreshold": 95,
       "colorConfig": {
-        "colorMode": "static",
-        "staticColor": "Red",
-        "normalColor": "Cyan",
-        "warningColor": "Yellow",
-        "criticalColor": "Red"
-      },
-      "enabled": true,
-      "updateIntervalMs": 500,
-      "displayFormat": "percentage"
-    },
-    {
-      "dialUid": "870056000650564139323920",
-      "displayName": "CPU Temperature",
-      "sensorName": "CPU [#0]: AMD Ryzen 7 9700X: Enhanced",
-      "entryName": "CPU (Tctl/Tdie)",
-      "minValue": 20,
-      "maxValue": 95,
-      "warningThreshold": 75,
-      "criticalThreshold": 88,
-      "colorConfig": {
-        "colorMode": "static",
-        "staticColor": "Green",
+        "colorMode": "off",
+        "staticColor": "Off",
         "normalColor": "Cyan",
         "warningColor": "Yellow",
         "criticalColor": "Red"
       },
       "enabled": true,
       "updateIntervalMs": 1000,
-      "displayFormat": "value",
-      "displayUnit": "°C"
+      "displayFormat": "percentage",
+      "displayUnit": ""
     },
     {
-      "dialUid": "7B006B000650564139323920",
-      "displayName": "GPU Load",
-      "sensorName": "GPU [#0]: AMD Radeon RX 9070: GIGABYTE Radeon RX 9070 GAMING OC 16G (GV-R9070GAMING OC-16GD)",
-      "entryName": "GPU Utilization",
+      "dialUid": "PLACEHOLDER_DIAL_2",
+      "displayName": "Dial 2",
+      "sensorName": "",
+      "entryName": "",
       "minValue": 0,
       "maxValue": 100,
       "warningThreshold": 80,
       "criticalThreshold": 95,
       "colorConfig": {
-        "colorMode": "static",
-        "staticColor": "Cyan",
-        "normalColor": "Cyan",
-        "warningColor": "Blue",
-        "criticalColor": "Purple"
-      },
-      "enabled": true,
-      "updateIntervalMs": 500,
-      "displayFormat": "percentage"
-    },
-    {
-      "dialUid": "31003F000650564139323920",
-      "displayName": "GPU Temperature",
-      "sensorName": "GPU [#0]: AMD Radeon RX 9070: GIGABYTE Radeon RX 9070 GAMING OC 16G (GV-R9070GAMING OC-16GD)",
-      "entryName": "GPU Temperature",
-      "minValue": 20,
-      "maxValue": 110,
-      "warningThreshold": 85,
-      "criticalThreshold": 100,
-      "colorConfig": {
-        "colorMode": "static",
-        "staticColor": "Yellow",
+        "colorMode": "off",
+        "staticColor": "Off",
         "normalColor": "Cyan",
         "warningColor": "Yellow",
         "criticalColor": "Red"
       },
       "enabled": true,
       "updateIntervalMs": 1000,
-      "displayFormat": "value",
-      "displayUnit": "°C"
+      "displayFormat": "percentage",
+      "displayUnit": ""
+    },
+    {
+      "dialUid": "PLACEHOLDER_DIAL_3",
+      "displayName": "Dial 3",
+      "sensorName": "",
+      "entryName": "",
+      "minValue": 0,
+      "maxValue": 100,
+      "warningThreshold": 80,
+      "criticalThreshold": 95,
+      "colorConfig": {
+        "colorMode": "off",
+        "staticColor": "Off",
+        "normalColor": "Cyan",
+        "warningColor": "Yellow",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 1000,
+      "displayFormat": "percentage",
+      "displayUnit": ""
+    },
+    {
+      "dialUid": "PLACEHOLDER_DIAL_4",
+      "displayName": "Dial 4",
+      "sensorName": "",
+      "entryName": "",
+      "minValue": 0,
+      "maxValue": 100,
+      "warningThreshold": 80,
+      "criticalThreshold": 95,
+      "colorConfig": {
+        "colorMode": "off",
+        "staticColor": "Off",
+        "normalColor": "Cyan",
+        "warningColor": "Yellow",
+        "criticalColor": "Red"
+      },
+      "enabled": true,
+      "updateIntervalMs": 1000,
+      "displayFormat": "percentage",
+      "displayUnit": ""
     }
   ]
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -167,9 +168,10 @@ namespace VUWare.App.Services
         }
 
         /// <summary>
-        /// Creates a new empty configuration with default settings.
+        /// Creates a new configuration with default settings and 4 placeholder dials.
+        /// The runInit flag is set to true so the settings window is shown after first discovery.
         /// </summary>
-        /// <returns>New DialsConfiguration instance</returns>
+        /// <returns>New DialsConfiguration instance with placeholder dials</returns>
         public static DialsConfiguration CreateDefault()
         {
             return new DialsConfiguration
@@ -180,10 +182,94 @@ namespace VUWare.App.Services
                     AutoConnect = true,
                     EnablePolling = true,
                     GlobalUpdateIntervalMs = 1000,
-                    DebugMode = false
+                    LogFilePath = "",
+                    DebugMode = false,
+                    SerialCommandDelayMs = 150,
+                    DialCountOverride = null,
+                    StartMinimized = false,
+                    RunInit = true  // Show settings window after first discovery
                 },
-                Dials = new()
+                Dials = new List<DialConfig>
+                {
+                    CreatePlaceholderDial(1, "PLACEHOLDER_DIAL_1"),
+                    CreatePlaceholderDial(2, "PLACEHOLDER_DIAL_2"),
+                    CreatePlaceholderDial(3, "PLACEHOLDER_DIAL_3"),
+                    CreatePlaceholderDial(4, "PLACEHOLDER_DIAL_4")
+                }
             };
+        }
+
+        /// <summary>
+        /// Creates a placeholder dial configuration for initial setup.
+        /// </summary>
+        private static DialConfig CreatePlaceholderDial(int dialNumber, string placeholderUid)
+        {
+            return new DialConfig
+            {
+                DialUid = placeholderUid,
+                DisplayName = $"Dial {dialNumber}",
+                SensorName = "",
+                EntryName = "",
+                MinValue = 0,
+                MaxValue = 100,
+                WarningThreshold = 80,
+                CriticalThreshold = 95,
+                ColorConfig = new DialColorConfig
+                {
+                    ColorMode = "off",
+                    StaticColor = "Off",
+                    NormalColor = "Cyan",
+                    WarningColor = "Yellow",
+                    CriticalColor = "Red"
+                },
+                Enabled = true,
+                UpdateIntervalMs = 1000,
+                DisplayFormat = "percentage",
+                DisplayUnit = ""
+            };
+        }
+
+        /// <summary>
+        /// Checks if a configuration file exists at any of the default locations.
+        /// </summary>
+        /// <returns>True if config file exists, false otherwise</returns>
+        public static bool ConfigFileExists()
+        {
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string appDataConfig = Path.Combine(appDataPath, "VUWare", "dials-config.json");
+            
+            if (File.Exists(appDataConfig))
+                return true;
+
+            string localConfig = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "Config",
+                "dials-config.json");
+            
+            return File.Exists(localConfig);
+        }
+
+        /// <summary>
+        /// Creates and saves a default configuration file if one doesn't exist.
+        /// </summary>
+        /// <returns>True if a new config was created, false if it already existed</returns>
+        public static bool EnsureDefaultConfigExists()
+        {
+            if (ConfigFileExists())
+            {
+                return false;
+            }
+
+            // Create config in AppData location
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string appDataConfig = Path.Combine(appDataPath, "VUWare", "dials-config.json");
+            
+            var config = CreateDefault();
+            var manager = new ConfigManager(appDataConfig);
+            manager.Save(config);
+            
+            System.Diagnostics.Debug.WriteLine($"[ConfigManager] Created default configuration at: {appDataConfig}");
+            return true;
         }
     }
 }

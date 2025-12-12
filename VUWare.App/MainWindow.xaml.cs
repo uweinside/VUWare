@@ -376,40 +376,61 @@ namespace VUWare.App
 
         /// <summary>
         /// Initializes dial panel colors based on their configuration color modes.
+        /// During initial setup (RunInit=true), shows colored dial faces without text.
         /// </summary>
         private void InitializeDialPanelColors()
         {
             if (_config == null)
                 return;
 
-            // Map dial UIDs to UI elements
-            var dialPanels = new Dictionary<string, (Border panel, TextBlock percentage, TextBlock displayName)>
+            // Define initialization colors for each dial position (red, green, yellow, cyan)
+            var initColors = new[]
             {
-                { "290063000750524834313020", (Dial1Button, Dial1Percentage, Dial1DisplayName) },
-                { "870056000650564139323920", (Dial2Button, Dial2Percentage, Dial2DisplayName) },
-                { "7B006B000650564139323920", (Dial3Button, Dial3Percentage, Dial3DisplayName) },
-                { "31003F000650564139323920", (Dial4Button, Dial4Percentage, Dial4DisplayName) }
+                Color.FromRgb(255, 0, 0),    // Red for dial 1
+                Color.FromRgb(0, 255, 0),    // Green for dial 2
+                Color.FromRgb(255, 255, 0),  // Yellow for dial 3
+                Color.FromRgb(0, 255, 255)   // Cyan for dial 4
             };
 
-            // Get active dials based on effective dial count
-            var activeDials = _config.GetActiveDials();
-
-            foreach (var dial in activeDials)
+            // Map dial positions to UI elements
+            var dialPanelsByPosition = new (Border panel, TextBlock percentage, TextBlock displayName)[]
             {
-                if (!dialPanels.TryGetValue(dial.DialUid, out var elements))
-                    continue;
+                (Dial1Button, Dial1Percentage, Dial1DisplayName),
+                (Dial2Button, Dial2Percentage, Dial2DisplayName),
+                (Dial3Button, Dial3Percentage, Dial3DisplayName),
+                (Dial4Button, Dial4Percentage, Dial4DisplayName)
+            };
 
-                var (panel, percentageBlock, displayNameBlock) = elements;
+            bool isInitialSetup = _config.AppSettings.RunInit;
+            int effectiveDialCount = _config.GetEffectiveDialCount();
+
+            for (int i = 0; i < Math.Min(effectiveDialCount, 4); i++)
+            {
+                var (panel, percentageBlock, displayNameBlock) = dialPanelsByPosition[i];
                 
-                // Use neutral dark gray for all dials until monitoring starts
-                Color panelColor = Color.FromRgb(80, 80, 80);
-                Color textColor = WpfColors.White;
-                Color subtextColor = Color.FromRgb(150, 150, 150);
+                if (isInitialSetup)
+                {
+                    // Initial setup mode - show colored dial face with no text
+                    Color panelColor = initColors[i];
+                    
+                    panel.Background = new SolidColorBrush(panelColor);
+                    percentageBlock.Text = "";
+                    percentageBlock.Foreground = new SolidColorBrush(WpfColors.Transparent);
+                    displayNameBlock.Text = "";
+                    displayNameBlock.Foreground = new SolidColorBrush(WpfColors.Transparent);
+                }
+                else
+                {
+                    // Normal mode - use neutral dark gray until monitoring starts
+                    Color panelColor = Color.FromRgb(80, 80, 80);
+                    Color textColor = WpfColors.White;
+                    Color subtextColor = Color.FromRgb(150, 150, 150);
 
-                // Apply neutral colors
-                panel.Background = new SolidColorBrush(panelColor);
-                percentageBlock.Foreground = new SolidColorBrush(textColor);
-                displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
+                    panel.Background = new SolidColorBrush(panelColor);
+                    percentageBlock.Text = "--";
+                    percentageBlock.Foreground = new SolidColorBrush(textColor);
+                    displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
+                }
             }
         }
 
@@ -507,9 +528,20 @@ namespace VUWare.App
                     int physicalDialCount = _initService.GetVU1Controller().DialCount;
                     ApplyDialVisibility(physicalDialCount);
                     System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated UI for {physicalDialCount} physical dials");
+                    
+                    // Update placeholder dial UIDs with actual discovered dial UIDs
+                    UpdateDialConfigurationsWithDiscoveredDials();
                 }
                 
-                // Start monitoring
+                // Check if this is first run - show settings window instead of starting monitoring
+                if (_config?.AppSettings.RunInit == true)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] RunInit is true - showing settings window for initial setup");
+                    ShowInitialSetupWindow();
+                    return;
+                }
+                
+                // Normal operation - start monitoring
                 StartMonitoring();
                 
                 // Enable settings button now that monitoring is running
@@ -537,6 +569,262 @@ namespace VUWare.App
                         MessageBoxImage.Information);
                 }
             });
+        }
+
+        /// <summary>
+        /// Updates the dial configurations with actual discovered dial UIDs.
+        /// This replaces placeholder UIDs with real device UIDs from discovery.
+        /// </summary>
+        private void UpdateDialConfigurationsWithDiscoveredDials()
+        {
+            if (_config == null || _initService == null)
+                return;
+
+            var vu1 = _initService.GetVU1Controller();
+            var discoveredDials = vu1.GetAllDials();
+            
+            if (discoveredDials.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] No dials discovered - keeping placeholder configuration");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Updating config with {discoveredDials.Count} discovered dials");
+
+            // Get discovered dial UIDs in order
+            var discoveredUids = discoveredDials.Keys.ToList();
+            
+            // Update each configuration entry with the corresponding discovered dial UID
+            for (int i = 0; i < Math.Min(_config.Dials.Count, discoveredUids.Count); i++)
+            {
+                var dialConfig = _config.Dials[i];
+                var discoveredUid = discoveredUids[i];
+                
+                // Only update if current UID is a placeholder
+                if (dialConfig.DialUid.StartsWith("PLACEHOLDER_"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] Updating dial {i + 1}: {dialConfig.DialUid} -> {discoveredUid}");
+                    dialConfig.DialUid = discoveredUid;
+                }
+            }
+
+            // Limit config to actual discovered dials if fewer were found
+            if (discoveredDials.Count < _config.Dials.Count)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Trimming config from {_config.Dials.Count} to {discoveredDials.Count} dials");
+                _config.Dials = _config.Dials.Take(discoveredDials.Count).ToList();
+            }
+
+            // Save updated configuration
+            try
+            {
+                string configPath = ConfigManager.GetDefaultConfigPath();
+                var manager = new ConfigManager(configPath);
+                manager.Save(_config);
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated configuration saved with discovered dial UIDs");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to save updated configuration: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Shows the settings window for initial setup after dial discovery.
+        /// </summary>
+        private async void ShowInitialSetupWindow()
+        {
+            if (_config == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] ERROR: Cannot show setup window - config is null");
+                return;
+            }
+            
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Opening settings window for initial setup");
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Config has {_config.Dials.Count} dials:");
+            foreach (var dial in _config.Dials)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow]   - {dial.DisplayName}: UID={dial.DialUid}");
+            }
+            
+            // Update status to indicate setup is needed
+            StatusText.Text = "Initial Setup Required";
+            StatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 200, 0)); // Yellow
+            
+            // Create settings window with the current configuration (already has discovered dial UIDs)
+            var settingsWindow = new SettingsWindow(_config);
+            settingsWindow.Owner = this;
+            settingsWindow.SetFirstRunMode(true);
+            
+            // Pass controllers to the settings window
+            if (_initService != null)
+            {
+                if (_initService.GetHWInfo64Controller() != null)
+                {
+                    settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
+                }
+                
+                if (_initService.GetVU1Controller() != null)
+                {
+                    settingsWindow.SetVU1Controller(_initService.GetVU1Controller());
+                }
+            }
+            
+            // Show settings window as modal dialog
+            var result = settingsWindow.ShowDialog();
+            
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Settings window closed with result: {result}");
+            
+            // After settings window closes, reload config and start monitoring
+            if (result == true)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Initial setup complete - reloading config and starting monitoring");
+                
+                // Reload configuration (it was saved by settings window)
+                LoadConfiguration();
+                
+                // CRITICAL: Re-register dial mappings with the new sensor configuration
+                // The initial registration had empty sensor names since user hadn't configured yet
+                RegisterDialMappingsFromConfig();
+                
+                // Set initial backlight colors based on configuration
+                await SetInitialDialBacklightsAsync();
+                
+                // Now start monitoring
+                StartMonitoring();
+                
+                // Enable settings button
+                SettingsButton.IsEnabled = true;
+                SettingsButton.ToolTip = "Settings";
+                
+                // Update status
+                StatusText.Text = "Monitoring";
+                StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 0)); // Green
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Initial setup was cancelled or closed");
+                StatusText.Text = "Setup Incomplete";
+                StatusText.Foreground = new SolidColorBrush(WpfColors.Red);
+            }
+        }
+
+        /// <summary>
+        /// Sets initial backlight colors for all dials based on configuration.
+        /// Called after initial setup to apply the configured colors.
+        /// </summary>
+        private async Task SetInitialDialBacklightsAsync()
+        {
+            if (_config == null || _initService == null)
+                return;
+
+            var vu1 = _initService.GetVU1Controller();
+            if (vu1 == null || !vu1.IsConnected)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Cannot set backlights - VU1 not connected");
+                return;
+            }
+
+            var activeDials = _config.GetActiveDials();
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Setting initial backlight colors for {activeDials.Count} dials");
+
+            foreach (var dialConfig in activeDials.Where(d => d.Enabled))
+            {
+                try
+                {
+                    // Determine the color to set based on color mode
+                    string colorName;
+                    if (dialConfig.ColorConfig.ColorMode == "static")
+                    {
+                        colorName = dialConfig.ColorConfig.StaticColor;
+                    }
+                    else if (dialConfig.ColorConfig.ColorMode == "off")
+                    {
+                        colorName = "Off";
+                    }
+                    else
+                    {
+                        // For threshold mode, start with normal color
+                        colorName = dialConfig.ColorConfig.NormalColor;
+                    }
+
+                    var color = GetNamedColorByName(colorName);
+                    if (color != null)
+                    {
+                        bool success = await vu1.SetBacklightColorAsync(dialConfig.DialUid, color);
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Set {dialConfig.DisplayName} backlight to {colorName}: {(success ? "OK" : "FAILED")}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] Error setting backlight for {dialConfig.DisplayName}: {ex.Message}");
+                }
+            }
+        }
+
+        private VULib.NamedColor? GetNamedColorByName(string colorName)
+        {
+            return colorName switch
+            {
+                "Red" => VULib.Colors.Red,
+                "Green" => VULib.Colors.Green,
+                "Blue" => VULib.Colors.Blue,
+                "Yellow" => VULib.Colors.Yellow,
+                "Cyan" => VULib.Colors.Cyan,
+                "Magenta" => VULib.Colors.Magenta,
+                "Orange" => VULib.Colors.Orange,
+                "Purple" => VULib.Colors.Purple,
+                "Pink" => VULib.Colors.Pink,
+                "White" => VULib.Colors.White,
+                "Off" => VULib.Colors.Off,
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Registers dial-to-sensor mappings with the HWInfo64 controller based on current configuration.
+        /// This is needed after initial setup when sensor names are configured for the first time.
+        /// </summary>
+        private void RegisterDialMappingsFromConfig()
+        {
+            if (_config == null || _initService == null)
+                return;
+
+            var hwInfo = _initService.GetHWInfo64Controller();
+            if (hwInfo == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Cannot register mappings - HWInfo controller is null");
+                return;
+            }
+
+            // Clear existing mappings and re-register with new config
+            hwInfo.ClearAllMappings();
+
+            var activeDials = _config.GetActiveDials();
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Registering {activeDials.Count} dial mappings");
+
+            foreach (var dialConfig in activeDials.Where(d => d.Enabled))
+            {
+                var mapping = new DialSensorMapping
+                {
+                    Id = dialConfig.DialUid,
+                    SensorName = dialConfig.SensorName,
+                    SensorId = dialConfig.SensorId,
+                    SensorInstance = dialConfig.SensorInstance,
+                    EntryName = dialConfig.EntryName,
+                    EntryId = dialConfig.EntryId,
+                    MinValue = dialConfig.MinValue,
+                    MaxValue = dialConfig.MaxValue,
+                    WarningThreshold = dialConfig.WarningThreshold,
+                    CriticalThreshold = dialConfig.CriticalThreshold,
+                    DisplayName = dialConfig.DisplayName
+                };
+
+                hwInfo.RegisterDialMapping(mapping);
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] Registered: {dialConfig.DisplayName} -> {dialConfig.SensorName}/{dialConfig.EntryName}");
+            }
+
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Dial mappings registered successfully");
         }
 
         /// <summary>
@@ -576,14 +864,12 @@ namespace VUWare.App
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to start monitoring: {ex.Message}\n\n" +
-                    $"{ex.StackTrace}",
+                    $"Failed to start monitoring: {ex.Message}\n\n{ex.StackTrace}",
                     "Monitoring Error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
                 
                 System.Diagnostics.Debug.WriteLine($"Error starting monitoring: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -597,146 +883,78 @@ namespace VUWare.App
                 if (_config == null)
                     return;
 
-                // Check if this dial is in the active set
+                // Check if this dial is in the active set and find its position
                 var activeDials = _config.GetActiveDials();
-                if (!activeDials.Any(d => d.DialUid == dialUid))
-                {
-                    // This dial is not active, skip UI update
-                    return;
-                }
-
-                // Map dial UID to TextBlocks
-                TextBlock? percentageBlock = dialUid switch
-                {
-                    "290063000750524834313020" => Dial1Percentage,
-                    "870056000650564139323920" => Dial2Percentage,
-                    "7B006B000650564139323920" => Dial3Percentage,
-                    "31003F000650564139323920" => Dial4Percentage,
-                    _ => null
-                };
-
-                TextBlock? displayNameBlock = dialUid switch
-                {
-                    "290063000750524834313020" => Dial1DisplayName,
-                    "870056000650564139323920" => Dial2DisplayName,
-                    "7B006B000650564139323920" => Dial3DisplayName,
-                    "31003F000650564139323920" => Dial4DisplayName,
-                    _ => null
-                };
-
-                Border? dialPanel = dialUid switch
-                {
-                    "290063000750524834313020" => Dial1Button,
-                    "870056000650564139323920" => Dial2Button,
-                    "7B006B000650564139323920" => Dial3Button,
-                    "31003F000650564139323920" => Dial4Button,
-                    _ => null
-                };
-
-                if (percentageBlock == null || displayNameBlock == null || dialPanel == null)
+                int dialIndex = activeDials.FindIndex(d => d.DialUid == dialUid);
+                
+                if (dialIndex < 0)
                     return;
 
-                // Get dial configuration for this UID
-                var dialConfig = _config.Dials.FirstOrDefault(d => d.DialUid == dialUid);
-                
-                System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] {dialConfig?.DisplayName}: Format={dialConfig?.DisplayFormat}, DecimalPlaces={dialConfig?.DecimalPlaces}, Unit={dialConfig?.DisplayUnit}");
-                
-                string displayValue;
-
-                if (dialConfig?.DisplayFormat == "value")
+                // Map dial position (0-3) to UI elements
+                var dialPanelsByPosition = new (Border panel, TextBlock percentage, TextBlock displayName)[]
                 {
-                    // Display actual sensor value with unit, respecting decimal places configuration
-                    string formatString = $"F{dialConfig.DecimalPlaces}";
-                    displayValue = $"{update.SensorValue.ToString(formatString)}{dialConfig!.DisplayUnit}";
-                    
-                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Value mode: {update.SensorValue} -> {displayValue} (format={formatString})");
-                }
-                else
-                {
-                    // Display percentage (default)
-                    displayValue = $"{update.DialPercentage}%";
-                    
-                    System.Diagnostics.Debug.WriteLine($"[MonitoringService_OnDialUpdated] Percentage mode: {displayValue}");
-                }
+                    (Dial1Button, Dial1Percentage, Dial1DisplayName),
+                    (Dial2Button, Dial2Percentage, Dial2DisplayName),
+                    (Dial3Button, Dial3Percentage, Dial3DisplayName),
+                    (Dial4Button, Dial4Percentage, Dial4DisplayName)
+                };
 
-                // Update text blocks
+                if (dialIndex >= dialPanelsByPosition.Length)
+                    return;
+
+                var (dialPanel, percentageBlock, displayNameBlock) = dialPanelsByPosition[dialIndex];
+                var dialConfig = activeDials[dialIndex];
+                
+                string displayValue = dialConfig.DisplayFormat == "value"
+                    ? $"{update.SensorValue.ToString($"F{dialConfig.DecimalPlaces}")}{dialConfig.DisplayUnit}"
+                    : $"{update.DialPercentage}%";
+
                 percentageBlock.Text = displayValue;
                 displayNameBlock.Text = update.DisplayName;
 
-                // Determine color based on dial configuration's color mode
-                Color panelColor = Color.FromRgb(204, 204, 204); // Default light gray
+                Color panelColor = Color.FromRgb(204, 204, 204);
                 Color textColor = WpfColors.Black;
                 Color subtextColor = Color.FromRgb(102, 102, 102);
 
-                if (dialConfig?.ColorConfig.ColorMode == "off")
+                if (dialConfig.ColorConfig.ColorMode == "off")
                 {
-                    // Off mode: keep default colors
                     panelColor = Color.FromRgb(204, 204, 204);
-                    textColor = WpfColors.Black;
-                    subtextColor = Color.FromRgb(102, 102, 102);
                 }
-                else if (dialConfig?.ColorConfig.ColorMode == "static")
+                else if (dialConfig.ColorConfig.ColorMode == "static")
                 {
-                    // Static mode: use staticColor from config
-                    panelColor = GetColorFromString(dialConfig!.ColorConfig.StaticColor);
-                    textColor = GetContrastingTextColor(panelColor);
-                    subtextColor = GetContrastingSubtextColor(panelColor);
+                    panelColor = GetColorFromString(dialConfig.ColorConfig.StaticColor);
                 }
-                else // threshold mode (default)
+                else
                 {
-                    // Threshold mode: change color based on sensor status
                     if (update.IsCritical)
-                    {
-                        // Critical state: use the configured critical color
-                        panelColor = GetColorFromString(dialConfig!.ColorConfig.CriticalColor);
-                        textColor = GetContrastingTextColor(panelColor);
-                        subtextColor = GetContrastingSubtextColor(panelColor);
-                    }
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.CriticalColor);
                     else if (update.IsWarning)
-                    {
-                        // Warning state: use the configured warning color
-                        panelColor = GetColorFromString(dialConfig!.ColorConfig.WarningColor);
-                        textColor = GetContrastingTextColor(panelColor);
-                        subtextColor = GetContrastingSubtextColor(panelColor);
-                    }
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.WarningColor);
                     else
-                    {
-                        // Normal state: use the configured normal color
-                        panelColor = GetColorFromString(dialConfig!.ColorConfig.NormalColor);
-                        textColor = GetContrastingTextColor(panelColor);
-                        subtextColor = GetContrastingSubtextColor(panelColor);
-                    }
+                        panelColor = GetColorFromString(dialConfig.ColorConfig.NormalColor);
                 }
 
-                // Apply colors
+                textColor = GetContrastingTextColor(panelColor);
+                subtextColor = GetContrastingSubtextColor(panelColor);
+
                 dialPanel.Background = new SolidColorBrush(panelColor);
                 percentageBlock.Foreground = new SolidColorBrush(textColor);
                 displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
             });
         }
 
-        /// <summary>
-        /// Determines if text should be white or black based on background color brightness.
-        /// </summary>
         private Color GetContrastingTextColor(Color backgroundColor)
         {
-            // Calculate luminance
             double luminance = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
             return luminance > 0.5 ? WpfColors.Black : WpfColors.White;
         }
 
-        /// <summary>
-        /// Determines the contrasting color for subtext (slightly more opacity).
-        /// </summary>
         private Color GetContrastingSubtextColor(Color backgroundColor)
         {
             double luminance = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
             return luminance > 0.5 ? Color.FromRgb(102, 102, 102) : Color.FromRgb(200, 200, 200);
         }
 
-        /// <summary>
-        /// Handles errors from the monitoring service.
-        /// </summary>
         private void MonitoringService_OnError(string errorMessage)
         {
             Dispatcher.Invoke(() =>
@@ -746,27 +964,20 @@ namespace VUWare.App
             });
         }
 
-        /// <summary>
-        /// Updates the status text and color based on current initialization state.
-        /// </summary>
         private void UpdateStatusButtonColor(AppInitializationService.InitializationStatus status)
         {
             Color textColor = status switch
             {
-                AppInitializationService.InitializationStatus.ConnectingDials => Color.FromRgb(255, 200, 0),    // Yellow
-                AppInitializationService.InitializationStatus.InitializingDials => Color.FromRgb(255, 200, 0),  // Yellow
-                AppInitializationService.InitializationStatus.ConnectingHWInfo => Color.FromRgb(255, 200, 0),   // Yellow
-                AppInitializationService.InitializationStatus.Monitoring => Color.FromRgb(0, 200, 0),           // Green
-                AppInitializationService.InitializationStatus.Failed => WpfColors.Red,                             // Red
-                _ => Color.FromRgb(200, 200, 200)                                                               // Gray
+                AppInitializationService.InitializationStatus.ConnectingDials => Color.FromRgb(255, 200, 0),
+                AppInitializationService.InitializationStatus.InitializingDials => Color.FromRgb(255, 200, 0),
+                AppInitializationService.InitializationStatus.ConnectingHWInfo => Color.FromRgb(255, 200, 0),
+                AppInitializationService.InitializationStatus.Monitoring => Color.FromRgb(0, 200, 0),
+                AppInitializationService.InitializationStatus.Failed => WpfColors.Red,
+                _ => Color.FromRgb(200, 200, 200)
             };
-
             StatusText.Foreground = new SolidColorBrush(textColor);
         }
 
-        /// <summary>
-        /// Converts a color name string to a WPF Color.
-        /// </summary>
         private Color GetColorFromString(string colorName)
         {
             return colorName switch
@@ -782,161 +993,183 @@ namespace VUWare.App
                 "Pink" => Color.FromRgb(255, 192, 203),
                 "White" => Color.FromRgb(255, 255, 255),
                 "Off" => Color.FromRgb(0, 0, 0),
-                _ => Color.FromRgb(204, 204, 204) // Default gray
+                _ => Color.FromRgb(204, 204, 204)
             };
         }
 
-        /// <summary>
-        /// Handles title bar drag to move the window.
-        /// </summary>
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ClickCount == 2)
-            {
-                // Double-click to maximize/restore (not applicable here since we don't allow maximize)
-            }
-            else
-            {
-                // Single click and drag to move window
+            if (e.ClickCount == 1)
                 DragMove();
-            }
         }
 
-        /// <summary>
-        /// Minimizes the window.
-        /// </summary>
-        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState.Minimized;
-        }
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
-        /// <summary>
-        /// Closes the window.
-        /// </summary>
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
+        private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
-        /// <summary>
-        /// Reloads configuration from disk and applies changes dynamically without restarting.
-        /// </summary>
-        /// <returns>True if reload succeeded, false otherwise</returns>
         public async Task<bool> ReloadConfiguration()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Starting configuration reload");
-
-                // Load new configuration
-                string configPath = ConfigManager.GetDefaultConfigPath();
                 var newConfig = ConfigManager.LoadDefault();
-
-                if (newConfig == null)
-                {
-                    MessageBox.Show(
-                        $"Failed to load configuration from {configPath}",
-                        "Configuration Error",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                if (newConfig == null || !newConfig.Validate(out var errors))
                     return false;
-                }
 
-                // Validate configuration
-                if (!newConfig.Validate(out var errors))
-                {
-                    string errorMessage = string.Join(Environment.NewLine, errors);
-                    MessageBox.Show(
-                        $"Configuration validation failed:\n\n{errorMessage}",
-                        "Configuration Invalid",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                    return false;
-                }
-
-                // IMPORTANT: Save old config for comparison BEFORE updating
                 var oldConfig = _config;
-
-                // Detect what changed
                 var changes = oldConfig != null 
                     ? ConfigurationChangeDetector.DetectChanges(oldConfig, newConfig)
-                    : ConfigChangeType.All; // If no previous config, treat everything as changed
+                    : ConfigChangeType.All;
 
                 if (changes == ConfigChangeType.None)
-                {
-                    System.Diagnostics.Debug.WriteLine("[MainWindow] No configuration changes detected");
                     return true;
-                }
 
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration changes detected: {ConfigurationChangeDetector.GetChangeDescription(changes)}");
-
-                // Apply changes based on type
-                bool success = true;
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ReloadConfiguration - detected changes: {changes}");
 
                 if (changes.HasFlag(ConfigChangeType.SensorMappings))
-                {
-                    success = success && await ReloadSensorMappings(newConfig);
-                }
+                    await ReloadSensorMappings(newConfig);
 
                 if (changes.HasFlag(ConfigChangeType.UpdateIntervals))
-                {
                     ApplyIntervalChanges(newConfig);
-                }
 
+                // Handle dial settings changes (includes color changes)
                 if (changes.HasFlag(ConfigChangeType.DialSettings))
                 {
-                    await ApplyDialSettingsChanges(oldConfig, newConfig);
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] Applying dial settings changes (colors, thresholds, etc.)");
+                    _monitoringService?.UpdateConfiguration(newConfig);
+                    
+                    // Apply physical dial backlight colors
+                    await ApplyDialBacklightColorsAsync(newConfig);
+                    
+                    // Update UI dial panel colors immediately
+                    UpdateUIDialPanelColors(newConfig);
                 }
 
-                // Update current config reference AFTER all comparisons
                 _config = newConfig;
-
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Configuration reload complete");
-
-                return success;
+                return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Configuration reload failed: {ex.Message}");
-                MessageBox.Show(
-                    $"Failed to reload configuration:\n\n{ex.Message}",
-                    "Configuration Reload Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] ReloadConfiguration error: {ex.Message}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Reloads sensor mappings by stopping monitoring, clearing old mappings,
-        /// and registering new ones.
+        /// Updates the UI dial panel colors based on the current configuration.
+        /// Called when color settings change to immediately reflect changes in the UI.
         /// </summary>
+        private void UpdateUIDialPanelColors(DialsConfiguration config)
+        {
+            var dialPanelsByPosition = new (Border panel, TextBlock percentage, TextBlock displayName)[]
+            {
+                (Dial1Button, Dial1Percentage, Dial1DisplayName),
+                (Dial2Button, Dial2Percentage, Dial2DisplayName),
+                (Dial3Button, Dial3Percentage, Dial3DisplayName),
+                (Dial4Button, Dial4Percentage, Dial4DisplayName)
+            };
+
+            var activeDials = config.GetActiveDials();
+            
+            for (int i = 0; i < Math.Min(activeDials.Count, dialPanelsByPosition.Length); i++)
+            {
+                var dialConfig = activeDials[i];
+                var (dialPanel, percentageBlock, displayNameBlock) = dialPanelsByPosition[i];
+
+                // Determine color based on color mode
+                Color panelColor;
+                if (dialConfig.ColorConfig.ColorMode == "off")
+                {
+                    panelColor = Color.FromRgb(204, 204, 204); // Light gray
+                }
+                else if (dialConfig.ColorConfig.ColorMode == "static")
+                {
+                    panelColor = GetColorFromString(dialConfig.ColorConfig.StaticColor);
+                }
+                else
+                {
+                    // For threshold mode, use normal color (actual value will update it)
+                    panelColor = GetColorFromString(dialConfig.ColorConfig.NormalColor);
+                }
+
+                var textColor = GetContrastingTextColor(panelColor);
+                var subtextColor = GetContrastingSubtextColor(panelColor);
+
+                dialPanel.Background = new SolidColorBrush(panelColor);
+                percentageBlock.Foreground = new SolidColorBrush(textColor);
+                displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated UI dial panel colors for {activeDials.Count} dials");
+        }
+
+        /// <summary>
+        /// Applies backlight colors to physical dials based on configuration.
+        /// </summary>
+        private async Task ApplyDialBacklightColorsAsync(DialsConfiguration config)
+        {
+            if (_initService == null)
+                return;
+
+            var vu1 = _initService.GetVU1Controller();
+            if (vu1 == null || !vu1.IsConnected)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Cannot apply backlight colors - VU1 not connected");
+                return;
+            }
+
+            var activeDials = config.GetActiveDials();
+            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applying backlight colors to {activeDials.Count} dials");
+
+            foreach (var dialConfig in activeDials.Where(d => d.Enabled))
+            {
+                try
+                {
+                    // Determine the color to set based on color mode
+                    string colorName;
+                    if (dialConfig.ColorConfig.ColorMode == "static")
+                    {
+                        colorName = dialConfig.ColorConfig.StaticColor;
+                    }
+                    else if (dialConfig.ColorConfig.ColorMode == "off")
+                    {
+                        colorName = "Off";
+                    }
+                    else
+                    {
+                        // For threshold mode, use normal color as initial value
+                        // The monitoring loop will update based on actual sensor values
+                        colorName = dialConfig.ColorConfig.NormalColor;
+                    }
+
+                    var color = GetNamedColorByName(colorName);
+                    if (color != null)
+                    {
+                        bool success = await vu1.SetBacklightColorAsync(dialConfig.DialUid, color);
+                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Applied {dialConfig.DisplayName} backlight to {colorName}: {(success ? "OK" : "FAILED")}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainWindow] Error applying backlight for {dialConfig.DisplayName}: {ex.Message}");
+                }
+            }
+        }
+
         private async Task<bool> ReloadSensorMappings(DialsConfiguration newConfig)
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Reloading sensor mappings");
-
-                // Pause monitoring temporarily
                 _monitoringService?.Stop();
-                await Task.Delay(200); // Allow monitoring thread to stop
+                await Task.Delay(200);
 
-                // Get HWInfo controller
                 var hwInfo = _initService?.GetHWInfo64Controller();
-                if (hwInfo == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("[MainWindow] HWInfo controller not available");
-                    return false;
-                }
+                if (hwInfo == null) return false;
 
-                // Clear old mappings
                 hwInfo.ClearAllMappings();
 
-                // Register new mappings
-                var mappings = new System.Collections.Generic.List<DialSensorMapping>();
                 foreach (var dial in newConfig.Dials.Where(d => d.Enabled))
                 {
-                    var mapping = new DialSensorMapping
+                    hwInfo.RegisterDialMapping(new DialSensorMapping
                     {
                         Id = dial.DialUid,
                         SensorName = dial.SensorName,
@@ -949,219 +1182,57 @@ namespace VUWare.App
                         WarningThreshold = dial.WarningThreshold,
                         CriticalThreshold = dial.CriticalThreshold,
                         DisplayName = dial.DisplayName
-                    };
-                    mappings.Add(mapping);
+                    });
                 }
 
-                hwInfo.RegisterMappings(mappings);
-
-                // Restart monitoring
                 _monitoringService?.Start();
-
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Reloaded {mappings.Count} sensor mappings");
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Failed to reload sensor mappings: {ex.Message}");
                 return false;
             }
         }
 
-        /// <summary>
-        /// Applies update interval changes to HWInfo64 controller and monitoring service.
-        /// </summary>
         private void ApplyIntervalChanges(DialsConfiguration newConfig)
         {
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying interval changes");
-
             var hwInfo = _initService?.GetHWInfo64Controller();
-            if (hwInfo != null)
-            {
-                hwInfo.UpdatePollInterval(newConfig.AppSettings.GlobalUpdateIntervalMs);
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Updated HWInfo poll interval to {newConfig.AppSettings.GlobalUpdateIntervalMs}ms");
-            }
-
-            // Monitoring service will pick up new interval from updated config
+            hwInfo?.UpdatePollInterval(newConfig.AppSettings.GlobalUpdateIntervalMs);
             _monitoringService?.UpdateConfiguration(newConfig);
         }
 
-        /// <summary>
-        /// Applies dial settings changes (thresholds, colors, formats, decimal places).
-        /// Forces immediate UI refresh for display format changes.
-        /// </summary>
-        private async Task ApplyDialSettingsChanges(DialsConfiguration? oldConfig, DialsConfiguration newConfig)
-        {
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Applying dial settings changes");
-
-            // Update monitoring service with new config
-            _monitoringService?.UpdateConfiguration(newConfig);
-
-            // Update _config reference immediately so UI updates use new config
-            _config = newConfig;
-            
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Updated _config reference to new configuration");
-
-            // Give the monitoring service a moment to apply the new configuration
-            await Task.Delay(100);
-
-            // Track which dials need display refresh
-            var dialsNeedingRefresh = new HashSet<string>();
-
-            // If color mode changed to static, immediately apply static color
-            var vu1 = _initService?.GetVU1Controller();
-            if (vu1 != null)
-            {
-                foreach (var newDial in newConfig.Dials.Where(d => d.Enabled))
-                {
-                    var oldDial = oldConfig?.Dials.FirstOrDefault(d => d.DialUid == newDial.DialUid);
-
-                    // Debug output
-                    if (oldDial != null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Comparing {newDial.DisplayName}:");
-                        System.Diagnostics.Debug.WriteLine($"  - DisplayFormat: {oldDial.DisplayFormat} -> {newDial.DisplayFormat}");
-                        System.Diagnostics.Debug.WriteLine($"  - DisplayUnit: '{oldDial.DisplayUnit}' -> '{newDial.DisplayUnit}'");
-                        System.Diagnostics.Debug.WriteLine($"  - DecimalPlaces: {oldDial.DecimalPlaces} -> {newDial.DecimalPlaces}");
-                    }
-
-                    // Check if display format, unit, or decimal places changed
-                    if (oldDial != null && 
-                        (oldDial.DisplayFormat != newDial.DisplayFormat ||
-                         oldDial.DisplayUnit != newDial.DisplayUnit ||
-                         oldDial.DecimalPlaces != newDial.DecimalPlaces))
-                    {
-                        dialsNeedingRefresh.Add(newDial.DialUid);
-                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Display format/unit/decimals changed for {newDial.DisplayName} - needs refresh");
-                    }
-
-                    // Check if switched to static mode OR static color changed
-                    if ((oldDial?.ColorConfig.ColorMode != "static" && newDial.ColorConfig.ColorMode == "static") ||
-                        (oldDial?.ColorConfig.ColorMode == "static" && newDial.ColorConfig.ColorMode == "static" &&
-                         oldDial.ColorConfig.StaticColor != newDial.ColorConfig.StaticColor))
-                    {
-                        var colorName = newDial.ColorConfig.StaticColor;
-                        var color = GetColorByName(colorName);
-                        if (color != null)
-                        {
-                            await vu1.SetBacklightColorAsync(newDial.DialUid, color);
-                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Applied static color {colorName} to {newDial.DisplayName}");
-                        }
-                    }
-                }
-            }
-
-            // Force immediate UI refresh for dials with display format changes
-            if (dialsNeedingRefresh.Count > 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] Forcing immediate UI refresh for {dialsNeedingRefresh.Count} dial(s)");
-                
-                foreach (var dialUid in dialsNeedingRefresh)
-                {
-                    // Get current sensor status and trigger UI update
-                    var status = _monitoringService?.GetDialStatus(dialUid);
-                    if (status != null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Got status for {status.DisplayName}: {status.SensorValue:F2} {status.SensorUnit}");
-                        
-                        // Manually invoke the dial updated event to refresh the display
-                        Dispatcher.Invoke(() =>
-                        {
-                            System.Diagnostics.Debug.WriteLine($"[MainWindow] Invoking MonitoringService_OnDialUpdated for {status.DisplayName}");
-                            MonitoringService_OnDialUpdated(dialUid, status);
-                        });
-                        
-                        System.Diagnostics.Debug.WriteLine($"[MainWindow] Refreshed display for {status.DisplayName}");
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[MainWindow] WARNING: Could not get status for dial {dialUid}");
-                    }
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] No dials need UI refresh");
-            }
-
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Dial settings changes applied");
-        }
-
-        /// <summary>
-        /// Gets a NamedColor by name string.
-        /// </summary>
-        private VULib.NamedColor? GetColorByName(string colorName)
-        {
-            return colorName switch
-            {
-                "Red" => VULib.Colors.Red,
-                "Green" => VULib.Colors.Green,
-                "Blue" => VULib.Colors.Blue,
-                "Yellow" => VULib.Colors.Yellow,
-                "Cyan" => VULib.Colors.Cyan,
-                "Magenta" => VULib.Colors.Magenta,
-                "Orange" => VULib.Colors.Orange,
-                "Purple" => VULib.Colors.Purple,
-                "Pink" => VULib.Colors.Pink,
-                "White" => VULib.Colors.White,
-                "Off" => VULib.Colors.Off,
-                _ => null
-            };
-        }
-
-        /// <summary>
-        /// Opens the settings dialog.
-        /// </summary>
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            SettingsWindow settingsWindow = new SettingsWindow();
+            var settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             
-            // Pass controllers to the settings window BEFORE showing it
             if (_initService != null)
             {
                 if (_initService.GetHWInfo64Controller() != null)
-                {
                     settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
-                }
-                
                 if (_initService.GetVU1Controller() != null)
-                {
                     settingsWindow.SetVU1Controller(_initService.GetVU1Controller());
-                }
             }
             
-            // Now show the dialog
             settingsWindow.ShowDialog();
         }
 
-        /// <summary>
-        /// Opens the about dialog.
-        /// </summary>
         private void InfoButton_Click(object sender, RoutedEventArgs e)
         {
-            AboutDialog aboutDialog = new AboutDialog();
+            var aboutDialog = new AboutDialog();
             aboutDialog.Owner = this;
             aboutDialog.ShowDialog();
         }
 
-        /// <summary>
-        /// Initializes the system tray manager with the main window.
-        /// </summary>
         private void InitializeSystemTray()
         {
-            // Get the tray manager from the application
             if (Application.Current is App app && app.TrayManager != null)
             {
                 _trayManager = app.TrayManager;
                 _trayManager.Initialize(this);
-                System.Diagnostics.Debug.WriteLine("[MainWindow] System tray initialized");
             }
         }
 
-        /// <summary>
-        /// Handles window state changes to manage tray minimize/restore.
-        /// </summary>
         private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
             if (_trayManager == null)
@@ -1169,23 +1240,15 @@ namespace VUWare.App
 
             if (WindowState == WindowState.Minimized)
             {
-                // Disable UI updates when hidden - physical dials still update!
                 _monitoringService?.SetUIUpdateEnabled(false);
-                
-                // Hide window to tray
                 _trayManager.HideToTray();
                 _trayManager.ShowIcon();
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized to tray - UI updates DISABLED");
             }
             else if (WindowState == WindowState.Normal)
             {
-                // Re-enable UI updates when visible
                 _monitoringService?.SetUIUpdateEnabled(true);
-                
-                // Restore window from tray
                 _trayManager.HideIcon();
                 ShowInTaskbar = true;
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Window restored from tray - UI updates ENABLED");
             }
         }
     }

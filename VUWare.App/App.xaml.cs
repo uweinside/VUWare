@@ -27,6 +27,14 @@ namespace VUWare.App
             
             // Handle Windows shutdown/logoff events
             SessionEnding += App_SessionEnding;
+
+            // Ensure a config file exists (create default if missing)
+            ConfigManager.EnsureDefaultConfigExists();
+
+            // Always start with MainWindow - it handles runInit flag after discovery
+            var mainWindow = new MainWindow();
+            MainWindow = mainWindow;
+            mainWindow.Show();
         }
 
         private void App_SessionEnding(object sender, SessionEndingCancelEventArgs e)
@@ -54,5 +62,4 @@ namespace VUWare.App
             base.OnExit(e);
         }
     }
-
 }

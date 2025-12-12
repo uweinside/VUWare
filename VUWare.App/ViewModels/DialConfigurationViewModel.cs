@@ -249,14 +249,21 @@ namespace VUWare.App.ViewModels
             
             _sensorEntryMap.Clear();
             AvailableSensors.Clear();
-            _displayToSensorMetadata.Clear(); // Clear the display name map
-            _displayToEntryMetadata.Clear(); // Clear the entry display name map
+            _displayToSensorMetadata.Clear();
+            _displayToEntryMetadata.Clear();
 
             if (readings == null || readings.Count == 0)
             {
                 System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] No readings provided");
                 return;
             }
+
+            // Store the original configured values before any updates
+            var configuredSensorName = _sensorName;
+            var configuredSensorId = _sensorId;
+            var configuredSensorInstance = _sensorInstance;
+            var configuredEntryName = _entryName;
+            var configuredEntryId = _entryId;
 
             // Group readings by composite key (SensorName + SensorId + SensorInstance)
             // This ensures sensors with duplicate names but different IDs are shown separately
@@ -265,9 +272,8 @@ namespace VUWare.App.ViewModels
                 .OrderBy(g => g.Key.SensorName)
                 .ThenBy(g => g.Key.SensorInstance);
 
-            int sensorCount = 0;
-            string? matchingSensorDisplayName = null; // Track if current config sensor matches any sensor
-            string? matchingEntryDisplayName = null; // Track if current config entry matches any entry
+            string? matchingSensorDisplayName = null;
+            string? matchingEntryDisplayName = null;
             
             foreach (var sensorGroup in groupedBySensor)
             {
@@ -285,9 +291,8 @@ namespace VUWare.App.ViewModels
                     : baseName;
                 
                 AvailableSensors.Add(displayName);
-                sensorCount++;
 
-                // Build entries with disambiguation for duplicates within this sensor
+                // Build entries with disambiguation
                 var entryList = sensorGroup.ToList();
                 var entryGroups = entryList.GroupBy(r => r.EntryName);
                 var disambiguatedEntries = new System.Collections.Generic.List<string>();
@@ -306,8 +311,9 @@ namespace VUWare.App.ViewModels
                             // Use entry type or index for disambiguation
                             var disambiguatedName = $"{entryName} ({reading.Type})";
                             disambiguatedEntries.Add(disambiguatedName);
-                            _displayToEntryMetadata[disambiguatedName] = (entryName, reading.EntryId);
-                            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}]   Entry: '{disambiguatedName}' -> original '{entryName}' (ID:{reading.EntryId})");
+                            // Use composite key for entry metadata to avoid collisions across sensors
+                            var entryKey = $"{displayName}|{disambiguatedName}";
+                            _displayToEntryMetadata[entryKey] = (entryName, reading.EntryId);
                         }
                     }
                     else
@@ -315,30 +321,28 @@ namespace VUWare.App.ViewModels
                         // Single entry with this name - no disambiguation needed
                         var reading = entryReadings[0];
                         disambiguatedEntries.Add(entryName);
-                        _displayToEntryMetadata[entryName] = (entryName, reading.EntryId);
-                        System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}]   Entry: '{entryName}' (ID:{reading.EntryId})");
+                        var entryKey = $"{displayName}|{entryName}";
+                        _displayToEntryMetadata[entryKey] = (entryName, reading.EntryId);
                     }
                 }
 
                 _sensorEntryMap[displayName] = disambiguatedEntries;
-                
-                // NEW: Map the display name (with instance) to the sensor metadata
                 _displayToSensorMetadata[displayName] = (baseName, sensorId, instance);
                 
                 // Check if this sensor matches the currently configured sensor
                 // Match by name AND (if set) by ID/instance for precision
                 bool isSensorMatch = false;
-                if (_sensorId == 0 && _sensorInstance == 0)
+                if (configuredSensorId == 0 && configuredSensorInstance == 0)
                 {
                     // Old config without ID/instance - match by name only
-                    isSensorMatch = baseName.Equals(_sensorName, StringComparison.OrdinalIgnoreCase);
+                    isSensorMatch = baseName.Equals(configuredSensorName, StringComparison.OrdinalIgnoreCase);
                 }
                 else
                 {
                     // New config with ID/instance - match by composite key
-                    isSensorMatch = baseName.Equals(_sensorName, StringComparison.OrdinalIgnoreCase) &&
-                                   sensorId == _sensorId &&
-                                   instance == _sensorInstance;
+                    isSensorMatch = baseName.Equals(configuredSensorName, StringComparison.OrdinalIgnoreCase) &&
+                                   sensorId == configuredSensorId &&
+                                   instance == configuredSensorInstance;
                 }
                 
                 if (isSensorMatch)
@@ -346,73 +350,79 @@ namespace VUWare.App.ViewModels
                     matchingSensorDisplayName = displayName;
                     _sensorId = sensorId;  // Update with actual values if upgrading from old config
                     _sensorInstance = instance;
-                    System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching sensor '{_sensorName}' -> display name '{displayName}'");
+                    System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching sensor '{configuredSensorName}' -> display name '{displayName}'");
                     
                     // Now find the matching entry within this sensor
-                    if (_entryId != 0)
+                    foreach (var entryDisplayName in disambiguatedEntries)
                     {
-                        // Match by EntryId for precision
-                        var matchingEntryPair = _displayToEntryMetadata.FirstOrDefault(kvp => kvp.Value.EntryId == _entryId);
-                        if (!matchingEntryPair.Equals(default(System.Collections.Generic.KeyValuePair<string, (string, uint)>)))
+                        var entryKey = $"{displayName}|{entryDisplayName}";
+                        if (_displayToEntryMetadata.TryGetValue(entryKey, out var meta))
                         {
-                            matchingEntryDisplayName = matchingEntryPair.Key;
-                            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching entry by ID {_entryId} -> '{matchingEntryDisplayName}'");
-                        }
-                    }
-                    
-                    // Fallback: match by entry name if no EntryId or no match found
-                    if (matchingEntryDisplayName == null)
-                    {
-                        // Try to find entry by original name
-                        var matchingByName = disambiguatedEntries.FirstOrDefault(e => 
-                            _displayToEntryMetadata.TryGetValue(e, out var meta) && 
-                            meta.OriginalName.Equals(_entryName, StringComparison.OrdinalIgnoreCase));
-                        
-                        if (matchingByName != null)
-                        {
-                            matchingEntryDisplayName = matchingByName;
-                            // Update EntryId from found entry
-                            if (_displayToEntryMetadata.TryGetValue(matchingByName, out var meta))
+                            // Match by EntryId first (most precise)
+                            if (configuredEntryId != 0 && meta.EntryId == configuredEntryId)
                             {
-                                _entryId = meta.EntryId;
+                                matchingEntryDisplayName = entryDisplayName;
+                                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching entry by ID {configuredEntryId} -> '{entryDisplayName}'");
+                                break;
                             }
-                            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching entry by name '{_entryName}' -> '{matchingEntryDisplayName}'");
+                            // Match by original entry name
+                            else if (meta.OriginalName.Equals(configuredEntryName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                matchingEntryDisplayName = entryDisplayName;
+                                _entryId = meta.EntryId;
+                                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching entry by name '{configuredEntryName}' -> '{entryDisplayName}'");
+                                // Don't break - keep looking for EntryId match
+                            }
                         }
                     }
                 }
-                
-                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Added sensor: '{displayName}' (ID:{sensorId}, Inst:{instance}) with {disambiguatedEntries.Count} entries");
             }
 
-            // If the config has a matching sensor, update sensor name to display name for UI binding
-            if (matchingSensorDisplayName != null && matchingSensorDisplayName != _sensorName)
+            // Update to display names for UI binding
+            if (matchingSensorDisplayName != null)
             {
-                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Updating sensor name from '{_sensorName}' to '{matchingSensorDisplayName}' for UI display");
-                _sensorName = matchingSensorDisplayName; // Update to display name for UI binding
+                _sensorName = matchingSensorDisplayName;
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Set sensor to display name: '{_sensorName}'");
             }
             
-            // If the config has a matching entry, update entry name to display name for UI binding
-            if (matchingEntryDisplayName != null && matchingEntryDisplayName != _entryName)
+            if (matchingEntryDisplayName != null)
             {
-                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Updating entry name from '{_entryName}' to '{matchingEntryDisplayName}' for UI display");
-                _entryName = matchingEntryDisplayName; // Update to display name for UI binding
+                _entryName = matchingEntryDisplayName;
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Set entry to display name: '{_entryName}'");
             }
 
-            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Loaded {sensorCount} sensors");
-            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] AvailableSensors.Count = {AvailableSensors.Count}");
-            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Current SensorName = '{_sensorName}' (ID:{_sensorId}, Inst:{_sensorInstance})");
-            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Current EntryName = '{_entryName}'");
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Final SensorName = '{_sensorName}', EntryName = '{_entryName}'");
 
-            // Update available entries for current sensor
-            UpdateAvailableEntries();
+            // Update available entries for current sensor (AFTER updating _entryName)
+            UpdateAvailableEntriesWithoutAutoSelect();
             
-            // Notify UI that sensor and entry names should be re-evaluated
+            // Notify UI
             OnPropertyChanged(nameof(SensorName));
             OnPropertyChanged(nameof(EntryName));
         }
 
         /// <summary>
         /// Updates the available entries based on the currently selected sensor.
+        /// Does NOT auto-select - used when loading data to preserve configured entry.
+        /// </summary>
+        private void UpdateAvailableEntriesWithoutAutoSelect()
+        {
+            AvailableEntries.Clear();
+
+            if (!string.IsNullOrWhiteSpace(_sensorName) && _sensorEntryMap.ContainsKey(_sensorName))
+            {
+                foreach (var entry in _sensorEntryMap[_sensorName])
+                {
+                    AvailableEntries.Add(entry);
+                }
+            }
+
+            OnPropertyChanged(nameof(AvailableEntries));
+        }
+
+        /// <summary>
+        /// Updates the available entries based on the currently selected sensor.
+        /// Auto-selects first entry if current entry is invalid (used when user changes sensor).
         /// </summary>
         private void UpdateAvailableEntries()
         {
@@ -459,32 +469,30 @@ namespace VUWare.App.ViewModels
         {
             _config.DisplayName = _displayName;
             
-            // IMPORTANT: Convert display name (with instance #) back to original sensor name for HWInfo lookup
+            // Convert display name back to original sensor name for HWInfo lookup
             if (_displayToSensorMetadata.TryGetValue(_sensorName, out var sensorMetadata))
             {
-                // Use the original sensor name (without instance suffix) for config
                 _config.SensorName = sensorMetadata.OriginalName;
                 _config.SensorId = sensorMetadata.SensorId;
                 _config.SensorInstance = sensorMetadata.SensorInstance;
-                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Converted sensor display name '{_sensorName}' to original '{sensorMetadata.OriginalName}' (ID:{sensorMetadata.SensorId}, Inst:{sensorMetadata.SensorInstance})");
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Converted sensor '{_sensorName}' to '{sensorMetadata.OriginalName}' (ID:{sensorMetadata.SensorId}, Inst:{sensorMetadata.SensorInstance})");
             }
             else
             {
-                // No mapping exists (sensor name doesn't have instance suffix)
                 _config.SensorName = _sensorName;
             }
             
-            // IMPORTANT: Convert entry display name (with disambiguation) back to original entry name
-            if (_displayToEntryMetadata.TryGetValue(_entryName, out var entryMetadata))
+            // Convert entry display name back to original entry name
+            // Use composite key: "sensorDisplayName|entryDisplayName"
+            var entryKey = $"{_sensorName}|{_entryName}";
+            if (_displayToEntryMetadata.TryGetValue(entryKey, out var entryMetadata))
             {
-                // Use the original entry name (without disambiguation) for config
                 _config.EntryName = entryMetadata.OriginalName;
                 _config.EntryId = entryMetadata.EntryId;
-                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Converted entry display name '{_entryName}' to original '{entryMetadata.OriginalName}' (ID:{entryMetadata.EntryId})");
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Converted entry '{_entryName}' to '{entryMetadata.OriginalName}' (ID:{entryMetadata.EntryId})");
             }
             else
             {
-                // No mapping exists (entry name doesn't have disambiguation)
                 _config.EntryName = _entryName;
             }
             
