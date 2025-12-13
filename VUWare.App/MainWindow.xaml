@@ -147,18 +147,27 @@
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Height="140">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="VUWare Sensor Monitor" 
-                               FontSize="32" 
-                               FontWeight="Bold" 
-                               Foreground="#00BFFF" 
+                    <TextBlock FontFamily="pack://application:,,,/Fonts/#Bungee"
+                               FontSize="64" 
                                TextAlignment="Center"
-                               HorizontalAlignment="Center"/>
+                               HorizontalAlignment="Center">
+                        <Run Text="VU" Foreground="#FFD6D9DA"/><Run Text="/">
+                            <Run.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#FF4444" Offset="0.0"/>
+                                    <GradientStop Color="#FF4444" Offset="0.8"/>
+                                    <GradientStop Color="#FFD6D9DA" Offset="0.8"/>
+                                    <GradientStop Color="#FFD6D9DA" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Run.Foreground>
+                        </Run><Run Text="WARE" Foreground="#FFD6D9DA"/>
+                    </TextBlock>
                     <TextBlock Text="Where Performance Meets Dial" 
                                FontSize="16"
                                Foreground="#888888" 
                                TextAlignment="Center"
                                HorizontalAlignment="Center"
-                               Margin="0,8,0,0"/>
+                               Margin="0,0,0,0"/>
                 </StackPanel>
             </Border>
             <!-- Status Row -->

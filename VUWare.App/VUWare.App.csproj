@@ -12,6 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Fonts\Bungee-Regular.ttf" />
+    <None Remove="Fonts\NFPixels-Regular.ttf" />
     <None Remove="VU1_Icon.png" />
   </ItemGroup>
 
@@ -25,6 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Fonts\Bungee-Regular.ttf" />
+    <Resource Include="Fonts\NFPixels-Regular.ttf" />
     <Resource Include="VU1_Icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
