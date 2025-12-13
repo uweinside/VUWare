@@ -1,394 +1,224 @@
-# VUWare.App - Complete System Guide
+# VUWare.App - VU1 Gauge Hub Monitor
 
-## Overview
+VUWare.App is a Windows desktop application that displays real-time system monitoring data from HWInfo64 on VU1 Gauge Hub analog dials. Monitor CPU temperature, GPU load, fan speeds, and any other sensor with beautiful analog gauges that change color based on your configured thresholds.
 
-VUWare.App is a WPF application that monitors HWInfo64 sensors in real-time and displays them on VU1 Gauge Hub dials with automatic color changes based on configurable thresholds.
+## Features
 
-## System Architecture
+### Real-Time Hardware Monitoring
+- Display any HWInfo64 sensor on physical VU1 analog dials
+- Monitor up to 4 sensors simultaneously (one per dial)
+- Automatic color changes based on configurable warning and critical thresholds
+- Live updates with configurable polling intervals (default: 1 second)
 
-```mermaid
-graph TD
-    MW[MainWindow UI]
-    MW --> SB[Status Button<br/>Status]
-    MW --> D1[Dial 1 Button<br/>% + Color]
-    MW --> D2[Dial 2 Button<br/>% + Color]
-    MW --> D3[Dial 3 Button<br/>% + Color]
-    MW --> D4[Dial 4 Button<br/>% + Color]
-    
-    MW --> AIS[AppInitializationService]
-    MW --> SMS[SensorMonitoringService]
-    
-    AIS --> |Connect dials<br/>Discover dials<br/>Connect HWInfo64<br/>Set initial state| CF[Configuration File<br/>dials-config.json]
-    
-    SMS --> |Poll HWInfo64<br/>Calculate %<br/>Update dials<br/>Change colors| CF
-    
-    CF --> |Dial UIDs<br/>Sensor mappings<br/>Min/Max values<br/>Thresholds<br/>Colors| VU1C[VU1Controller]
-    CF --> HWC[HWInfo64Controller]
-    
-    VU1C --> |Connect hub<br/>Discover dials<br/>Update dials| VU1H[VU1 Hub<br/>Serial]
-    HWC --> |Read sensors<br/>Map values<br/>Poll loop| HW64[HWInfo64<br/>SharedMem]
-    
-    VU1H --> VU1D[VU1 Dials]
-    HW64 --> HS[Hardware<br/>Sensors]
-```
+### Easy Configuration
+- Graphical settings interface for configuring dials
+- Browse and select from all available HWInfo64 sensors
+- Set custom minimum/maximum ranges for each dial
+- Configure warning and critical threshold values
+- Choose colors for normal, warning, and critical states
+- Upload custom dial face images for personalization
 
-## Startup Sequence
+### First-Run Setup Wizard
+- Automatic detection of connected VU1 Gauge Hub
+- Discovery of all connected dials via I2C
+- Guided configuration for first-time users
+- HWInfo64 sensor browser for easy sensor selection
 
-### 1. Configuration Loading (Synchronous)
+### Status Monitoring
+- Visual status indicators for system state
+- Real-time dial percentage display with color coding
+- Detailed tooltips showing sensor values and update information
+- Error reporting and diagnostics
 
-```mermaid
-sequenceDiagram
-    participant MW as MainWindow.Loaded
-    participant LC as LoadConfiguration()
-    participant CM as ConfigManager
-    
-    MW->>LC: Start
-    LC->>CM: LoadDefault()
-    CM-->>LC: Configuration
-    LC->>LC: Validate configuration
-    alt Invalid
-        LC->>MW: Show errors
-    end
-```
+## Prerequisites
 
-**Configuration File:** `Config/dials-config.json`
+### Hardware Requirements
+- **VU1 Gauge Hub** - Connected via USB
+- **VU1 Analog Dials** - 1 to 4 dials connected to the hub via I2C
+- **Windows PC** - Windows 10 version 1809 or later (64-bit)
 
-Contains:
-- App settings (polling interval, debug mode)
-- Dial configurations (UIDs, sensors, thresholds)
-- Color mappings
+### Software Requirements
+- **HWInfo64** - Must be installed and running
+  - Download from: https://www.hwinfo.com/
+  - Enable "Shared Memory Support" in HWInfo64 settings:
+    1. Open HWInfo64
+    2. Click Settings (gear icon)
+    3. Check "Shared Memory Support"
+    4. Restart HWInfo64
 
-### 2. Initialization Phase (Asynchronous)
+- **USB Serial Driver** - Required for VU1 Hub communication
+  - Usually installed automatically by Windows
+  - If not detected, install the CH340 driver from your hub manufacturer
 
-```mermaid
-sequenceDiagram
-    participant SI as StartInitialization()
-    participant AIS as AppInitializationService
-    participant VU1 as VU1Controller
-    participant HW as HWInfo64Controller
-    participant UI as MainWindow
-    
-    SI->>AIS: Create Service
-    AIS->>AIS: StartInitialization()<br/>[Background Thread]
-    
-    AIS->>UI: Status: "Connecting Dials" (Yellow)
-    AIS->>VU1: AutoDetectAndConnect()
-    
-    AIS->>UI: Status: "Initializing Dials" (Yellow)
-    AIS->>VU1: InitializeAsync()
-    VU1->>VU1: Set each dial to 0% + normal color
-    
-    AIS->>UI: Status: "Connecting HWInfo Sensors" (Yellow)
-    AIS->>HW: Connect()
-    HW->>HW: Register sensor mappings
-    
-    AIS->>UI: Status: "Monitoring" (Green)
-    AIS-->>SI: OnInitializationComplete
-```
+## Installation
 
-### 3. Monitoring Phase (Continuous)
+### Option 1: Using the Installer (Recommended)
+1. Download the latest `VUWare-Setup-x.x.x.exe` from the releases page
+2. Run the installer
+3. Follow the installation wizard
+4. Optionally enable "Start VUWare automatically when Windows starts"
+5. Launch VUWare from the Start Menu or Desktop shortcut
 
-```mermaid
-sequenceDiagram
-    participant IC as InitComplete
-    participant SM as StartMonitoring
-    participant SMS as SensorMonitoringService
-    participant HW as HWInfo64
-    participant VU1 as VU1 Dial
-    participant UI as UI Thread
-    
-    IC->>SM: Start
-    SM->>SMS: Create Service
-    SMS->>SMS: Start Background Thread
-    
-    loop Every 1000ms
-        SMS->>HW: Get sensor reading
-        HW-->>SMS: Sensor value
-        SMS->>SMS: Calculate percentage
-        SMS->>SMS: Determine color
-        SMS->>VU1: Update dial if changed
-        SMS->>VU1: Update color if changed
-        SMS->>UI: Fire OnDialUpdated event
-        UI->>UI: Update button display
-    end
-```
+### Option 2: Building from Source
+1. Clone the repository
+2. Ensure .NET 8.0 SDK is installed
+3. Build and run:
+   ```
+   dotnet run --project VUWare.App
+   ```
 
-## Configuration File Structure
+## Quick Start Guide
 
-```json
-{
-  "version": "1.0",
-  "appSettings": {
-    "autoConnect": true,
-    "enablePolling": true,
-    "globalUpdateIntervalMs": 1000,
-    "logFilePath": "",
-    "debugMode": false
-  },
-  "dials": [
-    {
-      "dialUid": "290063000750524834313020",
-      "displayName": "CPU Temperature",
-      "sensorName": "CPU [#0]: AMD Ryzen 7 9700X: Enhanced",
-      "entryName": "CPU (Tctl/Tdie)",
-      "minValue": 20,
-      "maxValue": 95,
-      "warningThreshold": 75,
-      "criticalThreshold": 88,
-      "colorConfig": {
-        "normalColor": "Green",
-        "warningColor": "Orange",
-        "criticalColor": "Red"
-      },
-      "enabled": true,
-      "updateIntervalMs": 1000
-    }
-  ]
-}
-```
+### First Launch
 
-**Key Fields:**
-- `dialUid` - Unique identifier (find with Console's "dials" command)
-- `sensorName` - Exact HWInfo64 sensor name
-- `entryName` - Exact HWInfo64 entry name
-- `minValue` - Value mapped to 0% on dial
-- `maxValue` - Value mapped to 100% on dial
-- `warningThreshold` - Value to trigger warning color
-- `criticalThreshold` - Value to trigger critical color
+When you first launch VUWare.App, the setup wizard will guide you through:
 
-## UI Elements
+1. **Dial Detection** - The app automatically discovers your connected VU1 dials
+2. **HWInfo64 Connection** - Connects to HWInfo64's shared memory
+3. **Sensor Configuration** - Configure each dial with your preferred sensors
 
-### Status Button
-- **Location:** Bottom of window
-- **Shows:** Initialization or operation status
-- **Colors:**
+### Configuring a Dial
+
+For each dial, you need to configure:
+
+1. **Sensor Selection**
+   - Click "Browse Sensors" to see all available HWInfo64 sensors
+   - Select the sensor and reading you want to monitor
+   - Example: "CPU [#0]: AMD Ryzen 7 9700X" > "CPU (Tctl/Tdie)"
+
+2. **Value Range**
+   - **Min Value**: The sensor value that represents 0% on the dial
+   - **Max Value**: The sensor value that represents 100% on the dial
+   - Example: CPU temp from 20°C (0%) to 95°C (100%)
+
+3. **Thresholds**
+   - **Warning Threshold**: Value at which the dial turns warning color (e.g., Orange at 75°C)
+   - **Critical Threshold**: Value at which the dial turns critical color (e.g., Red at 88°C)
+
+4. **Colors**
+   - Choose colors for Normal, Warning, and Critical states
+   - Available colors: White, Red, Green, Blue, Yellow, Cyan, Magenta, Orange, Purple, Pink
+
+5. **Dial Face (Optional)**
+   - Upload a custom dial face image (240x240 PNG recommended)
+   - Or use the default VU1 dial face
+
+### Running the Application
+
+Once configured, VUWare.App runs in the background:
+
+- **Status Button** (bottom) - Shows current state:
   - Gray: Idle
-  - Yellow: In progress
-  - Green: Monitoring
-  - Red: Error
+  - Yellow: Initializing
+  - Green: Monitoring active
+  - Red: Error state
 
-### Dial Buttons (1-4)
-- **Location:** Top row
-- **Shows:** Current dial percentage
-- **Colors:**
-  - Gray: Not monitoring
-  - Green: Normal operation
-  - Orange: Warning threshold reached
-  - Red: Critical threshold reached
-- **Tooltip:** Full sensor information
+- **Dial Buttons** (1-4) - Show each dial's current status:
+  - Displays current percentage
+  - Color-coded based on thresholds
+  - Hover for detailed sensor information
 
-**Tooltip Example:**
-```
-CPU Temperature
-Sensor: CPU (Tctl/Tdie)
-Value: 62.5 °C
-Dial: 66%
-Color: Green
-Updates: 1234
-Last: 14:32:45
-```
+### Accessing Settings
 
-## Services Overview
+Click the **Settings** button to:
+- Modify dial configurations
+- Change sensor mappings
+- Adjust thresholds and colors
+- Upload new dial face images
+- Change polling intervals
 
-### AppInitializationService
-**Purpose:** Startup initialization
-**Thread:** Background
-**Phases:**
-1. Connect to VU1 Hub
-2. Discover dials via I2C
-3. Connect to HWInfo64
-4. Register sensor mappings
+## Common Use Cases
 
-**Events:**
-- `OnStatusChanged` - Status updates
-- `OnError` - Error messages
-- `OnInitializationComplete` - Ready to monitor
+### CPU Temperature Monitoring
+- **Min Value**: 20°C (idle temperature)
+- **Max Value**: 95°C (maximum safe temperature)
+- **Warning**: 75°C (Orange)
+- **Critical**: 88°C (Red)
 
-**Access:**
-```csharp
-var vu1 = _initService.GetVU1Controller();
-var hwinfo = _initService.GetHWInfo64Controller();
-```
+### GPU Usage
+- **Min Value**: 0% (idle)
+- **Max Value**: 100% (full load)
+- **Warning**: 80% (Orange)
+- **Critical**: 95% (Red)
 
-### SensorMonitoringService
-**Purpose:** Continuous monitoring
-**Thread:** Background
-**Operations:**
-1. Poll HWInfo64 sensors
-2. Map values to percentages
-3. Apply threshold colors
-4. Update VU1 dials
+### Fan Speed (RPM)
+- **Min Value**: 0 RPM
+- **Max Value**: 3000 RPM (your fan's max speed)
+- **Warning**: 2400 RPM (Orange - high speed)
+- **Critical**: 2800 RPM (Red - very high)
 
-**Events:**
-- `OnDialUpdated` - Dial changed
-- `OnError` - Monitoring error
-
-**Methods:**
-```csharp
-service.Start()              // Begin monitoring
-service.Stop()               // Stop monitoring
-service.GetDialStatus(uid)   // Get current state
-service.IsMonitoring         // Check status
-```
-
-## Sensor Value Mapping
-
-### Formula
-```
-Percentage = ((SensorValue - MinValue) / (MaxValue - MinValue)) * 100
-Clamped to [0, 100]
-```
-
-### Example (CPU Temperature)
-```
-Configuration:
-  minValue: 20°C
-  maxValue: 95°C
-  warningThreshold: 75°C
-  criticalThreshold: 88°C
-
-Readings:
-  30°C  ? 15%  ? Green
-  75°C  ? 73%  ? Orange (warning)
-  88°C  ? 99%  ? Red (critical)
-  95°C  ? 100% ? Red (critical)
-```
-
-## Threshold-Based Colors
-
-Colors change automatically based on sensor value:
-
-```
-Dial Color Determination:
-
-if (value >= criticalThreshold)
-  ? color = criticalColor (typically Red)
-else if (value >= warningThreshold)
-  ? color = warningColor (typically Orange)
-else
-  ? color = normalColor (typically Green)
-```
-
-## Performance
-
-| Aspect | Value | Notes |
-|--------|-------|-------|
-| Polling Interval | 1000ms | Configurable |
-| Per-Dial Update Time | 100-200ms | Serial communication |
-| Color Change Latency | 50-100ms | Via serial |
-| Tooltip Update | <50ms | UI only |
-| Memory Usage | ~20MB | Total application |
-| CPU Usage | <1% | Idle between polls |
-
-## Error Handling
-
-### Configuration Errors
-- **File not found:** Shows warning, disables app
-- **Invalid JSON:** Shows error with details
-- **Missing fields:** Shows validation errors
-- **Invalid colors:** Shows which colors are invalid
-
-### Initialization Errors
-- **Connection failed:** Shows error message
-- **Dial discovery failed:** Shows error message
-- **HWInfo unavailable:** Shows warning, continues
-
-### Monitoring Errors
-- **Sensor not found:** Updates skipped for that dial
-- **Serial communication failure:** Retries next cycle
-- **HWInfo disconnect:** Continues if possible
+### CPU/GPU Power Consumption
+- **Min Value**: 0W
+- **Max Value**: 200W (TDP limit)
+- **Warning**: 150W (Orange)
+- **Critical**: 180W (Red)
 
 ## Troubleshooting
 
-### App Won't Start
-1. Check configuration file exists in `Config/` directory
-2. Validate JSON syntax
-3. Check VU1 Hub is powered and connected
+### Application Won't Start
+- Verify VU1 Hub is powered and connected via USB
+- Check that the hub appears in Device Manager under Ports (COM & LPT)
+- Ensure .NET 8.0 Runtime is installed
 
-### Status Button Stays Yellow
-1. Check USB connection to VU1 Hub
-2. Verify Hub appears in Device Manager
-3. Check I2C cables to dials
+### Dials Not Detected
+- Power cycle the VU1 Hub
+- Check I2C cable connections between hub and dials
+- Verify each dial powers on (LED indicators)
 
-### Dials Not Found
-1. Power cycle entire system
-2. Check I2C cable connections
-3. Look for error messages in console
+### Sensors Not Available
+- Ensure HWInfo64 is running
+- Enable "Shared Memory Support" in HWInfo64 settings
+- Restart HWInfo64 after enabling shared memory
 
-### Buttons Don't Update
-1. Check HWInfo64 is running
-2. Enable "Shared Memory Support" in HWInfo64 Options
-3. Check sensor names in config match HWInfo64 exactly
-4. Look for error messages in Status Button
+### Dials Not Updating
+- Check HWInfo64 is still running
+- Verify sensor names match exactly (sensor names may change after hardware/driver updates)
+- Look at the Status button for error messages
+- Open Settings and click "Browse Sensors" to verify current sensor names
 
-### Colors Don't Change
-1. Verify thresholds in config
-2. Check sensor value range (use HWInfo64 to check)
-3. Verify min/max values are correct
-4. Check color names are valid
+### Colors Not Changing
+- Verify threshold values are correct
+- Ensure sensor values are actually reaching the thresholds
+- Check that min/max values are appropriate for your sensor range
 
-## Quick Start
+### Permission Errors
+- Run VUWare.App as Administrator if needed
+- Some sensor access may require elevated privileges
 
-### 1. Find Your Dial UIDs
-```bash
-# In VUWare.Console
-> connect
-> init
-> dials
-# Copy the UID from output
+## Configuration File
+
+VUWare.App stores its configuration in:
+```
+C:\Program Files\VUWare\Config\dials-config.json
 ```
 
-### 2. Find Your Sensor Names
-```bash
-# In VUWare.Console
-> sensors
-# Find your sensor and its entry names
-# Example: CPU [#0]: AMD Ryzen 7 9700X > CPU (Tctl/Tdie)
-```
+This file is preserved during updates and contains:
+- Dial UID mappings
+- Sensor selections and mappings
+- Threshold values and colors
+- Display preferences
+- Polling intervals
 
-### 3. Edit Configuration
-```bash
-# Edit VUWare.App/Config/dials-config.json
-# Add your dial UID, sensor names, and thresholds
-```
-
-### 4. Determine Min/Max Values
-```bash
-# Run HWInfo64 and monitor sensor values
-# Note minimum and maximum you typically see
-# Set minValue to lowest expected
-# Set maxValue to highest expected
-```
-
-### 5. Run the App
-```bash
-dotnet run --project VUWare.App
-# Watch Status Button for initialization
-# Once green, buttons will show real-time data
-```
-
-## Files
-
-### Source Code
-- `MainWindow.xaml` - UI layout
-- `MainWindow.xaml.cs` - UI logic and event handling
-- `AppInitializationService.cs` - Startup initialization
-- `SensorMonitoringService.cs` - Continuous monitoring
-- `ConfigManager.cs` - Configuration file I/O
-- `DialConfiguration.cs` - Configuration models
-
-### Configuration
-- `Config/dials-config.json` - Application configuration
-
-### Documentation
-- `INITIALIZATION.md` - Initialization system details
-- `MONITORING.md` - Monitoring system details
-- `README.md` - Project overview
+**Note**: Manual editing is not recommended. Use the Settings interface to make changes.
 
 ## Support
 
-For issues:
-1. Check troubleshooting section above
-2. Enable debug mode in config: `"debugMode": true`
-3. Check Console application for deeper diagnostics
-4. Report issues on GitHub with config and error messages
+### Getting Help
+- Check this README for common solutions
+- Review the troubleshooting section above
+- Report issues at: https://github.com/uweinside/VUWare/issues
+
+### Reporting Issues
+When reporting issues, please include:
+- VUWare version number
+- Windows version
+- HWInfo64 version
+- Description of the problem
+- Any error messages from the Status button
+- Whether the issue occurs during initialization or monitoring
+
+## License
+
+VUWare.App is licensed under the MIT License. See LICENSE file for details.
+
+Copyright (c) 2025 Uwe Baumann
