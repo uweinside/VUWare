@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VUWare.App"
         mc:Ignorable="d"
-        Title="VU1 Dial Sensor Monitor"
+        Title="VU/WARE 1.0.0"
         Height="250"
         Width="656"
         ResizeMode="CanMinimize"
@@ -63,7 +63,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="VU1 Dial Sensor Monitor" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
+                    <TextBlock Text="VU/WARE 1.0.0" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#333333" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
                     <StackPanel Orientation="Horizontal" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,5,0">
                         <Button x:Name="InfoButton" 
                                 Click="InfoButton_Click" 
@@ -91,7 +91,7 @@
                 </Grid>
             </Border>
             <!-- Dials Row -->
-            <StackPanel Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
+            <StackPanel x:Name="DialsPanel" Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
                 <Border x:Name="Dial1Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
@@ -141,6 +141,35 @@
                     </Border>
                 </Border>
             </StackPanel>
+            <!-- Welcome Panel (First Run) -->
+            <Border x:Name="WelcomePanel" Grid.Row="1" Visibility="Collapsed" 
+                    Background="Transparent" Margin="0,15,0,2" 
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Height="140">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock FontFamily="pack://application:,,,/Fonts/#Bungee"
+                               FontSize="70" 
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center">
+                        <Run Text="VU" Foreground="#FFD6D9DA"/><Run Text="/">
+                            <Run.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#FF4444" Offset="0.0"/>
+                                    <GradientStop Color="#FF4444" Offset="0.8"/>
+                                    <GradientStop Color="#FFD6D9DA" Offset="0.8"/>
+                                    <GradientStop Color="#FFD6D9DA" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Run.Foreground>
+                        </Run><Run Text="WARE" Foreground="#FFD6D9DA"/>
+                    </TextBlock>
+                    <TextBlock Text="Where Performance Meets Dial" 
+                               FontSize="16"
+                               Foreground="#888888" 
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,0"/>
+                </StackPanel>
+            </Border>
             <!-- Status Row -->
             <TextBlock x:Name="StatusText" Text="Initializing" FontSize="16" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,13" Grid.Row="2"/>
         </Grid>

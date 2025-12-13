@@ -302,7 +302,7 @@
             </Grid>
 
             <!-- Sensor Configuration Section -->
-            <TextBlock Text="Sensor Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,0,0,10"/>
+            <TextBlock Text="Sensor Configuration" FontSize="12" FontWeight="Bold" Foreground="#CCCCCC" Margin="0,0,0,10"/>
 
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -338,7 +338,7 @@
             </Grid>
 
             <!-- Display Format Section -->
-            <TextBlock Text="Display Settings" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
+            <TextBlock Text="Display Settings" FontSize="12" FontWeight="Bold" Foreground="#CCCCCC" Margin="0,10,0,10"/>
 
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -425,14 +425,14 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Text="Dial Face Image:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Column="0"/>
-                    <Button x:Name="UploadImageButton" Content="Upload Custom Image..." Click="UploadImageButton_Click"
+                    <Button x:Name="UploadImageButton" Content="Upload Custom Image" Click="UploadImageButton_Click"
                            Style="{StaticResource SmallButton}" Grid.Column="1" HorizontalAlignment="Left" Width="150"
                            ToolTip="Upload a custom dial face image (PNG/BMP/JPEG, will be scaled to 200x144 pixels)"/>
                 </Grid>
             </Grid>
 
             <!-- Value Range Section -->
-            <TextBlock Text="Value Range" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
+            <TextBlock Text="Value Range" FontSize="12" FontWeight="Bold" Foreground="#CCCCCC" Margin="0,10,0,10"/>
 
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -477,7 +477,7 @@
             </Grid>
 
             <!-- Color Configuration Section -->
-            <TextBlock Text="Color Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,10,0,10"/>
+            <TextBlock Text="Color Configuration" FontSize="12" FontWeight="Bold" Foreground="#CCCCCC" Margin="0,10,0,10"/>
 
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>

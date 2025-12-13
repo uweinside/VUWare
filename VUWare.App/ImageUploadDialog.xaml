@@ -140,7 +140,7 @@
                                        BorderBrush="#444444" BorderThickness="1" Padding="8" VerticalContentAlignment="Center"
                                        Grid.Column="0" Margin="0,0,10,0" Text="No file selected"/>
                                 
-                                <Button x:Name="BrowseButton" Content="Browse..." Click="BrowseButton_Click" 
+                                <Button x:Name="BrowseButton" Content="Browse" Click="BrowseButton_Click" 
                                       Style="{StaticResource ModernButton}" Width="120" Grid.Column="1"/>
                             </Grid>
                         </Grid>
