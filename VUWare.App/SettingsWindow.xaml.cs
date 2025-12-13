@@ -158,6 +158,9 @@ namespace VUWare.App
             {
                 generalSettingsBorder.DataContext = _settingsViewModel;
             }
+
+            // Subscribe to validation error changes for settings
+            _settingsViewModel.ErrorsChanged += OnValidationErrorsChanged;
         }
 
         /// <summary>
@@ -183,6 +186,9 @@ namespace VUWare.App
                 var viewModel = new DialConfigurationViewModel(dialConfig, dialNumber);
                 _dialViewModels.Add(viewModel);
 
+                // Subscribe to validation error changes
+                viewModel.ErrorsChanged += OnValidationErrorsChanged;
+
                 // Load sensor data if HWInfo is available
                 if (_hwInfoController != null && _hwInfoController.IsConnected)
                 {
@@ -206,6 +212,36 @@ namespace VUWare.App
             }
             
             System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Created {_dialViewModels.Count} dial configuration panels");
+
+            // Update button states after initialization
+            UpdateButtonStates();
+        }
+
+        /// <summary>
+        /// Handles validation error changes from any view model.
+        /// </summary>
+        private void OnValidationErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e)
+        {
+            // Update button states on the UI thread
+            Dispatcher.Invoke(UpdateButtonStates);
+        }
+
+        /// <summary>
+        /// Updates the enabled state of OK and Apply buttons based on validation status.
+        /// </summary>
+        private void UpdateButtonStates()
+        {
+            bool hasErrors = HasValidationErrors();
+            
+            if (OKButton != null)
+            {
+                OKButton.IsEnabled = !hasErrors;
+            }
+            
+            if (ApplyButton != null)
+            {
+                ApplyButton.IsEnabled = !hasErrors;
+            }
         }
 
         /// <summary>
@@ -213,14 +249,9 @@ namespace VUWare.App
         /// </summary>
         private async void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
-            // Check for validation errors before applying
+            // Button should be disabled if there are errors, but double-check
             if (HasValidationErrors())
             {
-                MessageBox.Show(
-                    "Please correct all validation errors before applying changes.",
-                    "Validation Errors",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -249,14 +280,9 @@ namespace VUWare.App
         /// </summary>
         private async void OKButton_Click(object sender, RoutedEventArgs e)
         {
-            // Check for validation errors before saving
+            // Button should be disabled if there are errors, but double-check
             if (HasValidationErrors())
             {
-                MessageBox.Show(
-                    "Please correct all validation errors before saving.",
-                    "Validation Errors",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
                 return;
             }
 
