@@ -33,6 +33,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+# Ensure .nojekyll file is included in the build
+use_directory_urls: true
+
 nav:
   - Home: index.md
   - Getting Started:
