@@ -37,7 +37,7 @@
   <ItemGroup>
     <!-- Copy configuration files to output directory -->
     <None Update="Config\dials-config.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="VU1_Icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
