@@ -2,6 +2,10 @@
 
 VUWare is a Windows desktop application that displays real-time system monitoring data from HWInfo64 on VU1 Gauge Hub analog dials. Monitor CPU temperature, GPU load, fan speeds, and any other sensor with beautiful analog gauges that change color based on your configured thresholds.
 
+![VUWare Splash Screen](images/splash_screen.png)
+
+*VUWare - Real-time hardware monitoring on VU1 analog dials*
+
 ## About VUWare
 
 ### Project Background
@@ -43,6 +47,11 @@ We now have the best of both worlds: Sasa's open vision for the VU1 platform, an
 - Choose colors for normal, warning, and critical states
 - Upload custom dial face images for personalization
 
+![Configuration Settings](images/settings_window.png)
+
+*Graphical settings interface for configuring dials*
+
+
 ### First-Run Setup Wizard
 - Automatic detection of connected VU1 Gauge Hub
 - Discovery of all connected dials via I2C
@@ -73,6 +82,10 @@ We now have the best of both worlds: Sasa's open vision for the VU1 platform, an
 3. Launch HWInfo64 - Enable "Shared Memory Support" in settings
 4. Run VUWare - The setup wizard will guide you through configuration
 5. Monitor - Watch your sensors come to life on analog dials!
+
+![VUWare Main Window](images/main_window.png)
+
+*VUWare main window showing real-time sensor monitoring on VU1 dials*
 
 !!! tip "First Time Users"
     The first-run setup wizard makes configuration easy. Just follow the on-screen instructions to detect your dials and select sensors.

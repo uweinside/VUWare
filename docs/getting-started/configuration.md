@@ -21,6 +21,10 @@ The settings window contains:
 - **Browse Sensors** - Button to view all available HWInfo64 sensors
 - **Action Buttons** - OK, Apply, Cancel
 
+![VUWare Settings Window](../images/settings_window.png)
+
+*The settings window allows you to configure each dial individually*
+
 ## General Settings
 
 ### Application Preferences

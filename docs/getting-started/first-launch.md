@@ -18,6 +18,10 @@ Start VUWare from:
 - **Desktop**: Double-click the VUWare shortcut (if you created one during installation)
 - **Program Files**: Navigate to `C:\Program Files\VUWare` and run `VUWare.App.exe`
 
+![VUWare Splash Screen](../images/splash_screen.png)
+
+*VUWare splash screen during initial launch*
+
 ## First-Run Setup Wizard
 
 When you launch VUWare for the first time, the setup wizard automatically starts.
