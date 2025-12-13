@@ -1,4 +1,4 @@
-﻿# VUWare - VU1 Gauge Hub Monitor
+﻿# VUWare - Where Performance Meets Dial
 
 VUWare is a Windows desktop application that displays real-time system monitoring data from HWInfo64 on VU1 Gauge Hub analog dials. Monitor CPU temperature, GPU load, fan speeds, and any other sensor with beautiful analog gauges that change color based on your configured thresholds.
 
