@@ -1,7 +1,7 @@
 site_name: VUWare
 site_description: VU1 Gauge Hub Monitor - Real-time hardware monitoring on analog dials
 site_author: Uwe Baumann
-site_url: https://github.com/uweinside/VUWare
+site_url: https://uweinside.github.io/VUWare/
 
 repo_name: uweinside/VUWare
 repo_url: https://github.com/uweinside/VUWare
