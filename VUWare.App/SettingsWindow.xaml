@@ -19,6 +19,16 @@
     <Window.Resources>
         <converters:ColorModeToVisibilityConverter x:Key="ColorModeToVisibilityConverter"/>
         
+        <!-- Validation Error Template -->
+        <ControlTemplate x:Key="ValidationErrorTemplate">
+            <StackPanel>
+                <!-- Placeholder for the control itself -->
+                <AdornedElementPlaceholder x:Name="controlPlaceholder"/>
+                <TextBlock Foreground="#FF6B6B" FontSize="11" Margin="0,2,0,0"
+                           Text="{Binding [0].ErrorContent}" />
+            </StackPanel>
+        </ControlTemplate>
+        
         <!-- Modern Flat Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Background" Value="#0078d4"/>

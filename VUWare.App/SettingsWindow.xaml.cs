@@ -213,6 +213,17 @@ namespace VUWare.App
         /// </summary>
         private async void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            // Check for validation errors before applying
+            if (HasValidationErrors())
+            {
+                MessageBox.Show(
+                    "Please correct all validation errors before applying changes.",
+                    "Validation Errors",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 ApplyChanges();
@@ -238,6 +249,17 @@ namespace VUWare.App
         /// </summary>
         private async void OKButton_Click(object sender, RoutedEventArgs e)
         {
+            // Check for validation errors before saving
+            if (HasValidationErrors())
+            {
+                MessageBox.Show(
+                    "Please correct all validation errors before saving.",
+                    "Validation Errors",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 ApplyChanges();
@@ -273,6 +295,32 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Checks if there are any validation errors in the settings or dial configurations.
+        /// </summary>
+        /// <returns>True if there are validation errors, false otherwise</returns>
+        private bool HasValidationErrors()
+        {
+            // Check settings view model
+            if (_settingsViewModel != null && _settingsViewModel.HasErrors)
+            {
+                System.Diagnostics.Debug.WriteLine("[SettingsWindow] Validation errors found in settings");
+                return true;
+            }
+
+            // Check all dial view models
+            foreach (var dialViewModel in _dialViewModels)
+            {
+                if (dialViewModel.HasErrors)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Validation errors found in Dial #{dialViewModel.DialNumber}");
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Cancels any changes and closes the dialog.
         /// </summary>
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -303,6 +351,7 @@ namespace VUWare.App
                 return;
             }
             
+            // Normal mode - just close without saving
             DialogResult = false;
             Close();
         }

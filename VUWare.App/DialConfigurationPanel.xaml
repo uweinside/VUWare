@@ -13,6 +13,16 @@
         <converters:DisplayFormatToVisibilityConverter x:Key="DisplayFormatToVisibilityConverter"/>
         <converters:ColorNameToBrushConverter x:Key="ColorNameToBrushConverter"/>
 
+        <!-- Validation Error Template -->
+        <ControlTemplate x:Key="ValidationErrorTemplate">
+            <StackPanel>
+                <!-- Placeholder for the TextBox itself -->
+                <AdornedElementPlaceholder x:Name="textBox"/>
+                <TextBlock Foreground="#FF6B6B" FontSize="11" Margin="0,2,0,0"
+                           Text="{Binding [0].ErrorContent}" />
+            </StackPanel>
+        </ControlTemplate>
+
         <!-- TextBox Style -->
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="#2a2a2a"/>
@@ -24,6 +34,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="CaretBrush" Value="#FFFFFF"/>
+            <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ValidationErrorTemplate}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -47,6 +58,10 @@
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="#888888"/>
                                 <Setter Property="Background" Value="#1a1a1a"/>
+                            </Trigger>
+                            <Trigger Property="Validation.HasError" Value="True">
+                                <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                <Setter Property="BorderThickness" Value="2"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -318,23 +333,24 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Display Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
-                <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"
                         ToolTip="Friendly name for this dial (e.g., 'CPU Temperature', 'GPU Load')"/>
 
                 <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableSensors}" 
-                         SelectedItem="{Binding SensorName, UpdateSourceTrigger=PropertyChanged}" 
+                         SelectedItem="{Binding SensorName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                          Height="28" Grid.Row="2" Grid.Column="1" 
                          MinWidth="400" IsTextSearchEnabled="True"
                          ToolTip="Select the HWInfo64 sensor to monitor (e.g., 'CPU [#0]: Intel Core i7-9700K')"/>
 
                 <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableEntries}" 
-                         SelectedItem="{Binding EntryName, UpdateSourceTrigger=PropertyChanged}"
+                         SelectedItem="{Binding EntryName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}"
                          Height="28" Grid.Row="4" Grid.Column="1" 
                          MinWidth="300" IsTextSearchEnabled="True"
                          ToolTip="Select the specific reading from the sensor (e.g., 'Core Temperature', 'GPU Core Load')"/>
+
             </Grid>
 
             <!-- Display Format Section -->
@@ -451,27 +467,27 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Min Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="0"/>
-                <TextBox Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding MinValue, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="0" Grid.Column="1" Width="150" HorizontalAlignment="Left"
                         ToolTip="Sensor value that maps to 0% on the dial (e.g., 0 for percentage, 20 for temperature)"/>
 
                 <TextBlock Text="Max Value:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="0" Grid.Column="3"/>
-                <TextBox Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding MaxValue, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="0" Grid.Column="4" Width="150" HorizontalAlignment="Left"
                         ToolTip="Sensor value that maps to 100% on the dial (e.g., 100 for percentage, 90 for temperature)"/>
 
                 <TextBlock Text="Warning Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
-                <TextBox Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding WarningThreshold, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="2" Grid.Column="1" Width="150" HorizontalAlignment="Left"
                         ToolTip="Sensor value above which the warning color is shown (optional)"/>
 
                 <TextBlock Text="Critical Threshold:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="3"/>
-                <TextBox Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding CriticalThreshold, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="2" Grid.Column="4" Width="150" HorizontalAlignment="Left"
                         ToolTip="Sensor value above which the critical color is shown (optional, must be > warning threshold)"/>
 
                 <TextBlock Text="Update Interval (ms):" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
-                <TextBox Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged}" 
+                <TextBox Text="{Binding UpdateIntervalMs, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                         Height="28" Grid.Row="4" Grid.Column="1" Width="150" HorizontalAlignment="Left" TextChanged="TextBox_TextChanged"
                         ToolTip="How often to update this dial in milliseconds (min: 100ms, recommended: 500-1000ms)"/>
             </Grid>

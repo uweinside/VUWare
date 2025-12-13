@@ -4,14 +4,16 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using VUWare.App.Models;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace VUWare.App.ViewModels
 {
     /// <summary>
     /// ViewModel for configuring a single dial.
-    /// Implements INotifyPropertyChanged for WPF binding.
+    /// Implements INotifyPropertyChanged for WPF binding and INotifyDataErrorInfo for validation.
     /// </summary>
-    public class DialConfigurationViewModel : INotifyPropertyChanged
+    public class DialConfigurationViewModel : INotifyPropertyChanged, INotifyDataErrorInfo
     {
         private DialConfig _config;
         private string _displayName;
@@ -39,7 +41,11 @@ namespace VUWare.App.ViewModels
         // Store the actual entry ID for unique identification
         private uint _entryId;
 
+        // Validation error storage
+        private readonly Dictionary<string, List<string>> _errors = new Dictionary<string, List<string>>();
+
         public event PropertyChangedEventHandler? PropertyChanged;
+        public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
         public string DialUid { get; }
         public int DialNumber { get; }
@@ -47,7 +53,13 @@ namespace VUWare.App.ViewModels
         public string DisplayName
         {
             get => _displayName;
-            set => SetProperty(ref _displayName, value);
+            set
+            {
+                if (SetProperty(ref _displayName, value))
+                {
+                    ValidateDisplayName();
+                }
+            }
         }
 
         public string SensorName
@@ -59,6 +71,7 @@ namespace VUWare.App.ViewModels
                 {
                     // When sensor name changes, update available entries
                     UpdateAvailableEntries();
+                    ValidateSensorName();
                 }
             }
         }
@@ -66,31 +79,61 @@ namespace VUWare.App.ViewModels
         public string EntryName
         {
             get => _entryName;
-            set => SetProperty(ref _entryName, value);
+            set
+            {
+                if (SetProperty(ref _entryName, value))
+                {
+                    ValidateEntryName();
+                }
+            }
         }
 
         public double MinValue
         {
             get => _minValue;
-            set => SetProperty(ref _minValue, value);
+            set
+            {
+                if (SetProperty(ref _minValue, value))
+                {
+                    ValidateMinMaxValues();
+                }
+            }
         }
 
         public double MaxValue
         {
             get => _maxValue;
-            set => SetProperty(ref _maxValue, value);
+            set
+            {
+                if (SetProperty(ref _maxValue, value))
+                {
+                    ValidateMinMaxValues();
+                }
+            }
         }
 
         public double? WarningThreshold
         {
             get => _warningThreshold;
-            set => SetProperty(ref _warningThreshold, value);
+            set
+            {
+                if (SetProperty(ref _warningThreshold, value))
+                {
+                    ValidateThresholds();
+                }
+            }
         }
 
         public double? CriticalThreshold
         {
             get => _criticalThreshold;
-            set => SetProperty(ref _criticalThreshold, value);
+            set
+            {
+                if (SetProperty(ref _criticalThreshold, value))
+                {
+                    ValidateThresholds();
+                }
+            }
         }
 
         public string ColorMode
@@ -126,7 +169,13 @@ namespace VUWare.App.ViewModels
         public int UpdateIntervalMs
         {
             get => _updateIntervalMs;
-            set => SetProperty(ref _updateIntervalMs, value);
+            set
+            {
+                if (SetProperty(ref _updateIntervalMs, value))
+                {
+                    ValidateUpdateInterval();
+                }
+            }
         }
 
         public string DisplayFormat
@@ -168,6 +217,121 @@ namespace VUWare.App.ViewModels
         
         // NEW: Store mapping from entry display name to original entry name and metadata
         private System.Collections.Generic.Dictionary<string, (string OriginalName, uint EntryId)> _displayToEntryMetadata;
+
+        // INotifyDataErrorInfo implementation
+        public bool HasErrors => _errors.Count > 0;
+
+        public IEnumerable GetErrors(string? propertyName)
+        {
+            if (string.IsNullOrEmpty(propertyName))
+            {
+                return _errors.Values.SelectMany(e => e);
+            }
+
+            if (_errors.ContainsKey(propertyName))
+            {
+                return _errors[propertyName];
+            }
+
+            return Enumerable.Empty<string>();
+        }
+
+        private void AddError(string propertyName, string error)
+        {
+            if (!_errors.ContainsKey(propertyName))
+            {
+                _errors[propertyName] = new List<string>();
+            }
+
+            if (!_errors[propertyName].Contains(error))
+            {
+                _errors[propertyName].Add(error);
+                OnErrorsChanged(propertyName);
+            }
+        }
+
+        private void ClearErrors(string propertyName)
+        {
+            if (_errors.ContainsKey(propertyName))
+            {
+                _errors.Remove(propertyName);
+                OnErrorsChanged(propertyName);
+            }
+        }
+
+        private void OnErrorsChanged(string propertyName)
+        {
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
+        }
+
+        // Validation methods
+        private void ValidateDisplayName()
+        {
+            ClearErrors(nameof(DisplayName));
+
+            if (string.IsNullOrWhiteSpace(_displayName))
+            {
+                AddError(nameof(DisplayName), "Display name is required");
+            }
+        }
+
+        private void ValidateSensorName()
+        {
+            ClearErrors(nameof(SensorName));
+
+            if (_enabled && string.IsNullOrWhiteSpace(_sensorName))
+            {
+                AddError(nameof(SensorName), "Sensor name is required when dial is enabled");
+            }
+        }
+
+        private void ValidateEntryName()
+        {
+            ClearErrors(nameof(EntryName));
+
+            if (_enabled && string.IsNullOrWhiteSpace(_entryName))
+            {
+                AddError(nameof(EntryName), "Entry name is required when dial is enabled");
+            }
+        }
+
+        private void ValidateMinMaxValues()
+        {
+            ClearErrors(nameof(MinValue));
+            ClearErrors(nameof(MaxValue));
+
+            if (_maxValue <= _minValue)
+            {
+                AddError(nameof(MaxValue), "Max value must be greater than min value");
+            }
+
+            // Also re-validate thresholds since they depend on min/max
+            ValidateThresholds();
+        }
+
+        private void ValidateThresholds()
+        {
+            ClearErrors(nameof(WarningThreshold));
+            ClearErrors(nameof(CriticalThreshold));
+
+            if (_warningThreshold.HasValue && _criticalThreshold.HasValue)
+            {
+                if (_criticalThreshold.Value <= _warningThreshold.Value)
+                {
+                    AddError(nameof(CriticalThreshold), "Critical threshold must be greater than warning threshold");
+                }
+            }
+        }
+
+        private void ValidateUpdateInterval()
+        {
+            ClearErrors(nameof(UpdateIntervalMs));
+
+            if (_updateIntervalMs < 100)
+            {
+                AddError(nameof(UpdateIntervalMs), "Update interval must be at least 100ms");
+            }
+        }
 
         public DialConfigurationViewModel(DialConfig config, int dialNumber)
         {
@@ -238,6 +402,22 @@ namespace VUWare.App.ViewModels
             _sensorEntryMap = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
             _displayToSensorMetadata = new System.Collections.Generic.Dictionary<string, (string, uint, uint)>();
             _displayToEntryMetadata = new System.Collections.Generic.Dictionary<string, (string, uint)>();
+
+            // Perform initial validation
+            ValidateAllProperties();
+        }
+
+        /// <summary>
+        /// Validates all properties at once (used during initialization)
+        /// </summary>
+        private void ValidateAllProperties()
+        {
+            ValidateDisplayName();
+            ValidateSensorName();
+            ValidateEntryName();
+            ValidateMinMaxValues();
+            ValidateThresholds();
+            ValidateUpdateInterval();
         }
 
         /// <summary>
