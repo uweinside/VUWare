@@ -376,12 +376,27 @@ namespace VUWare.App
 
         /// <summary>
         /// Initializes dial panel colors based on their configuration color modes.
-        /// During initial setup (RunInit=true), shows colored dial faces without text.
+        /// During initial setup (RunInit=true), shows welcome panel instead of dials.
         /// </summary>
         private void InitializeDialPanelColors()
         {
             if (_config == null)
                 return;
+
+            bool isInitialSetup = _config.AppSettings.RunInit;
+            int effectiveDialCount = _config.GetEffectiveDialCount();
+
+            // Handle first-run experience: show welcome panel, hide dials
+            if (isInitialSetup)
+            {
+                DialsPanel.Visibility = Visibility.Collapsed;
+                WelcomePanel.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // Normal mode: show dials, hide welcome panel
+            DialsPanel.Visibility = Visibility.Visible;
+            WelcomePanel.Visibility = Visibility.Collapsed;
 
             // Define initialization colors for each dial position (red, green, yellow, cyan)
             var initColors = new[]
@@ -401,36 +416,19 @@ namespace VUWare.App
                 (Dial4Button, Dial4Percentage, Dial4DisplayName)
             };
 
-            bool isInitialSetup = _config.AppSettings.RunInit;
-            int effectiveDialCount = _config.GetEffectiveDialCount();
-
             for (int i = 0; i < Math.Min(effectiveDialCount, 4); i++)
             {
                 var (panel, percentageBlock, displayNameBlock) = dialPanelsByPosition[i];
                 
-                if (isInitialSetup)
-                {
-                    // Initial setup mode - show colored dial face with no text
-                    Color panelColor = initColors[i];
-                    
-                    panel.Background = new SolidColorBrush(panelColor);
-                    percentageBlock.Text = "";
-                    percentageBlock.Foreground = new SolidColorBrush(WpfColors.Transparent);
-                    displayNameBlock.Text = "";
-                    displayNameBlock.Foreground = new SolidColorBrush(WpfColors.Transparent);
-                }
-                else
-                {
-                    // Normal mode - use neutral dark gray until monitoring starts
-                    Color panelColor = Color.FromRgb(80, 80, 80);
-                    Color textColor = WpfColors.White;
-                    Color subtextColor = Color.FromRgb(150, 150, 150);
+                // Normal mode - use neutral dark gray until monitoring starts
+                Color panelColor = Color.FromRgb(80, 80, 80);
+                Color textColor = WpfColors.White;
+                Color subtextColor = Color.FromRgb(150, 150, 150);
 
-                    panel.Background = new SolidColorBrush(panelColor);
-                    percentageBlock.Text = "--";
-                    percentageBlock.Foreground = new SolidColorBrush(textColor);
-                    displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
-                }
+                panel.Background = new SolidColorBrush(panelColor);
+                percentageBlock.Text = "--";
+                percentageBlock.Foreground = new SolidColorBrush(textColor);
+                displayNameBlock.Foreground = new SolidColorBrush(subtextColor);
             }
         }
 
@@ -682,6 +680,10 @@ namespace VUWare.App
                 
                 // Reload configuration (it was saved by settings window)
                 LoadConfiguration();
+                
+                // Show dials and hide welcome panel after initial setup is complete
+                DialsPanel.Visibility = Visibility.Visible;
+                WelcomePanel.Visibility = Visibility.Collapsed;
                 
                 // CRITICAL: Re-register dial mappings with the new sensor configuration
                 // The initial registration had empty sensor names since user hadn't configured yet

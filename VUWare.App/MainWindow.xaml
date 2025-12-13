@@ -91,7 +91,7 @@
                 </Grid>
             </Border>
             <!-- Dials Row -->
-            <StackPanel Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
+            <StackPanel x:Name="DialsPanel" Orientation="Horizontal" Margin="0,15,0,2" Grid.Row="1" HorizontalAlignment="Center">
                 <Border x:Name="Dial1Container" Background="#000000" CornerRadius="8" Padding="10" Margin="5" Width="140" Height="140">
                     <Border x:Name="Dial1Button" Style="{StaticResource DialPanelStyle}" Width="120" Height="80" VerticalAlignment="Top">
                         <Grid>
@@ -141,6 +141,26 @@
                     </Border>
                 </Border>
             </StackPanel>
+            <!-- Welcome Panel (First Run) -->
+            <Border x:Name="WelcomePanel" Grid.Row="1" Visibility="Collapsed" 
+                    Background="Transparent" Margin="0,15,0,2" 
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Height="140">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="VUWare Sensor Monitor" 
+                               FontSize="32" 
+                               FontWeight="Bold" 
+                               Foreground="#00BFFF" 
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Where Performance Meets Dial" 
+                               FontSize="16"
+                               Foreground="#888888" 
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
             <!-- Status Row -->
             <TextBlock x:Name="StatusText" Text="Initializing" FontSize="16" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,13" Grid.Row="2"/>
         </Grid>
