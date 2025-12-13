@@ -1,7 +1,66 @@
 site_name: VUWare
+site_description: VU1 Gauge Hub Monitor - Real-time hardware monitoring on analog dials
+site_author: Uwe Baumann
+site_url: https://github.com/uweinside/VUWare
+
+repo_name: uweinside/VUWare
+repo_url: https://github.com/uweinside/VUWare
+
 theme:
   name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
 
 nav:
   - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - First Launch: getting-started/first-launch.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Common Use Cases: user-guide/use-cases.md
+      - Settings: user-guide/settings.md
+      - Troubleshooting: user-guide/troubleshooting.md
+  - About:
+      - License: about/license.md
+      - Support: about/support.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
 
