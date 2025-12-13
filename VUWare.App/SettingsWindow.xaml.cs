@@ -158,6 +158,9 @@ namespace VUWare.App
             {
                 generalSettingsBorder.DataContext = _settingsViewModel;
             }
+
+            // Subscribe to validation error changes for settings
+            _settingsViewModel.ErrorsChanged += OnValidationErrorsChanged;
         }
 
         /// <summary>
@@ -183,6 +186,9 @@ namespace VUWare.App
                 var viewModel = new DialConfigurationViewModel(dialConfig, dialNumber);
                 _dialViewModels.Add(viewModel);
 
+                // Subscribe to validation error changes
+                viewModel.ErrorsChanged += OnValidationErrorsChanged;
+
                 // Load sensor data if HWInfo is available
                 if (_hwInfoController != null && _hwInfoController.IsConnected)
                 {
@@ -206,6 +212,36 @@ namespace VUWare.App
             }
             
             System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Created {_dialViewModels.Count} dial configuration panels");
+
+            // Update button states after initialization
+            UpdateButtonStates();
+        }
+
+        /// <summary>
+        /// Handles validation error changes from any view model.
+        /// </summary>
+        private void OnValidationErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e)
+        {
+            // Update button states on the UI thread
+            Dispatcher.Invoke(UpdateButtonStates);
+        }
+
+        /// <summary>
+        /// Updates the enabled state of OK and Apply buttons based on validation status.
+        /// </summary>
+        private void UpdateButtonStates()
+        {
+            bool hasErrors = HasValidationErrors();
+            
+            if (OKButton != null)
+            {
+                OKButton.IsEnabled = !hasErrors;
+            }
+            
+            if (ApplyButton != null)
+            {
+                ApplyButton.IsEnabled = !hasErrors;
+            }
         }
 
         /// <summary>
@@ -213,6 +249,12 @@ namespace VUWare.App
         /// </summary>
         private async void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            // Button should be disabled if there are errors, but double-check
+            if (HasValidationErrors())
+            {
+                return;
+            }
+
             try
             {
                 ApplyChanges();
@@ -238,6 +280,12 @@ namespace VUWare.App
         /// </summary>
         private async void OKButton_Click(object sender, RoutedEventArgs e)
         {
+            // Button should be disabled if there are errors, but double-check
+            if (HasValidationErrors())
+            {
+                return;
+            }
+
             try
             {
                 ApplyChanges();
@@ -273,6 +321,32 @@ namespace VUWare.App
         }
 
         /// <summary>
+        /// Checks if there are any validation errors in the settings or dial configurations.
+        /// </summary>
+        /// <returns>True if there are validation errors, false otherwise</returns>
+        private bool HasValidationErrors()
+        {
+            // Check settings view model
+            if (_settingsViewModel != null && _settingsViewModel.HasErrors)
+            {
+                System.Diagnostics.Debug.WriteLine("[SettingsWindow] Validation errors found in settings");
+                return true;
+            }
+
+            // Check all dial view models
+            foreach (var dialViewModel in _dialViewModels)
+            {
+                if (dialViewModel.HasErrors)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Validation errors found in Dial #{dialViewModel.DialNumber}");
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Cancels any changes and closes the dialog.
         /// </summary>
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -303,6 +377,7 @@ namespace VUWare.App
                 return;
             }
             
+            // Normal mode - just close without saving
             DialogResult = false;
             Close();
         }
