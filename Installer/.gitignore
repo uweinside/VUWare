@@ -1,0 +1,6 @@
+# Installer output
+Output/
+
+# Temporary files
+*.tmp
+*_temp.iss
