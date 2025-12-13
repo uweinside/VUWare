@@ -148,7 +148,7 @@
                     Height="140">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock FontFamily="pack://application:,,,/Fonts/#Bungee"
-                               FontSize="64" 
+                               FontSize="70" 
                                TextAlignment="Center"
                                HorizontalAlignment="Center">
                         <Run Text="VU" Foreground="#FFD6D9DA"/><Run Text="/">
