@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:VUWare.App"
         mc:Ignorable="d"
-        Title="VU1 Dial Sensor Monitor"
+        Title="VU/WARE 1.0.0"
         Height="250"
         Width="656"
         ResizeMode="CanMinimize"
@@ -63,7 +63,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="VU1 Dial Sensor Monitor" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#CCCCCC" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
+                    <TextBlock Text="VU/WARE 1.0.0" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="#333333" FontSize="14" FontWeight="Bold" Grid.Column="0"/>
                     <StackPanel Orientation="Horizontal" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,5,0">
                         <Button x:Name="InfoButton" 
                                 Click="InfoButton_Click" 

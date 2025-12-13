@@ -197,13 +197,13 @@
                         Margin="15">
                 <StackPanel>
                     <!-- General Settings Section -->
-                    <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,0,0,4"/>
+                    <TextBlock Text="General Settings" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC" Margin="15,0,0,4"/>
                     <TextBlock Text="Other settings can be edited in the configuration file." 
                              Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
 
                     <Border x:Name="GeneralSettingsBorder" Background="#1a1a1a" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,0,15">
                         <StackPanel>
-                            <TextBlock Text="Startup Configuration" FontSize="12" FontWeight="Bold" Foreground="#FFFF99" Margin="0,3,0,14"/>
+                            <TextBlock Text="Startup Configuration" FontSize="12" FontWeight="Bold" Foreground="#CCCCCC" Margin="0,3,0,14"/>
                             
                             <!-- Start Minimized Setting (Requires Restart) -->
                             <Grid Margin="0,0,0,10">
@@ -236,7 +236,7 @@
                     </Border>
 
                     <!-- Dial Configuration Section -->
-                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="15,5,0,4"/>
+                    <TextBlock Text="Dial Configuration" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC" Margin="15,5,0,4"/>
                     <TextBlock Text="Configure individual dial settings" 
                              Foreground="#CCCCCC" FontSize="12" Margin="15,0,0,12"/>
                     

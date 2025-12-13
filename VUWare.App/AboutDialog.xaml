@@ -156,29 +156,44 @@
                         VerticalScrollBarVisibility="Auto" 
                         Margin="20,20,20,20">
                 <StackPanel>
-                    <Image Source="/VU1_Icon.png" 
-                           Width="32" 
-                           Height="32" 
-                           HorizontalAlignment="Center" 
-                           Margin="0,0,0,10"/>
-
-                    <!-- App Name and Version -->
-                    <TextBlock Text="VU1 Dial Sensor Monitor" 
-                             FontSize="20" 
-                             FontWeight="Bold" 
-                             Foreground="#FFFFFF" 
-                             HorizontalAlignment="Center" 
-                             Margin="0,0,0,5"/>
-                    
-                    <TextBlock x:Name="VersionText" 
-                             Text="Version 1.0.0" 
-                             FontSize="12" 
-                             Foreground="#CCCCCC" 
-                             HorizontalAlignment="Center" 
-                             Margin="0,0,0,20"/>
+                    <Border x:Name="LogoPanel" Visibility="Visible" 
+                            Background="Transparent" Margin="0,0,0,0" 
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Height="100">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock FontFamily="pack://application:,,,/Fonts/#Bungee"
+                                       FontSize="40" 
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center">
+                                <Run Text="VU" Foreground="#FFD6D9DA"/><Run Text="/">
+                                    <Run.Foreground>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#FF4444" Offset="0.0"/>
+                                            <GradientStop Color="#FF4444" Offset="0.8"/>
+                                            <GradientStop Color="#FFD6D9DA" Offset="0.8"/>
+                                            <GradientStop Color="#FFD6D9DA" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Run.Foreground>
+                                </Run><Run Text="WARE" Foreground="#FFD6D9DA"/>
+                            </TextBlock>
+                            <TextBlock Text="Where Performance Meets Dial" 
+                                       FontSize="14"
+                                       Foreground="#888888" 
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,0"/>
+                            <TextBlock x:Name="VersionText"
+                                       Text="Version 1.0.0"
+                                       FontSize="12"
+                                       Foreground="#666666" 
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Separator -->
-                    <Border Height="1" Background="#444444" Margin="0,10,0,20"/>
+                    <Border Height="1" Background="#444444" Margin="0,8,0,20"/>
 
                     <!-- App Description -->
                     <TextBlock FontSize="12" 
@@ -209,8 +224,8 @@
                     <TextBlock Text="Copyright Information" 
                              FontSize="14" 
                              FontWeight="Bold" 
-                             Foreground="#FFFF99" 
-                             Margin="0,0,0,10"/>
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,5"/>
                     
                     <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
                         <Run Text="&#x00A9; 2024 "/><Hyperlink x:Name="CopyrightLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Uwe Baumann"/></Hyperlink>
@@ -226,10 +241,10 @@
                     <TextBlock Text="Attribution" 
                              FontSize="14" 
                              FontWeight="Bold" 
-                             Foreground="#FFFF99" 
-                             Margin="0,0,0,10"/>
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,5"/>
                     
-                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
+                    <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,20" TextWrapping="Wrap">
                         <Run Text="The VU1 Dial Control Library was originally developed by "/><Hyperlink x:Name="OriginalAuthorLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="Sasa Karanovic"/></Hyperlink><Run Text="."/>
                     </TextBlock>
 
@@ -237,8 +252,8 @@
                     <TextBlock Text="License" 
                              FontSize="14" 
                              FontWeight="Bold" 
-                             Foreground="#FFFF99" 
-                             Margin="0,0,0,10"/>
+                             Foreground="#CCCCCC" 
+                             Margin="0,0,0,5"/>
                     
                     <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,5" TextWrapping="Wrap">
                         <Run Text="This software is licensed under the "/><Hyperlink x:Name="LicenseLink" Foreground="#0078d4" TextDecorations="None" RequestNavigate="Hyperlink_RequestNavigate"><Run Text="MIT License"/></Hyperlink><Run Text="."/>
