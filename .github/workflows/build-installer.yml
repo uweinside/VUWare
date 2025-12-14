@@ -15,6 +15,7 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   BUILD_CONFIGURATION: Release
+  SOLUTION_FILE: VUWare.sln
 
 jobs:
   build-installer:
@@ -43,7 +44,7 @@ jobs:
       shell: pwsh
     
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
     
     - name: Determine version
       id: version
@@ -52,7 +53,7 @@ jobs:
         if ("${{ github.event.inputs.version }}" -ne "") {
           $version = "${{ github.event.inputs.version }}"
         } else {
-          # Generate version: 1.0.YYMMDD-buildnumber (e.g., 1.0.241225-123)
+          # Generate version: 1.0.YYMMDD.buildnumber (e.g., 1.0.241225.123)
           $date = Get-Date -Format "yyMMdd"
           $runNumber = "${{ github.run_number }}"
           $version = "1.0.$date.$runNumber"
