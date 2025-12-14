@@ -5,6 +5,7 @@
   </Configurations>
   <Folder Name="/Solution Items/">
     <File Path=".github/.copilot-instructions.md" />
+    <File Path="Installer/README.md" />
   </Folder>
   <Project Path="VUWare.App/VUWare.App.csproj" Id="b77f28d3-f9a3-47fa-87ae-d677c70b9f37">
     <Platform Solution="*|x64" Project="x64" />
