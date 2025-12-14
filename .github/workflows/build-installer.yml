@@ -53,10 +53,12 @@ jobs:
         if ("${{ github.event.inputs.version }}" -ne "") {
           $version = "${{ github.event.inputs.version }}"
         } else {
-          # Generate version: 1.0.YYMMDD.buildnumber (e.g., 1.0.241225.123)
-          $date = Get-Date -Format "yyMMdd"
+          # Generate version: major.minor.build where build = days since 2024-01-01 + run number
+          # This keeps all parts within valid range (0-65535)
+          $baseDate = Get-Date "2024-01-01"
+          $daysSince = (New-TimeSpan -Start $baseDate -End (Get-Date)).Days
           $runNumber = "${{ github.run_number }}"
-          $version = "1.0.$date.$runNumber"
+          $version = "1.0.$daysSince.$runNumber"
         }
         Write-Host "Using version: $version"
         echo "version=$version" >> $env:GITHUB_OUTPUT
