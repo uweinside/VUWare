@@ -6,19 +6,22 @@ This guide explains how to configure VUWare dials to monitor your system sensors
 
 Click the **Settings** button in the main VUWare window to open the configuration interface.
 
+!!! info "Automatic Opening on First Run"
+    On first launch, VUWare automatically opens the Settings window after completing hardware initialization. You must configure at least one dial before you can start monitoring.
+
 !!! info "When to Configure"
     You can configure dials:
-    - During first-run setup (required)
-    - Anytime while VUWare is running (to change settings)
+    - During first-run setup (opens automatically after initialization)
+    - Anytime while VUWare is running (click Settings button)
     - After hardware changes (new sensors, different thresholds)
 
 ## Settings Window Overview
 
 The settings window contains:
 
-- **General Settings** - Application-wide preferences
+- **General Settings** - Application startup preferences
 - **Dial Configuration Panels** - One panel for each detected dial
-- **Browse Sensors** - Button to view all available HWInfo64 sensors
+- **Sensor Selection Dropdowns** - Choose sensors and readings from HWInfo64
 - **Action Buttons** - OK, Apply, Cancel
 
 ![VUWare Settings Window](../images/settings_window.png)
@@ -29,19 +32,13 @@ The settings window contains:
 
 ### Application Preferences
 
-**Enable Polling**
-- Checkbox to enable/disable sensor monitoring
-- Default: Enabled
+**Minimize at Startup**
+- Checkbox to minimize VUWare to system tray on startup
+- Default: Enabled (application starts in system tray)
+- Requires application restart to take effect
 
-**Global Update Interval**
-- How often sensors are polled (in milliseconds)
-- Default: 1000ms (1 second)
-- Range: 100ms to 10000ms
-- Lower = more responsive, higher CPU usage
-- Higher = less responsive, lower CPU usage
-
-!!! tip "Recommended Interval"
-    1000ms (1 second) is ideal for most monitoring scenarios. Only reduce for fast-changing sensors that need immediate updates.
+!!! note "Other Settings"
+    Additional application settings like polling interval and debug mode can be configured by editing the JSON configuration file. See the [Settings Reference](../user-guide/settings.md#advanced-settings-json-configuration-only) for details.
 
 ## Configuring a Dial
 
@@ -64,41 +61,43 @@ Give your dial a friendly name that describes what it monitors.
 
 This is the most important step - choosing which sensor to monitor.
 
-**Steps**:
+**Sensor Name Dropdown**
 
-1. Click **"Browse Sensors"** button
-2. A sensor browser window opens showing all HWInfo64 sensors
-3. Browse the tree structure:
-    - **Top level**: Hardware components (CPU, GPU, Motherboard, etc.)
-    - **Second level**: Specific sensors (Temperature, Usage, Voltage, etc.)
-    - **Third level**: Individual readings
-4. Select the specific reading you want to monitor
-5. Click **OK** to confirm
+Select the hardware component from the first dropdown.
 
-**Example Tree Structure**:
-```
-CPU [#0]: AMD Ryzen 7 9700X: Enhanced
-  +-- CPU (Tctl/Tdie)              <-- Select this
-  +-- CPU Package
-  +-- Core 0 (CCD0)
-  +-- Core 1 (CCD0)
-  ...
+**Examples**:
+- `CPU [#0]: AMD Ryzen 7 9700X: Enhanced`
+- `GPU [#0]: NVIDIA GeForce RTX 4080`
+- `Motherboard: ASRock X670E Taichi`
 
-GPU [#0]: NVIDIA GeForce RTX 4080
-  +-- GPU Temperature              <-- Or this
-  +-- GPU Core Load
-  +-- GPU Memory Load
-  ...
-```
+!!! warning "Exact Match Required"
+    The sensor name must match HWInfo64 exactly, including spaces, brackets, and colons.
 
-!!! warning "Exact Names Required"
-    The sensor name and entry name must match exactly as they appear in HWInfo64. If HWInfo64 updates or you change hardware, you may need to reconfigure.
+**Entry Name Dropdown**
+
+After selecting a sensor, choose the specific reading from the second dropdown.
+
+**Examples**:
+- `CPU (Tctl/Tdie)` - CPU temperature
+- `GPU Temperature` - Graphics card temperature
+- `Total CPU Usage` - Overall CPU utilization
+- `GPU Core Load` - Graphics processing load
+
+!!! info "Dropdown Contents"
+    The Entry Name dropdown is populated based on your Sensor Name selection. Available readings come directly from HWInfo64's shared memory.
 
 **After Selection**:
 
-The configuration panel fills in:
-- **Sensor Name**: The hardware component name
-- **Entry Name**: The specific reading name
+The configuration panel displays:
+- **Sensor Name**: The selected hardware component
+- **Entry Name**: The selected sensor reading
+
+!!! tip "Finding the Right Sensor"
+    If you're not sure which sensor to use:
+    1. Open HWInfo64 sensor window
+    2. Find the reading you want to monitor
+    3. Note the sensor name (top level) and reading name
+    4. Select matching values in VUWare dropdowns
 
 ### 3. Value Range (Min/Max)
 
@@ -131,7 +130,7 @@ Percentage = (57.5 - 20) / (95 - 20) * 100 = 50%
 
 ### 4. Thresholds
 
-Set the values where the dial changes color.
+Set the values where the dial changes color (when using Threshold color mode).
 
 **Warning Threshold**
 - Value at which dial changes to warning color
@@ -143,57 +142,97 @@ Set the values where the dial changes color.
 - Should be near maximum safe value
 - Example: 88°C for CPU temperature
 
-**How Thresholds Work**:
+**How Thresholds Work** (in Threshold mode):
 ```
 if (sensor_value >= critical_threshold)
     -> Use Critical Color (typically Red)
 else if (sensor_value >= warning_threshold)
-    -> Use Warning Color (typically Orange)
+    -> Use Warning Color (typically Yellow)
 else
-    -> Use Normal Color (typically Green)
+    -> Use Normal Color (typically Cyan)
 ```
 
 !!! example "Example Thresholds"
     **CPU Temperature (°C)**
-    - Normal: Below 75°C (Green)
-    - Warning: 75-88°C (Orange)
+    - Normal: Below 75°C (Cyan)
+    - Warning: 75-88°C (Yellow)
     - Critical: 88°C and above (Red)
 
-### 5. Color Configuration
+### 5. Color Mode
 
-Choose colors for each operating state.
+Choose how the dial backlight behaves.
+
+**Color Mode Options**:
+
+**Threshold Mode** (Default)
+- Color changes based on sensor value and thresholds
+- Below warning: Normal Color
+- Between warning and critical: Warning Color
+- Above critical: Critical Color
+- Use for monitoring temperatures, usage, or any value where visual warnings help
+
+**Static Mode**
+- Backlight always shows the same color
+- Uses the "Static Color" setting
+- Thresholds are ignored for color selection
+- Useful for aesthetic purposes or to differentiate dials by purpose (e.g., CPU=Blue, GPU=Red)
+
+**Off Mode**
+- Backlight is turned off
+- Dial remains functional but without LED illumination
+- Useful to save power or reduce distraction
+
+!!! tip "Choosing a Color Mode"
+    - **Threshold**: Best for critical monitoring (temperatures, voltages)
+    - **Static**: Best for aesthetics or dial identification
+    - **Off**: Best when you only care about the needle position
+
+### 6. Color Configuration
+
+Choose colors based on your selected Color Mode.
+
+#### Threshold Mode Colors
+
+When Color Mode is "Threshold", configure these three colors:
 
 **Normal Color**
 - Used when sensor is below warning threshold
+- Default: Cyan
 - Recommended: Green, Blue, or Cyan
 
 **Warning Color**
 - Used when sensor is between warning and critical
+- Default: Yellow
 - Recommended: Orange or Yellow
 
 **Critical Color**
 - Used when sensor exceeds critical threshold
+- Default: Red
 - Recommended: Red or Magenta
 
+#### Static Mode Color
+
+When Color Mode is "Static", configure:
+
+**Static Color**
+- Backlight always shows this color
+- Default: Cyan
+- Choose any available color
+
 **Available Colors**:
-- White
-- Red
-- Green
-- Blue
-- Yellow
-- Cyan
-- Magenta
-- Orange
-- Purple
-- Pink
+- White, Red, Green, Blue, Yellow, Cyan, Magenta, Orange, Purple, Pink, Off
 
-!!! tip "Color Combinations"
-    Popular color schemes:
-    - **Traffic Light**: Green -> Orange -> Red
-    - **Cool to Hot**: Blue -> Orange -> Red
-    - **Calm to Alert**: Cyan -> Yellow -> Magenta
+!!! tip "Color Scheme Examples"
+    **Threshold Mode:**
+    - Traffic Light: Cyan → Yellow → Red
+    - Cool to Hot: Blue → Orange → Red
+    
+    **Static Mode:**
+    - CPU Dial: Static Blue
+    - GPU Dial: Static Red
+    - RAM Dial: Static Green
 
-### 6. Dial Face Image (Optional)
+### 7. Dial Face Image (Optional)
 
 Upload a custom image for the dial face.
 
@@ -213,7 +252,7 @@ Upload a custom image for the dial face.
 !!! warning "Image Upload Time"
     Uploading images to the dial takes several seconds. Don't interrupt the process.
 
-### 7. Enable/Disable Dial
+### 8. Enable/Disable Dial
 
 Each dial has an **Enabled** checkbox.
 
@@ -222,11 +261,11 @@ Each dial has an **Enabled** checkbox.
 
 Use this to temporarily disable a dial without losing its configuration.
 
-### 8. Update Interval (Optional)
+### 9. Update Interval (Optional)
 
 Override the global update interval for this specific dial.
 
-- Leave at 0 to use global setting
+- Leave at 0 to use global setting (configured in JSON)
 - Set a specific value (ms) to override
 - Useful for sensors that change at different rates
 
@@ -238,7 +277,15 @@ VUWare validates your configuration in real-time.
 
 **Missing Sensor**
 - Error: "Sensor name is required"
-- Fix: Click "Browse Sensors" and select a sensor
+- Fix: Select a sensor from the Sensor Name dropdown
+
+**Missing Entry**
+- Error: "Entry name is required"
+- Fix: Select a reading from the Entry Name dropdown
+
+**Sensor Not Found**
+- Error: "Sensor not found in HWInfo64"
+- Fix: Ensure the selected sensor still exists in HWInfo64 (hardware changes or HWInfo updates may change sensor names)
 
 **Invalid Range**
 - Error: "Max value must be greater than min value"
@@ -286,7 +333,7 @@ C:\Program Files\VUWare\Config\dials-config.json
 ```
 
 !!! danger "Manual Editing Not Recommended"
-    While the configuration is stored as JSON, manual editing is not recommended. Always use the Settings interface to make changes.
+    While the configuration is stored as JSON, manual editing is not recommended. Always use the Settings interface to make changes when possible. Advanced settings that are not in the UI must be edited in the JSON file - see the [Settings Reference](../user-guide/settings.md#advanced-settings-json-configuration-only).
 
 ## Example Configuration
 
@@ -306,12 +353,14 @@ Here's a complete example for monitoring CPU temperature:
 - Warning Threshold: `75` (starts getting warm)
 - Critical Threshold: `88` (too hot)
 
+**Color Mode**: `Threshold`
+
 **Colors**:
-- Normal Color: `Green`
-- Warning Color: `Orange`
+- Normal Color: `Cyan`
+- Warning Color: `Yellow`
 - Critical Color: `Red`
 
-**Result**: Dial shows 0% at 20°C (green), increases to 73% at 75°C (turns orange), reaches 99% at 88°C (turns red), and 100% at 95°C (stays red).
+**Result**: Dial shows 0% at 20°C (cyan), increases to 73% at 75°C (turns yellow), reaches 99% at 88°C (turns red), and 100% at 95°C (stays red).
 
 ## Testing Your Configuration
 

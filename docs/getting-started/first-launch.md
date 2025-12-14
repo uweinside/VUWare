@@ -1,6 +1,6 @@
 ﻿# First Launch
 
-This guide walks you through launching VUWare for the first time and completing the initial setup wizard.
+This guide walks you through launching VUWare for the first time and setting up your dials.
 
 ## Before You Start
 
@@ -22,23 +22,18 @@ Start VUWare from:
 
 *VUWare splash screen during initial launch*
 
-## First-Run Setup Wizard
+## First-Run Initialization
 
-When you launch VUWare for the first time, the setup wizard automatically starts.
+When you launch VUWare for the first time, it automatically performs initialization before you can configure your dials.
 
-### Welcome Screen
+!!! info "Automatic Initialization"
+    VUWare handles all hardware detection automatically. You'll see status updates as it connects to your equipment.
 
-The welcome message explains what the wizard will do:
+### Initialization Steps
 
-1. Detect your VU1 Gauge Hub
-2. Discover connected dials
-3. Connect to HWInfo64
-4. Guide you through dial configuration
+VUWare performs these steps automatically in the background:
 
-!!! tip "Initial Setup Required"
-    VUWare requires initial configuration to function properly. The wizard makes this process quick and easy.
-
-### Step 1: Dial Detection
+**Step 1: Connecting Dials**
 
 **Status Message**: "Connecting Dials" (Yellow)
 
@@ -46,13 +41,40 @@ VUWare automatically:
 
 - Searches for the VU1 Hub on USB serial ports
 - Connects to the hub
-- Discovers all connected dials via I2C
 
 **What to expect**:
 
-- This process takes 5-10 seconds
-- Each dial's unique ID (UID) is detected
-- Status changes to "Initializing Dials" when complete
+- This process takes 2-5 seconds
+- Status updates as connection proceeds
+- Status changes to "Initializing Dials" when hub is found
+
+!!! warning "If Hub Connection Fails"
+    - Verify USB cable is properly connected
+    - Power cycle the VU1 Hub
+    - Try a different USB port
+    - See [Troubleshooting](../user-guide/troubleshooting.md#hub-not-found)
+
+**Step 2: Initializing Dials**
+
+**Status Message**: "Initializing Dials" (Yellow)
+
+VUWare:
+
+- Discovers all connected dials via I2C
+- Detects each dial's unique ID (UID)
+- Reads current dial positions (no changes made on first run)
+
+**What to expect**:
+
+- Discovery takes 2-3 seconds
+- Dial needles remain at their current position
+- Dial LEDs remain in their current state
+- Status changes to "Connecting HWInfo Sensors"
+
+!!! info "First Run vs. Subsequent Runs"
+    **First Run (No Saved Configuration)**: VUWare only discovers dials and does not change their position or LED color. The dials remain in their current state.
+    
+    **Subsequent Runs (With Saved Configuration)**: After you configure and save your settings, VUWare will initialize each configured dial to 0% position with the configured "Normal Color" for that dial (default: Cyan).
 
 !!! warning "If Dials Are Not Detected"
     - Verify all I2C cables are properly connected
@@ -60,23 +82,7 @@ VUWare automatically:
     - Check that dials light up when powered
     - See [Troubleshooting](../user-guide/troubleshooting.md#dials-not-detected)
 
-### Step 2: Dial Initialization
-
-**Status Message**: "Initializing Dials" (Yellow)
-
-VUWare:
-
-- Sets each dial to 0% position
-- Applies default color (Green)
-- Verifies communication with each dial
-
-**What to expect**:
-
-- Dial needles move to 0% position
-- Dial LEDs change to green
-- Each dial responds within 1-2 seconds
-
-### Step 3: HWInfo64 Connection
+**Step 3: Connecting to HWInfo64**
 
 **Status Message**: "Connecting HWInfo Sensors" (Yellow)
 
@@ -86,28 +92,65 @@ VUWare:
 - Reads available sensors
 - Prepares sensor list for configuration
 
+**What to expect**:
+
+- Connection is usually instant if HWInfo64 is running
+- May retry for up to 5 minutes if HWInfo64 is not yet running
+- You'll see retry counter if connection takes time
+- Status changes to "Monitoring" when complete
+
 !!! warning "If HWInfo64 Connection Fails"
     - Ensure HWInfo64 is running
     - Verify "Shared Memory Support" is enabled in HWInfo64 settings
     - Restart HWInfo64 if you just enabled shared memory
     - See [Troubleshooting](../user-guide/troubleshooting.md#sensors-not-available)
 
-### Step 4: Dial Configuration
+## Settings Page Opens Automatically
 
-The setup wizard displays configuration panels for each detected dial.
+After initialization completes, VUWare automatically opens the Settings window for you to configure your sensors.
 
-For each dial, you'll see:
+![VUWare Settings Window](../images/settings_window.png)
 
-- **Dial Number** (e.g., "Dial #1")
-- **Unique ID** (the dial's hardware UID)
-- Configuration fields (initially empty)
+*Settings window opens automatically on first run*
+
+You'll see:
+
+- **General Settings** - Application preferences
+- **Dial Configuration Panels** - One for each detected dial
+- **Browse Sensors** - Button to view all HWInfo64 sensors
 
 !!! info "Ready to Configure"
-    The wizard is now ready for you to configure each dial. Proceed to the [Configuration Guide](configuration.md) to learn how to set up your sensors.
+    Proceed to the [Configuration Guide](configuration.md) to learn how to set up your sensors.
+
+## Configuring Your Dials
+
+On first run, all dials need configuration. For each dial:
+
+1. **Give it a display name** - E.g., "CPU Temperature"
+2. **Browse and select a sensor** - Click "Browse Sensors" to see all available sensors
+3. **Set the value range** - Define min/max values for 0% and 100%
+4. **Set thresholds** - Define warning and critical values
+5. **Choose colors** - Pick colors for normal, warning, and critical states
+
+For detailed configuration instructions, see the [Configuration Guide](configuration.md).
+
+## Completing First-Run Setup
+
+Once you've configured at least one dial:
+
+1. Click **OK** to save your configuration
+2. VUWare saves your settings to `dials-config.json`
+3. The Settings window closes
+4. Monitoring begins automatically
+5. Status button turns **Green** (Monitoring)
+6. Configured dials start updating with real sensor data
+
+!!! success "Setup Complete"
+    VUWare is now configured and monitoring. The Settings window will not open automatically on future launches.
 
 ## Main Application Window
 
-After the wizard completes initialization, you'll see the main VUWare window:
+After completing configuration, you'll see the main VUWare window:
 
 ### Window Layout
 
@@ -149,39 +192,23 @@ Updates: 1234
 Last: 14:32:45
 ```
 
-## Configuring Your First Dial
-
-During first run, all dials need configuration. Click the **Settings** button to open the configuration window.
-
-!!! info "Next Steps"
-    Continue to the [Configuration Guide](configuration.md) to set up your sensors and start monitoring.
-
-## Completing First-Run Setup
-
-Once you've configured at least one dial and clicked **OK**:
-
-1. VUWare saves your configuration to `dials-config.json`
-2. Monitoring begins automatically
-3. Status button turns **Green** (Monitoring)
-4. Configured dials start updating with real sensor data
-
-!!! success "Setup Complete"
-    VUWare is now configured and monitoring. The setup wizard won't appear again on future launches.
-
 ## What Happens on Subsequent Launches
 
 On future launches, VUWare:
 
 1. Loads your saved configuration
-2. Connects to the VU1 Hub
-3. Connects to HWInfo64
-4. Starts monitoring immediately
-5. No wizard required!
+2. Performs the same initialization (connects to hub, discovers dials, connects to HWInfo64)
+3. Initializes each configured dial to 0% with its configured Normal Color
+4. Starts monitoring immediately with your saved settings
+5. Settings window does NOT open automatically
+
+!!! tip "Changing Settings"
+    Click the **Settings** button in the main window anytime to modify your configuration.
 
 ## Canceling First-Run Setup
 
-!!! danger "Exiting During Setup"
-    If you close the setup wizard before completing configuration, VUWare will exit completely. You'll need to restart the application to try again.
+!!! danger "Exiting During Initialization"
+    If you close VUWare during initialization (before configuring dials), the app will exit. Your next launch will start the initialization process again.
 
 ## Common First-Run Issues
 
@@ -197,7 +224,7 @@ On future launches, VUWare:
 
 ### No Dials Detected
 
-**Status shows**: "0 dials detected" or error message
+**Status shows**: "Initializing Dials" completes but shows 0 dials
 
 **Solutions**:
 - Verify I2C cables are connected
@@ -207,7 +234,7 @@ On future launches, VUWare:
 
 ### HWInfo64 Not Available
 
-**Status shows**: Error connecting to HWInfo64
+**Status shows**: "Connecting HWInfo Sensors" with increasing retry count
 
 **Solutions**:
 - Launch HWInfo64
@@ -215,13 +242,13 @@ On future launches, VUWare:
 - Restart HWInfo64
 - Run VUWare as administrator
 
-### Configuration Window Won't Open
+### Settings Window Doesn't Open
 
-**Problem**: Settings button doesn't respond
+**Problem**: Initialization completes but Settings window doesn't appear
 
 **Solutions**:
-- Wait for initialization to complete (status must be Yellow or Green)
-- Check for error messages in status button tooltip
+- Check for Settings window minimized or behind other windows
+- Click the **Settings** button in the main window manually
 - Restart VUWare
 
 ## Next Steps

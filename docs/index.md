@@ -52,10 +52,10 @@ We now have the best of both worlds: Sasa's open vision for the VU1 platform, an
 *Graphical settings interface for configuring dials*
 
 
-### First-Run Setup Wizard
+### Automatic First-Run Setup
 - Automatic detection of connected VU1 Gauge Hub
 - Discovery of all connected dials via I2C
-- Guided configuration for first-time users
+- Automatic opening of settings for easy sensor configuration
 - HWInfo64 sensor browser for easy sensor selection
 
 ### Status Monitoring
@@ -80,7 +80,7 @@ We now have the best of both worlds: Sasa's open vision for the VU1 platform, an
 1. Install VUWare - Download and run the installer
 2. Connect Hardware - Plug in your VU1 Hub and dials
 3. Launch HWInfo64 - Enable "Shared Memory Support" in settings
-4. Run VUWare - The setup wizard will guide you through configuration
+4. Run VUWare - Initialization happens automatically, then configure your sensors
 5. Monitor - Watch your sensors come to life on analog dials!
 
 ![VUWare Main Window](images/main_window.png)
@@ -88,12 +88,12 @@ We now have the best of both worlds: Sasa's open vision for the VU1 platform, an
 *VUWare main window showing real-time sensor monitoring on VU1 dials*
 
 !!! tip "First Time Users"
-    The first-run setup wizard makes configuration easy. Just follow the on-screen instructions to detect your dials and select sensors.
+    On first run, VUWare automatically detects your hardware and opens the settings page for you to configure sensors. Just select your sensors and set thresholds!
 
 ## Documentation
 
 - [Installation Guide](getting-started/installation.md) - Get VUWare installed and ready
-- [First Launch](getting-started/first-launch.md) - Step-by-step setup wizard walkthrough
+- [First Launch](getting-started/first-launch.md) - Understand the initialization process and first-time setup
 - [Configuration](getting-started/configuration.md) - Learn how to configure dials and sensors
 - [Common Use Cases](user-guide/use-cases.md) - Real-world monitoring scenarios
 - [Troubleshooting](user-guide/troubleshooting.md) - Solutions to common issues
