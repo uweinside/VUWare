@@ -67,22 +67,6 @@ How often VUWare polls HWInfo64 sensors and updates dials.
 
 ---
 
-### Debug Mode
-
-**Location**: General Settings section  
-**Type**: Checkbox  
-**Default**: Disabled
-
-Enables detailed debug logging for troubleshooting.
-
-- **Checked**: Verbose logging to console/file
-- **Unchecked**: Normal operation
-
-!!! warning "Performance Impact"
-    Debug mode generates significant log output and may slightly reduce performance. Only enable when troubleshooting issues.
-
----
-
 ## Dial Configuration Settings
 
 Each dial has its own configuration panel with the following settings:
@@ -195,14 +179,14 @@ If sensor reads at or above Max Value:
 **Required**: Yes  
 **Must be**: Between Min and Max, less than Critical Threshold
 
-The sensor value at which the dial changes to warning color.
+The sensor value at which the dial changes to warning color (when using Threshold color mode).
 
 **Guidelines**:
 - Set to ~75-80% of maximum safe value
 - Should indicate "getting warm" or "high load"
 - Below critical but above normal operating range
 
-**Effect on Dial**:
+**Effect on Dial** (in Threshold mode):
 ```
 If sensor value >= Warning Threshold:
   -> Dial color changes to Warning Color
@@ -216,14 +200,14 @@ If sensor value >= Warning Threshold:
 **Required**: Yes  
 **Must be**: Between Warning Threshold and Max Value
 
-The sensor value at which the dial changes to critical color.
+The sensor value at which the dial changes to critical color (when using Threshold color mode).
 
 **Guidelines**:
 - Set to ~90-95% of maximum safe value
 - Should indicate "too hot" or "overloaded"
 - Near but below absolute maximum
 
-**Effect on Dial**:
+**Effect on Dial** (in Threshold mode):
 ```
 If sensor value >= Critical Threshold:
   -> Dial color changes to Critical Color
@@ -231,49 +215,73 @@ If sensor value >= Critical Threshold:
 
 ---
 
+### Color Mode
+
+**Type**: Dropdown selection  
+**Default**: Threshold  
+**Options**: Threshold, Static, Off
+
+Controls how the dial backlight color behaves.
+
+**Threshold Mode** (default):
+- Color changes based on sensor value and thresholds
+- Below warning: Uses Normal Color
+- Between warning and critical: Uses Warning Color
+- Above critical: Uses Critical Color
+
+**Static Mode**:
+- Backlight always shows the same color regardless of sensor value
+- Uses the "Static Color" setting
+- Thresholds are ignored for color selection
+- Useful for aesthetic purposes or to differentiate dials by purpose
+
+**Off Mode**:
+- Backlight is turned off
+- Dial remains functional but without LED illumination
+- Useful to save power or reduce distraction
+
+!!! tip "When to Use Each Mode"
+    - **Threshold**: Monitoring temperatures, usage, or any value where visual warnings are helpful
+    - **Static**: Decorative purposes, or when you want consistent color per dial type (e.g., CPU=Blue, GPU=Red)
+    - **Off**: Minimal distraction, power saving, or when only the needle position matters
+
+---
+
 ### Color Configuration
 
-Each dial can use three different colors based on sensor value.
+The available color fields depend on the selected Color Mode.
 
-#### Normal Color
+#### Threshold Mode Colors
 
-**Type**: Color dropdown  
-**Default**: Green
+When Color Mode is set to "Threshold", configure these three colors:
 
-Used when sensor value is below Warning Threshold.
+**Normal Color**
+- **Type**: Color dropdown  
+- **Default**: Cyan
+- Used when sensor is below warning threshold
+- **Recommended**: Green, Blue, or Cyan
 
-**Recommended Colors**:
-- Green: General purpose, "all good"
-- Blue: Cooling-related sensors
-- Cyan: Low-usage sensors
+**Warning Color**
+- **Type**: Color dropdown  
+- **Default**: Yellow  
+- Used when sensor is between warning and critical thresholds
+- **Recommended**: Orange or Yellow
 
----
+**Critical Color**
+- **Type**: Color dropdown  
+- **Default**: Red
+- Used when sensor is at or above critical threshold
+- **Recommended**: Red or Magenta
 
-#### Warning Color
+#### Static Mode Color
 
-**Type**: Color dropdown  
-**Default**: Orange
+When Color Mode is set to "Static", configure:
 
-Used when sensor value is between Warning and Critical Thresholds.
-
-**Recommended Colors**:
-- Orange: Standard warning
-- Yellow: Moderate alert
-- Magenta: Custom warning scheme
-
----
-
-#### Critical Color
-
-**Type**: Color dropdown  
-**Default**: Red
-
-Used when sensor value is at or above Critical Threshold.
-
-**Recommended Colors**:
-- Red: Standard critical alert
-- Magenta: High visibility
-- Purple: Custom critical scheme
+**Static Color**
+- **Type**: Color dropdown  
+- **Default**: Cyan
+- Backlight always shows this color regardless of sensor value
+- Choose any available color
 
 ---
 
@@ -282,15 +290,32 @@ Used when sensor value is at or above Critical Threshold.
 | Color | Hex | Use Case |
 |-------|-----|----------|
 | White | #FFFFFF | Neutral, high visibility |
-| Red | #FF0000 | Critical alerts |
-| Green | #00FF00 | Normal operation |
-| Blue | #0000FF | Cool/low temperature |
+| Red | #FF0000 | Critical alerts, static red theme |
+| Green | #00FF00 | Normal operation, static green theme |
+| Blue | #0000FF | Cool/low temperature, static blue theme |
 | Yellow | #FFFF00 | Moderate warning |
-| Cyan | #00FFFF | Low usage/cool |
+| Cyan | #00FFFF | Low usage/cool, default normal |
 | Magenta | #FF00FF | Alternative alert |
 | Orange | #FF8000 | Standard warning |
 | Purple | #8000FF | Custom schemes |
 | Pink | #FF0080 | Custom schemes |
+| Off | #000000 | No light (when using Off color mode) |
+
+!!! tip "Color Scheme Examples"
+    **Threshold Mode - Traffic Light**:
+    - Normal: Green → Warning: Orange → Critical: Red
+    
+    **Threshold Mode - Cool to Hot**:
+    - Normal: Blue → Warning: Orange → Critical: Red
+    
+    **Threshold Mode - Calm to Alert**:
+    - Normal: Cyan → Warning: Yellow → Critical: Magenta
+    
+    **Static Mode - Dial Purpose Identification**:
+    - CPU Dial: Static Blue
+    - GPU Dial: Static Red  
+    - RAM Dial: Static Green
+    - Fan Dial: Static Cyan
 
 ---
 
@@ -455,7 +480,7 @@ copy "C:\Backup\dials-config-backup.json" "C:\Program Files\VUWare\Config\dials-
 ```
 
 !!! danger "Manual Editing"
-    Manual editing of the configuration file is not recommended. Always use the Settings interface to make changes.
+    Manual editing of the configuration file is not recommended for most users. Always use the Settings interface to make changes when possible. See the Advanced Settings section below for JSON-only settings.
 
 ---
 
@@ -478,6 +503,7 @@ VUWare validates all settings before saving:
 - Critical threshold >= Warning threshold
 - Critical threshold <= Max value
 - Colors must be valid color names
+- Color mode must be "threshold", "static", or "off"
 
 **Error Display**:
 - Red outline around invalid fields
@@ -486,26 +512,272 @@ VUWare validates all settings before saving:
 
 ---
 
+## Advanced Settings (JSON Configuration Only)
+
+The following settings are available only by manually editing the `dials-config.json` file. These settings should not normally be changed unless you understand their purpose and implications.
+
+!!! danger "Manual Editing Required"
+    These settings are NOT available in the Settings UI. You must edit the JSON configuration file manually. Always backup your configuration before making changes.
+
+**Configuration File Location**: `C:\Program Files\VUWare\Config\dials-config.json`
+
+---
+
+### Serial Command Delay
+
+**JSON Field**: `serialCommandDelayMs`  
+**Type**: Integer (milliseconds)  
+**Default**: 150ms  
+**Range**: 50-500ms
+
+Delay between serial commands sent to the VU1 Hub during initialization and dial discovery.
+
+**When to Modify**:
+- If you experience communication errors during dial discovery
+- Some USB-to-serial chipsets may require longer delays
+- Lower values speed up initialization but may cause reliability issues
+- Higher values increase initialization time but improve reliability
+
+**Example**:
+```json
+"appSettings": {
+  "serialCommandDelayMs": 200
+}
+```
+
+!!! warning "Timing Sensitivity"
+    The VU1 Hub firmware expects specific timing between commands. Values below 50ms may cause missed responses. Values above 500ms unnecessarily slow down initialization.
+
+---
+
+### Dial Count Override
+
+**JSON Field**: `dialCountOverride`  
+**Type**: Integer or null  
+**Default**: null (use all detected dials)  
+**Range**: 1-4
+
+Forces VUWare to use a specific number of dials, ignoring additional detected dials.
+
+**When to Use**:
+- You have 4 dials but only want to use 2 or 3
+- Testing configurations with fewer dials
+- Temporarily disable a physical dial without unplugging it
+- Troubleshooting issues with specific dials
+
+**Example**:
+```json
+"appSettings": {
+  "dialCountOverride": 2
+}
+```
+
+!!! warning "Physical Dials Ignored"
+    If set to 2, only the first 2 configured dials are used. Dials 3 and 4 are ignored even if physically connected and configured.
+
+**To disable override**: Set to `null` (no quotes)
+```json
+"appSettings": {
+  "dialCountOverride": null
+}
+```
+
+---
+
+### Start Minimized
+
+**JSON Field**: `startMinimized`  
+**Type**: Boolean  
+**Default**: true
+
+Controls whether VUWare starts minimized to the system tray.
+
+**Values**:
+- `true`: Application starts in system tray (default, recommended)
+- `false`: Application window is visible on startup
+
+**When to Modify**:
+- Set to `false` if you want to see the main window on startup
+- Useful during initial setup or troubleshooting
+- Set to `true` for normal operation (auto-start with Windows)
+
+**Example**:
+```json
+"appSettings": {
+  "startMinimized": false
+}
+```
+
+---
+
+### Run Init
+
+**JSON Field**: `runInit`  
+**Type**: Boolean  
+**Default**: true (for new installations)
+
+Controls whether the Settings window automatically opens after dial discovery.
+
+**Values**:
+- `true`: Settings window opens after discovery (first-run behavior)
+- `false`: Settings window does not open automatically (normal operation)
+
+**When to Modify**:
+- Normally set to `false` automatically after first configuration
+- Set to `true` to force Settings window to open on next startup
+- Useful after hardware changes or when you need to reconfigure everything
+
+**Example**:
+```json
+"appSettings": {
+  "runInit": true
+}
+```
+
+!!! info "Automatic Management"
+    VUWare automatically sets this to `false` after you configure and save your dials for the first time. You rarely need to modify this manually.
+
+**Use Cases**:
+- Hardware replacement: New dials have different UIDs, set to `true` to reconfigure
+- Major reconfiguration: Set to `true` to be prompted for settings on next launch
+- Reset to factory: Combined with deleting dial configs, forces fresh setup
+
+---
+
+### Auto Connect
+
+**JSON Field**: `autoConnect`  
+**Type**: Boolean  
+**Default**: true
+
+Controls whether VUWare automatically connects to the VU1 Hub on startup.
+
+**Values**:
+- `true`: Automatically connect on startup (default, recommended)
+- `false`: Do not connect automatically (manual connection required)
+
+**When to Modify**:
+- Set to `false` for manual testing or development
+- Useful when running multiple instances or testing tools
+- For normal use, should always be `true`
+
+**Example**:
+```json
+"appSettings": {
+  "autoConnect": false
+}
+```
+
+---
+
+### Log File Path
+
+**JSON Field**: `logFilePath`  
+**Type**: String (file path)  
+**Default**: "" (empty, no file logging)
+
+Path to a file where VUWare writes debug logs.
+
+**When to Use**:
+- Troubleshooting persistent issues
+- Reporting bugs with detailed logs
+- Monitoring background behavior
+- Diagnosing intermittent problems
+
+**Example**:
+```json
+"appSettings": {
+  "logFilePath": "C:\\ProgramData\\VUWare\\debug.log"
+}
+```
+
+!!! warning "Performance Impact"
+    Logging to file can impact performance, especially with high update frequencies. Only enable when needed for troubleshooting.
+
+!!! info "Path Format"
+    Use double backslashes `\\` in JSON for Windows paths, or use forward slashes `/` which also work.
+
+**To disable logging**: Set to empty string
+```json
+"appSettings": {
+  "logFilePath": ""
+}
+```
+
+---
+
+### Debug Mode
+
+**JSON Field**: `debugMode`  
+**Type**: Boolean  
+**Default**: false
+
+Enables verbose debug output to the console and log file (if configured).
+
+**Values**:
+- `true`: Verbose debugging information is output
+- `false`: Normal operation, minimal logging
+
+**When to Use**:
+- Troubleshooting communication issues
+- Reporting bugs (provides detailed diagnostic information)
+- Understanding internal behavior
+
+**Example**:
+```json
+"appSettings": {
+  "debugMode": true
+}
+```
+
+!!! warning "Performance and Privacy Impact"
+    Debug mode generates significant log output which can:
+    - Slightly reduce performance
+    - Create large log files
+    - Include detailed system information
+    - Only enable when needed for troubleshooting
+
+---
+
 ## Best Practices
 
 ### Configuration
 
-- Use descriptive display names
+- Use descriptive display names that clearly identify each sensor
 - Set realistic min/max values based on typical sensor ranges
-- Set warning thresholds to detect issues early
-- Set critical thresholds to indicate serious problems
-- Test configurations with Apply before closing
+- Set warning thresholds to detect issues early (~75-80% of max)
+- Set critical thresholds to indicate serious problems (~90-95% of max)
+- Test configurations with Apply before closing Settings
+- Use Threshold color mode for monitoring critical sensors
+- Use Static color mode for aesthetic or organizational purposes
 
 ### Performance
 
 - Use 1000ms update interval for most sensors
-- Only lower interval for fast-changing sensors
+- Only lower interval for fast-changing sensors (voltages, rapid fluctuations)
 - Disable unused dials to reduce overhead
 - Don't monitor more sensors than necessary
+- Avoid extremely low update intervals (<250ms) unless required
+
+### Color Selection
+
+- **For Monitoring**: Use high-contrast color schemes (Green → Orange → Red)
+- **For Aesthetics**: Choose colors that match your setup theme
+- **For Organization**: Use Static mode with different colors per dial purpose
+- **Off Mode**: Use when backlight is distracting or unnecessary
 
 ### Maintenance
 
 - Backup configuration before major changes
-- Document custom configurations
-- Test after HWInfo64 updates
+- Document custom configurations for future reference
+- Test after HWInfo64 updates (sensor names may change)
 - Verify sensor names after hardware changes
+- Keep a copy of working configurations for quick recovery
+
+### Advanced Settings (JSON)
+
+- Always backup `dials-config.json` before manual edits
+- Use a JSON validator to check syntax before saving
+- Restart VUWare after manual configuration changes
+- Only modify advanced settings if you understand their purpose
+- Return settings to defaults if experiencing issues
