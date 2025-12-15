@@ -18,8 +18,7 @@ namespace VUWare.App.Services
     public class SensorMonitoringService : IDisposable
     {
         private readonly VU1Controller _vuController;
-        private readonly ISensorProvider _sensorProvider;
-        private readonly HWInfo64Controller? _hwInfoController; // Keep for dial mapping support
+        private readonly IDialMappingService _mappingService;
         private DialsConfiguration _config;
         private readonly Dictionary<string, DialMonitoringState> _dialStates;
         private readonly Dictionary<string, ISensorReading> _lastKnownReadings = new();
@@ -69,24 +68,18 @@ namespace VUWare.App.Services
         }
 
         /// <summary>
-        /// Creates a new SensorMonitoringService using ISensorProvider abstraction.
+        /// Creates a new SensorMonitoringService using IDialMappingService abstraction.
+        /// This is the preferred constructor for provider-agnostic monitoring.
         /// </summary>
         /// <param name="vuController">VU1 dial controller</param>
-        /// <param name="sensorProvider">Sensor data provider (HWInfo64, OHM, etc.)</param>
+        /// <param name="mappingService">Dial mapping service (HWInfo64, OHM, etc.)</param>
         /// <param name="config">Dial configuration</param>
-        public SensorMonitoringService(VU1Controller vuController, ISensorProvider sensorProvider, DialsConfiguration config)
+        public SensorMonitoringService(VU1Controller vuController, IDialMappingService mappingService, DialsConfiguration config)
         {
             _vuController = vuController ?? throw new ArgumentNullException(nameof(vuController));
-            _sensorProvider = sensorProvider ?? throw new ArgumentNullException(nameof(sensorProvider));
+            _mappingService = mappingService ?? throw new ArgumentNullException(nameof(mappingService));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _dialStates = new Dictionary<string, DialMonitoringState>();
-            
-            // If the provider is HWInfo64, keep a reference for dial mapping support
-            if (sensorProvider is HWInfo64SensorProvider hwProvider)
-            {
-                // Access HWInfo64Controller through reflection or store the controller reference
-                // For now, we'll handle this differently
-            }
         }
 
         /// <summary>
@@ -96,13 +89,35 @@ namespace VUWare.App.Services
         /// <param name="vuController">VU1 dial controller</param>
         /// <param name="hwInfoController">HWInfo64 controller (for dial mapping support)</param>
         /// <param name="config">Dial configuration</param>
+        [Obsolete("Use the IDialMappingService constructor for provider-agnostic monitoring")]
         public SensorMonitoringService(VU1Controller vuController, HWInfo64Controller hwInfoController, DialsConfiguration config)
         {
             _vuController = vuController ?? throw new ArgumentNullException(nameof(vuController));
-            _hwInfoController = hwInfoController ?? throw new ArgumentNullException(nameof(hwInfoController));
-            _sensorProvider = hwInfoController.SensorProvider;
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _dialStates = new Dictionary<string, DialMonitoringState>();
+            
+            // Create a mapping service from the HWInfo64 controller's sensor provider
+            _mappingService = new DialMappingService(hwInfoController.SensorProvider);
+            
+            // Copy existing mappings from HWInfo64Controller to the mapping service
+            var existingMappings = hwInfoController.GetAllMappings();
+            foreach (var mapping in existingMappings.Values)
+            {
+                _mappingService.RegisterMapping(new DialSensorMapping
+                {
+                    Id = mapping.Id,
+                    SensorName = mapping.SensorName,
+                    SensorId = mapping.SensorId,
+                    SensorInstance = mapping.SensorInstance,
+                    EntryName = mapping.EntryName,
+                    EntryId = mapping.EntryId,
+                    MinValue = mapping.MinValue,
+                    MaxValue = mapping.MaxValue,
+                    WarningThreshold = mapping.WarningThreshold,
+                    CriticalThreshold = mapping.CriticalThreshold,
+                    DisplayName = mapping.DisplayName
+                });
+            }
         }
 
         /// <summary>
@@ -179,8 +194,8 @@ namespace VUWare.App.Services
 
                     try
                     {
-                        // Get initial sensor reading using the provider abstraction
-                        var reading = GetSensorReadingForDial(state.DialUid, state.Config);
+                        // Get initial sensor reading using the mapping service
+                        var reading = _mappingService.GetReading(state.DialUid);
                         if (reading == null)
                         {
                             System.Diagnostics.Debug.WriteLine(
@@ -248,22 +263,6 @@ namespace VUWare.App.Services
             {
                 System.Diagnostics.Debug.WriteLine($"InitializeDials: Failure: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Gets a sensor reading for a specific dial using the sensor provider.
-        /// </summary>
-        private ISensorReading? GetSensorReadingForDial(string dialUid, DialConfig config)
-        {
-            // If we have HWInfo64Controller with dial mappings, use that for precise matching
-            if (_hwInfoController != null)
-            {
-                var status = _hwInfoController.GetSensorStatus(dialUid);
-                return status?.SensorReading;
-            }
-            
-            // Otherwise, use the generic sensor provider
-            return _sensorProvider.GetReading(config.SensorName, config.EntryName);
         }
 
         /// <summary>
@@ -407,15 +406,14 @@ namespace VUWare.App.Services
         {
             System.Diagnostics.Debug.WriteLine($"[UpdateDial] START for {state.Config.DisplayName}");
             
-            // Get current sensor reading
-            ISensorReading? reading = GetSensorReadingForDial(state.DialUid, state.Config);
+            // Get current sensor reading using the mapping service
+            ISensorReading? reading = _mappingService.GetReading(state.DialUid);
             byte percentage = 0;
             
             if (reading == null)
             {
-                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No reading from provider");
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No reading from mapping service");
                 
-                // Try to use cached reading if available
                 if (_lastKnownReadings.TryGetValue(state.DialUid, out var cachedReading))
                 {
                     System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Using cached reading");
@@ -430,7 +428,6 @@ namespace VUWare.App.Services
             }
             else
             {
-                // Update cache with fresh reading
                 _lastKnownReadings[state.DialUid] = reading;
                 percentage = CalculatePercentage(reading.Value, state.Config.MinValue, state.Config.MaxValue);
                 System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Got fresh reading {reading.Value:F1}{reading.Unit}");

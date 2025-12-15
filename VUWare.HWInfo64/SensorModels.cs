@@ -125,65 +125,8 @@ namespace VUWare.HWInfo64
         }
     }
 
-    /// <summary>
-    /// Represents a sensor that can be displayed on a VU1 dial.
-    /// Maps a HWInfo64 sensor reading to a dial display range.
-    /// </summary>
-    public class DialSensorMapping
-    {
-        /// <summary>Unique identifier for this mapping</summary>
-        public string Id { get; set; } = string.Empty;
-
-        /// <summary>Name of the sensor to display (from HWInfo64)</summary>
-        public string SensorName { get; set; } = string.Empty;
-
-        /// <summary>Sensor ID for unique identification (for sensors with duplicate names)</summary>
-        public uint SensorId { get; set; } = 0;
-
-        /// <summary>Sensor instance for unique identification (for sensors with duplicate names)</summary>
-        public uint SensorInstance { get; set; } = 0;
-
-        /// <summary>Name of the specific entry to display (from HWInfo64)</summary>
-        public string EntryName { get; set; } = string.Empty;
-
-        /// <summary>Entry ID for unique identification (for entries with duplicate names)</summary>
-        public uint EntryId { get; set; } = 0;
-
-        /// <summary>Minimum value for dial display (0%)</summary>
-        public double MinValue { get; set; }
-
-        /// <summary>Maximum value for dial display (100%)</summary>
-        public double MaxValue { get; set; }
-
-        /// <summary>Optional warning threshold (shows color change on dial)</summary>
-        public double? WarningThreshold { get; set; }
-
-        /// <summary>Optional critical threshold (shows color change on dial)</summary>
-        public double? CriticalThreshold { get; set; }
-
-        /// <summary>Display name for the dial</summary>
-        public string DisplayName { get; set; } = string.Empty;
-
-        /// <summary>Gets the percentage (0-100) for the current sensor value.</summary>
-        public byte GetPercentage(double sensorValue)
-        {
-            if (MaxValue <= MinValue)
-                return 0;
-
-            double percentage = (sensorValue - MinValue) / (MaxValue - MinValue) * 100.0;
-            return (byte)Math.Clamp(percentage, 0, 100);
-        }
-
-        /// <summary>Determines if the value exceeds the critical threshold.</summary>
-        public bool IsCritical(double sensorValue)
-        {
-            return CriticalThreshold.HasValue && sensorValue >= CriticalThreshold.Value;
-        }
-
-        /// <summary>Determines if the value exceeds the warning threshold.</summary>
-        public bool IsWarning(double sensorValue)
-        {
-            return WarningThreshold.HasValue && sensorValue >= WarningThreshold.Value && !IsCritical(sensorValue);
-        }
-    }
+    // NOTE: DialSensorMapping has been moved to VUWare.Lib.Sensors.DialSensorMapping
+    // This type alias is kept for backward compatibility
+    // [Obsolete("Use VUWare.Lib.Sensors.DialSensorMapping instead")]
+    // If needed, consumers should use: using DialSensorMapping = VUWare.Lib.Sensors.DialSensorMapping;
 }
