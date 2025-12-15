@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using VUWare.App.Models;
 using System.Collections;
 using System.Collections.Generic;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.App.ViewModels
 {
@@ -421,9 +422,9 @@ namespace VUWare.App.ViewModels
         }
 
         /// <summary>
-        /// Loads sensor data from HWInfo64 readings.
+        /// Loads sensor data from ISensorReading collection (provider-agnostic).
         /// </summary>
-        public void LoadSensorData(System.Collections.Generic.List<VUWare.HWInfo64.SensorReading> readings)
+        public void LoadSensorData(IReadOnlyList<ISensorReading> readings)
         {
             System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] LoadSensorData called with {readings?.Count ?? 0} readings");
             
@@ -489,7 +490,7 @@ namespace VUWare.App.ViewModels
                         {
                             var reading = entryReadings[i];
                             // Use entry type or index for disambiguation
-                            var disambiguatedName = $"{entryName} ({reading.Type})";
+                            var disambiguatedName = $"{entryName} ({reading.Category})";
                             disambiguatedEntries.Add(disambiguatedName);
                             // Use composite key for entry metadata to avoid collisions across sensors
                             var entryKey = $"{displayName}|{disambiguatedName}";
@@ -579,6 +580,21 @@ namespace VUWare.App.ViewModels
             // Notify UI
             OnPropertyChanged(nameof(SensorName));
             OnPropertyChanged(nameof(EntryName));
+        }
+
+        /// <summary>
+        /// Loads sensor data from HWInfo64.SensorReading list (backward compatibility).
+        /// </summary>
+        public void LoadSensorData(System.Collections.Generic.List<VUWare.HWInfo64.SensorReading> readings)
+        {
+            // HWInfo64.SensorReading implements ISensorReading, so we can cast directly
+            if (readings == null || readings.Count == 0)
+            {
+                LoadSensorData(Array.Empty<ISensorReading>());
+                return;
+            }
+            
+            LoadSensorData(readings.Cast<ISensorReading>().ToList());
         }
 
         /// <summary>

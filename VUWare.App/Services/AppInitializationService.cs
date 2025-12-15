@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using VUWare.App.Models;
 using VUWare.HWInfo64;
 using VUWare.Lib;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.App.Services
 {
@@ -111,8 +112,15 @@ namespace VUWare.App.Services
 
         /// <summary>
         /// Gets the HWInfo64 controller (available after successful initialization).
+        /// This provides access to HWInfo64-specific features like dial mappings.
         /// </summary>
         public HWInfo64Controller GetHWInfo64Controller() => _hwInfoController;
+
+        /// <summary>
+        /// Gets the sensor provider abstraction (available after successful initialization).
+        /// Use this when you need provider-agnostic sensor access.
+        /// </summary>
+        public ISensorProvider GetSensorProvider() => _hwInfoController.SensorProvider;
 
         /// <summary>
         /// Background worker thread that handles initialization steps.

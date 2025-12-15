@@ -11,6 +11,7 @@ using VUWare.App.Models;
 using VUWare.App.Services;
 using VUWare.App.ViewModels;
 using VUWare.HWInfo64;
+using VUWare.Lib.Sensors;
 using System.IO;
 
 namespace VUWare.App
@@ -23,7 +24,8 @@ namespace VUWare.App
         private DialsConfiguration _configuration;
         private SettingsViewModel _settingsViewModel;
         private List<DialConfigurationViewModel> _dialViewModels;
-        private HWInfo64Controller? _hwInfoController;
+        private ISensorProvider? _sensorProvider;
+        private HWInfo64Controller? _hwInfoController; // Keep for backward compatibility
         private VUWare.Lib.VU1Controller? _vu1Controller;
         private bool _isFirstRun = false;
 
@@ -88,23 +90,23 @@ namespace VUWare.App
         }
 
         /// <summary>
-        /// Sets the HWInfo64 controller for sensor browsing.
+        /// Sets the sensor provider for sensor browsing (provider-agnostic).
         /// </summary>
-        public void SetHWInfo64Controller(HWInfo64Controller controller)
+        public void SetSensorProvider(ISensorProvider provider)
         {
-            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] SetHWInfo64Controller called");
-            _hwInfoController = controller;
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] SetSensorProvider called with {provider?.ProviderName ?? "null"}");
+            _sensorProvider = provider;
             
-            if (_hwInfoController != null && _hwInfoController.IsConnected)
+            if (_sensorProvider != null && _sensorProvider.IsConnected)
             {
-                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] HWInfo controller is connected");
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Sensor provider '{_sensorProvider.ProviderName}' is connected");
                 
                 // Load sensor data for all dial view models
-                var readings = _hwInfoController.GetAllSensorReadings();
-                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Got {readings?.Count ?? 0} readings from HWInfo");
+                var readings = _sensorProvider.GetAllReadings();
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Got {readings?.Count ?? 0} readings from provider");
                 System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Loading sensor data for {_dialViewModels.Count} dial view models");
                 
-                if (readings != null)
+                if (readings != null && readings.Count > 0)
                 {
                     foreach (var dialViewModel in _dialViewModels)
                     {
@@ -115,7 +117,22 @@ namespace VUWare.App
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] HWInfo controller is null or not connected");
+                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] Sensor provider is null or not connected");
+            }
+        }
+
+        /// <summary>
+        /// Sets the HWInfo64 controller for sensor browsing (backward compatibility).
+        /// </summary>
+        public void SetHWInfo64Controller(HWInfo64Controller controller)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SettingsWindow] SetHWInfo64Controller called");
+            _hwInfoController = controller;
+            
+            // Use the sensor provider from the controller
+            if (_hwInfoController != null)
+            {
+                SetSensorProvider(_hwInfoController.SensorProvider);
             }
         }
 
@@ -189,11 +206,11 @@ namespace VUWare.App
                 // Subscribe to validation error changes
                 viewModel.ErrorsChanged += OnValidationErrorsChanged;
 
-                // Load sensor data if HWInfo is available
-                if (_hwInfoController != null && _hwInfoController.IsConnected)
+                // Load sensor data if sensor provider is available
+                if (_sensorProvider != null && _sensorProvider.IsConnected)
                 {
-                    var readings = _hwInfoController.GetAllSensorReadings();
-                    if (readings != null)
+                    var readings = _sensorProvider.GetAllReadings();
+                    if (readings != null && readings.Count > 0)
                     {
                         viewModel.LoadSensorData(readings);
                     }

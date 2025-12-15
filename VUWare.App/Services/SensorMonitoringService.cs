@@ -6,27 +6,29 @@ using System.Threading.Tasks;
 using VUWare.App.Models;
 using VUWare.HWInfo64;
 using VUWare.Lib;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.App.Services
 {
     /// <summary>
-    /// Manages real-time monitoring of HWInfo64 sensors and updates VU1 dials.
+    /// Manages real-time monitoring of sensors and updates VU1 dials.
     /// Runs on a background thread and periodically polls sensor data, applies thresholds,
     /// and updates dial positions and colors based on sensor values.
     /// </summary>
     public class SensorMonitoringService : IDisposable
     {
         private readonly VU1Controller _vuController;
-        private readonly HWInfo64Controller _hwInfoController;
-        private DialsConfiguration _config; // Changed from readonly to allow updates
+        private readonly ISensorProvider _sensorProvider;
+        private readonly HWInfo64Controller? _hwInfoController; // Keep for dial mapping support
+        private DialsConfiguration _config;
         private readonly Dictionary<string, DialMonitoringState> _dialStates;
-        private readonly Dictionary<string, SensorReading> _lastKnownReadings = new();  // Cache for HWInfo64 timeouts
-        private readonly object _configLock = new object(); // Lock for thread-safe config updates
+        private readonly Dictionary<string, ISensorReading> _lastKnownReadings = new();
+        private readonly object _configLock = new object();
         private CancellationTokenSource? _monitoringCts;
         private Task? _monitoringTask;
         private bool _disposed;
         private bool _isMonitoring;
-        private bool _enableUIUpdates = true; // New: Control UI update behavior
+        private bool _enableUIUpdates = true;
 
         /// <summary>
         /// Tracks the state of a single dial during monitoring.
@@ -35,12 +37,12 @@ namespace VUWare.App.Services
         {
             public string DialUid { get; set; } = string.Empty;
             public DialConfig Config { get; set; } = null!;
-            public SensorReading? LastReading { get; set; }
+            public ISensorReading? LastReading { get; set; }
             public byte LastPercentage { get; set; }
             public string LastColor { get; set; } = string.Empty;
             public DateTime LastUpdate { get; set; }
             public int UpdateCount { get; set; }
-            public DateTime LastPhysicalUpdate { get; set; } = DateTime.MinValue; // New: Track physical dial update time
+            public DateTime LastPhysicalUpdate { get; set; } = DateTime.MinValue;
         }
 
         /// <summary>
@@ -66,10 +68,39 @@ namespace VUWare.App.Services
             System.Diagnostics.Debug.WriteLine($"[SensorMonitoring] UI updates {(enabled ? "ENABLED" : "DISABLED")}");
         }
 
+        /// <summary>
+        /// Creates a new SensorMonitoringService using ISensorProvider abstraction.
+        /// </summary>
+        /// <param name="vuController">VU1 dial controller</param>
+        /// <param name="sensorProvider">Sensor data provider (HWInfo64, OHM, etc.)</param>
+        /// <param name="config">Dial configuration</param>
+        public SensorMonitoringService(VU1Controller vuController, ISensorProvider sensorProvider, DialsConfiguration config)
+        {
+            _vuController = vuController ?? throw new ArgumentNullException(nameof(vuController));
+            _sensorProvider = sensorProvider ?? throw new ArgumentNullException(nameof(sensorProvider));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _dialStates = new Dictionary<string, DialMonitoringState>();
+            
+            // If the provider is HWInfo64, keep a reference for dial mapping support
+            if (sensorProvider is HWInfo64SensorProvider hwProvider)
+            {
+                // Access HWInfo64Controller through reflection or store the controller reference
+                // For now, we'll handle this differently
+            }
+        }
+
+        /// <summary>
+        /// Creates a new SensorMonitoringService with HWInfo64Controller for backward compatibility.
+        /// This constructor supports dial mapping features specific to HWInfo64.
+        /// </summary>
+        /// <param name="vuController">VU1 dial controller</param>
+        /// <param name="hwInfoController">HWInfo64 controller (for dial mapping support)</param>
+        /// <param name="config">Dial configuration</param>
         public SensorMonitoringService(VU1Controller vuController, HWInfo64Controller hwInfoController, DialsConfiguration config)
         {
             _vuController = vuController ?? throw new ArgumentNullException(nameof(vuController));
             _hwInfoController = hwInfoController ?? throw new ArgumentNullException(nameof(hwInfoController));
+            _sensorProvider = hwInfoController.SensorProvider;
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _dialStates = new Dictionary<string, DialMonitoringState>();
         }
@@ -139,7 +170,6 @@ namespace VUWare.App.Services
             {
                 System.Diagnostics.Debug.WriteLine("InitializeDials: Starting initial sensor read and dial update");
                 
-                // Wait a short moment for HWInfo64 to have initial data
                 await Task.Delay(500, cancellationToken);
 
                 foreach (var state in _dialStates.Values)
@@ -149,25 +179,28 @@ namespace VUWare.App.Services
 
                     try
                     {
-                        // Get initial sensor reading
-                        var status = _hwInfoController.GetSensorStatus(state.DialUid);
-                        if (status == null)
+                        // Get initial sensor reading using the provider abstraction
+                        var reading = GetSensorReadingForDial(state.DialUid, state.Config);
+                        if (reading == null)
                         {
                             System.Diagnostics.Debug.WriteLine(
                                 $"InitializeDials: No initial reading for {state.Config.DisplayName}");
                             continue;
                         }
 
-                        state.LastReading = status.SensorReading;
-                        state.LastPercentage = status.Percentage;
+                        // Calculate percentage
+                        byte percentage = CalculatePercentage(reading.Value, state.Config.MinValue, state.Config.MaxValue);
+                        
+                        state.LastReading = reading;
+                        state.LastPercentage = percentage;
 
                         // Determine color based on thresholds
-                        string initialColor = state.Config.GetColorForValue(status.SensorReading.Value);
+                        string initialColor = state.Config.GetColorForValue(reading.Value);
                         state.LastColor = initialColor;
 
                         // Send initial position
                         bool positionSuccess = await _vuController.SetDialPercentageAsync(
-                            state.DialUid, status.Percentage);
+                            state.DialUid, percentage);
                         if (!positionSuccess)
                         {
                             System.Diagnostics.Debug.WriteLine(
@@ -193,7 +226,7 @@ namespace VUWare.App.Services
                         state.LastUpdate = DateTime.Now;
 
                         System.Diagnostics.Debug.WriteLine(
-                            $"InitializeDials: {state.Config.DisplayName} initialized ? {status.Percentage}% ({initialColor})");
+                            $"InitializeDials: {state.Config.DisplayName} initialized ? {percentage}% ({initialColor})");
 
                         // Raise event for UI update
                         RaiseDialUpdated(state);
@@ -218,6 +251,34 @@ namespace VUWare.App.Services
         }
 
         /// <summary>
+        /// Gets a sensor reading for a specific dial using the sensor provider.
+        /// </summary>
+        private ISensorReading? GetSensorReadingForDial(string dialUid, DialConfig config)
+        {
+            // If we have HWInfo64Controller with dial mappings, use that for precise matching
+            if (_hwInfoController != null)
+            {
+                var status = _hwInfoController.GetSensorStatus(dialUid);
+                return status?.SensorReading;
+            }
+            
+            // Otherwise, use the generic sensor provider
+            return _sensorProvider.GetReading(config.SensorName, config.EntryName);
+        }
+
+        /// <summary>
+        /// Calculates percentage from sensor value and configured range.
+        /// </summary>
+        private static byte CalculatePercentage(double value, double minValue, double maxValue)
+        {
+            double range = maxValue - minValue;
+            if (range <= 0) return 0;
+            
+            double normalized = Math.Clamp((value - minValue) / range, 0.0, 1.0);
+            return (byte)(normalized * 100);
+        }
+
+        /// <summary>
         /// Stops the monitoring loop.
         /// </summary>
         public void Stop()
@@ -235,7 +296,6 @@ namespace VUWare.App.Services
             if (!_dialStates.TryGetValue(dialUid, out var state) || state.LastReading == null)
                 return null;
 
-            // Debug output
             System.Diagnostics.Debug.WriteLine(
                 $"GetDialStatus: {state.Config.DisplayName} ? {state.LastPercentage}% ({state.LastColor})");
 
@@ -342,41 +402,25 @@ namespace VUWare.App.Services
         /// <summary>
         /// Updates a single dial based on current sensor reading.
         /// Returns true if the dial was updated.
-        /// Implements debouncing to prevent rapid successive updates.
-        /// Uses cached readings when HWInfo64 is blocked under load.
         /// </summary>
         private async Task<bool> UpdateDialAsync(DialMonitoringState state, CancellationToken cancellationToken)
         {
             System.Diagnostics.Debug.WriteLine($"[UpdateDial] START for {state.Config.DisplayName}");
             
             // Get current sensor reading
-            var status = _hwInfoController.GetSensorStatus(state.DialUid);
+            ISensorReading? reading = GetSensorReadingForDial(state.DialUid, state.Config);
+            byte percentage = 0;
             
-            if (status == null)
+            if (reading == null)
             {
-                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No status from HWInfo");
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: No reading from provider");
                 
                 // Try to use cached reading if available
                 if (_lastKnownReadings.TryGetValue(state.DialUid, out var cachedReading))
                 {
                     System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Using cached reading");
-                    
-                    // Calculate percentage from cached value
-                    double range = state.Config.MaxValue - state.Config.MinValue;
-                    double normalized = Math.Clamp((cachedReading.Value - state.Config.MinValue) / range, 0.0, 1.0);
-                    byte cachedPercentage = (byte)(normalized * 100);
-                    
-                    // Use cached data
-                    status = new SensorStatus
-                    {
-                        MappingId = state.DialUid,
-                        SensorReading = cachedReading,
-                        Percentage = cachedPercentage,
-                        IsCritical = state.Config.CriticalThreshold.HasValue && 
-                                    cachedReading.Value >= state.Config.CriticalThreshold.Value,
-                        IsWarning = state.Config.WarningThreshold.HasValue && 
-                                   cachedReading.Value >= state.Config.WarningThreshold.Value
-                    };
+                    reading = cachedReading;
+                    percentage = CalculatePercentage(cachedReading.Value, state.Config.MinValue, state.Config.MaxValue);
                 }
                 else
                 {
@@ -387,8 +431,9 @@ namespace VUWare.App.Services
             else
             {
                 // Update cache with fresh reading
-                _lastKnownReadings[state.DialUid] = status.SensorReading!;
-                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Got fresh reading {status.SensorReading.Value:F1}{status.SensorReading.Unit}");
+                _lastKnownReadings[state.DialUid] = reading;
+                percentage = CalculatePercentage(reading.Value, state.Config.MinValue, state.Config.MaxValue);
+                System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: Got fresh reading {reading.Value:F1}{reading.Unit}");
             }
 
             // Store previous values BEFORE updating state
@@ -396,9 +441,9 @@ namespace VUWare.App.Services
             string previousColor = state.LastColor;
             
             // Update state with current values
-            state.LastReading = status.SensorReading;
-            state.LastPercentage = status.Percentage;
-            state.LastColor = state.Config.GetColorForValue(status.SensorReading!.Value);
+            state.LastReading = reading;
+            state.LastPercentage = percentage;
+            state.LastColor = state.Config.GetColorForValue(reading.Value);
 
             // Check if values changed
             bool positionChanged = previousPercentage != state.LastPercentage;
@@ -429,9 +474,8 @@ namespace VUWare.App.Services
 
             System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: NEEDS UPDATE - pos={previousPercentage}%?{state.LastPercentage}%, color={previousColor}?{state.LastColor}");
 
-            // CRITICAL FIX: Add timeout protection to prevent hanging the entire monitoring loop
             using var updateCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            updateCts.CancelAfter(TimeSpan.FromSeconds(5)); // Max 5 seconds for both commands
+            updateCts.CancelAfter(TimeSpan.FromSeconds(5));
             
             bool updateSuccess = false;
 
@@ -508,21 +552,18 @@ namespace VUWare.App.Services
                 }
             }
 
-            // Consider it success if at least one command worked
             if (!updateSuccess && !positionChanged)
             {
                 System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? No updates performed");
                 return false;
             }
 
-            // Increment update count and timestamp
             state.LastUpdate = DateTime.Now;
             state.LastPhysicalUpdate = DateTime.Now;
             state.UpdateCount++;
 
             System.Diagnostics.Debug.WriteLine($"[UpdateDial] {state.Config.DisplayName}: ? COMPLETE (updateCount={state.UpdateCount})");
 
-            // Raise event for UI update
             RaiseDialUpdated(state);
             
             return true;
