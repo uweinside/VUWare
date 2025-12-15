@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.HWInfo64
 {
     /// <summary>
     /// High-level controller for HWInfo64 sensor reading with VU1 dial integration.
     /// Provides periodic polling of HWInfo64 and automatic dial updates based on sensor values.
+    /// Also exposes ISensorProvider for consumers who want provider-agnostic access.
     /// </summary>
     public class HWInfo64Controller : IDisposable
     {
         private HWiNFOReader _reader;
+        private HWInfo64SensorProvider? _sensorProvider;
         private readonly Dictionary<string, DialSensorMapping> _dialMappings;
         private readonly Dictionary<string, SensorReading?> _currentReadings;
         private CancellationTokenSource? _pollingCancellation;
@@ -27,6 +30,22 @@ namespace VUWare.HWInfo64
         {
             get => _pollIntervalMs;
             set => _pollIntervalMs = Math.Max(100, value); // Minimum 100ms
+        }
+
+        /// <summary>
+        /// Gets the ISensorProvider implementation for this controller.
+        /// Use this when you need provider-agnostic sensor access.
+        /// </summary>
+        public ISensorProvider SensorProvider
+        {
+            get
+            {
+                if (_sensorProvider == null)
+                {
+                    _sensorProvider = new HWInfo64SensorProvider(_reader);
+                }
+                return _sensorProvider;
+            }
         }
 
         public delegate void SensorValueChanged(string sensorId, SensorReading reading);

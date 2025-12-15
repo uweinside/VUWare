@@ -1,12 +1,14 @@
 using System;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.HWInfo64
 {
     /// <summary>
     /// Represents a single sensor reading from HWInfo64.
     /// Provides a friendly API for consuming sensor data.
+    /// Implements ISensorReading for use with the sensor provider abstraction.
     /// </summary>
-    public class SensorReading
+    public class SensorReading : ISensorReading
     {
         /// <summary>Unique identifier of the sensor</summary>
         public uint SensorId { get; set; }
@@ -23,8 +25,11 @@ namespace VUWare.HWInfo64
         /// <summary>Name of this entry (user name if set, otherwise original name)</summary>
         public string EntryName { get; set; } = string.Empty;
 
-        /// <summary>Type of sensor (Temperature, Voltage, Fan, etc.)</summary>
+        /// <summary>Type of sensor (Temperature, Voltage, Fan, etc.) - HWInfo64-specific type</summary>
         public SensorType Type { get; set; }
+
+        /// <summary>Category of sensor - provider-agnostic type for ISensorReading interface</summary>
+        public SensorCategory Category => MapSensorTypeToCategory(Type);
 
         /// <summary>Current value of the sensor</summary>
         public double Value { get; set; }
@@ -43,6 +48,26 @@ namespace VUWare.HWInfo64
 
         /// <summary>Timestamp of last update</summary>
         public DateTime LastUpdate { get; set; }
+
+        /// <summary>
+        /// Maps HWInfo64-specific SensorType to provider-agnostic SensorCategory.
+        /// </summary>
+        private static SensorCategory MapSensorTypeToCategory(SensorType type)
+        {
+            return type switch
+            {
+                SensorType.Temperature => SensorCategory.Temperature,
+                SensorType.Voltage => SensorCategory.Voltage,
+                SensorType.Fan => SensorCategory.Fan,
+                SensorType.Current => SensorCategory.Current,
+                SensorType.Power => SensorCategory.Power,
+                SensorType.Clock => SensorCategory.Clock,
+                SensorType.Usage => SensorCategory.Load,
+                SensorType.Other => SensorCategory.Unknown,
+                SensorType.None => SensorCategory.Unknown,
+                _ => SensorCategory.Unknown
+            };
+        }
 
         /// <summary>
         /// Gets a display-friendly string representation of the reading.

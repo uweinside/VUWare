@@ -8,4 +8,8 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
+  </ItemGroup>
+
 </Project>
