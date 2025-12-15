@@ -337,19 +337,19 @@
                         Height="28" Grid.Row="0" Grid.Column="1" MinWidth="300"
                         ToolTip="Friendly name for this dial (e.g., 'CPU Temperature', 'GPU Load')"/>
 
-                <TextBlock Text="Sensor Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
+                <TextBlock Text="Category:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="2" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableSensors}" 
                          SelectedItem="{Binding SensorName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}" 
                          Height="28" Grid.Row="2" Grid.Column="1" 
                          MinWidth="400" IsTextSearchEnabled="True"
-                         ToolTip="Select the HWInfo64 sensor to monitor (e.g., 'CPU [#0]: Intel Core i7-9700K')"/>
+                         ToolTip="Select the sensor category (e.g., 'Temperatures', 'System', 'CPU [#0]')"/>
 
-                <TextBlock Text="Entry Name:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
+                <TextBlock Text="Sensor:" VerticalAlignment="Center" Foreground="#CCCCCC" Grid.Row="4" Grid.Column="0"/>
                 <ComboBox ItemsSource="{Binding AvailableEntries}" 
                          SelectedItem="{Binding EntryName, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True, NotifyOnValidationError=True}"
                          Height="28" Grid.Row="4" Grid.Column="1" 
                          MinWidth="300" IsTextSearchEnabled="True"
-                         ToolTip="Select the specific reading from the sensor (e.g., 'Core Temperature', 'GPU Core Load')"/>
+                         ToolTip="Select the specific sensor reading (e.g., 'CPU Package', 'CPU Utilization', 'Core Temperature')"/>
 
             </Grid>
 

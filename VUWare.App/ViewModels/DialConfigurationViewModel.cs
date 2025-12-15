@@ -446,36 +446,36 @@ namespace VUWare.App.ViewModels
             var configuredEntryName = _entryName;
             var configuredEntryId = _entryId;
 
-            // Group readings by composite key (SensorName + SensorId + SensorInstance)
-            // This ensures sensors with duplicate names but different IDs are shown separately
-            var groupedBySensor = readings
-                .GroupBy(r => new { r.SensorName, r.SensorId, r.SensorInstance })
-                .OrderBy(g => g.Key.SensorName)
-                .ThenBy(g => g.Key.SensorInstance);
+            // Group readings by SensorName only first to collect all entries for each sensor
+            // This properly handles AIDA64's flat structure where all temps go under "Temperatures"
+            var groupedBySensorName = readings
+                .GroupBy(r => r.SensorName)
+                .OrderBy(g => g.Key);
+
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found {groupedBySensorName.Count()} unique sensor names");
 
             string? matchingSensorDisplayName = null;
             string? matchingEntryDisplayName = null;
             
-            foreach (var sensorGroup in groupedBySensor)
+            foreach (var sensorGroup in groupedBySensorName)
             {
-                // Create a unique display name that includes instance if there are duplicates
-                var baseName = sensorGroup.Key.SensorName;
-                var sensorId = sensorGroup.Key.SensorId;
-                var instance = sensorGroup.Key.SensorInstance;
+                var sensorName = sensorGroup.Key;
+                var allReadingsForSensor = sensorGroup.ToList();
                 
-                // Check if there are other sensors with the same base name
-                var hasDuplicates = groupedBySensor.Count(g => g.Key.SensorName == baseName) > 1;
+                // Get sensor metadata from the first reading (all should have same SensorId/Instance for this group)
+                var firstReading = allReadingsForSensor.First();
+                var sensorId = firstReading.SensorId;
+                var instance = firstReading.SensorInstance;
                 
-                // If duplicates exist, append instance/ID to make them distinguishable
-                var displayName = hasDuplicates && instance > 0
-                    ? $"{baseName} (#{instance})"
-                    : baseName;
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Processing sensor '{sensorName}' with {allReadingsForSensor.Count} entries");
+                
+                // Use sensor name directly as display name
+                var displayName = sensorName;
                 
                 AvailableSensors.Add(displayName);
 
-                // Build entries with disambiguation
-                var entryList = sensorGroup.ToList();
-                var entryGroups = entryList.GroupBy(r => r.EntryName);
+                // Build entries list - each unique EntryName becomes an entry
+                var entryGroups = allReadingsForSensor.GroupBy(r => r.EntryName);
                 var disambiguatedEntries = new System.Collections.Generic.List<string>();
 
                 foreach (var entryGroup in entryGroups.OrderBy(g => g.Key))
@@ -485,14 +485,12 @@ namespace VUWare.App.ViewModels
 
                     if (entryReadings.Count > 1)
                     {
-                        // Multiple entries with the same name - add disambiguation
+                        // Multiple entries with the same name - add disambiguation by category
                         for (int i = 0; i < entryReadings.Count; i++)
                         {
                             var reading = entryReadings[i];
-                            // Use entry type or index for disambiguation
                             var disambiguatedName = $"{entryName} ({reading.Category})";
                             disambiguatedEntries.Add(disambiguatedName);
-                            // Use composite key for entry metadata to avoid collisions across sensors
                             var entryKey = $"{displayName}|{disambiguatedName}";
                             _displayToEntryMetadata[entryKey] = (entryName, reading.EntryId);
                         }
@@ -507,29 +505,18 @@ namespace VUWare.App.ViewModels
                     }
                 }
 
+                System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Sensor '{displayName}' has {disambiguatedEntries.Count} entries: {string.Join(", ", disambiguatedEntries.Take(5))}{(disambiguatedEntries.Count > 5 ? "..." : "")}");
+
                 _sensorEntryMap[displayName] = disambiguatedEntries;
-                _displayToSensorMetadata[displayName] = (baseName, sensorId, instance);
+                _displayToSensorMetadata[displayName] = (sensorName, sensorId, instance);
                 
                 // Check if this sensor matches the currently configured sensor
-                // Match by name AND (if set) by ID/instance for precision
-                bool isSensorMatch = false;
-                if (configuredSensorId == 0 && configuredSensorInstance == 0)
-                {
-                    // Old config without ID/instance - match by name only
-                    isSensorMatch = baseName.Equals(configuredSensorName, StringComparison.OrdinalIgnoreCase);
-                }
-                else
-                {
-                    // New config with ID/instance - match by composite key
-                    isSensorMatch = baseName.Equals(configuredSensorName, StringComparison.OrdinalIgnoreCase) &&
-                                   sensorId == configuredSensorId &&
-                                   instance == configuredSensorInstance;
-                }
+                bool isSensorMatch = sensorName.Equals(configuredSensorName, StringComparison.OrdinalIgnoreCase);
                 
                 if (isSensorMatch)
                 {
                     matchingSensorDisplayName = displayName;
-                    _sensorId = sensorId;  // Update with actual values if upgrading from old config
+                    _sensorId = sensorId;
                     _sensorInstance = instance;
                     System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Found matching sensor '{configuredSensorName}' -> display name '{displayName}'");
                     
@@ -573,6 +560,7 @@ namespace VUWare.App.ViewModels
             }
 
             System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] Final SensorName = '{_sensorName}', EntryName = '{_entryName}'");
+            System.Diagnostics.Debug.WriteLine($"[DialVM {DialNumber}] AvailableSensors count = {AvailableSensors.Count}");
 
             // Update available entries for current sensor (AFTER updating _entryName)
             UpdateAvailableEntriesWithoutAutoSelect();

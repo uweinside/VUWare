@@ -93,16 +93,17 @@ namespace VUWare.AIDA64
 
             var readings = GetCachedReadings();
 
-            // AIDA64 doesn't have a sensor/entry hierarchy like HWInfo64
-            // Group readings by their category to create sensor descriptors
+            // AIDA64 groups readings by category (Temperature, Voltage, Fan, etc.)
+            // Each category becomes a "sensor" with individual readings as "entries"
+            // This matches the Settings UI pattern used by HWInfo64
             _cachedSensors = readings
-                .GroupBy(r => r.OriginalCategory)
-                .Select((g, i) => new AIDA64SensorDescriptor
+                .GroupBy(r => r.SensorName)  // Group by category display name
+                .Select(g => new AIDA64SensorDescriptor
                 {
-                    Id = (uint)g.Key,
+                    Id = (uint)g.Key.GetHashCode(),
                     Instance = 0,
-                    Name = g.Key.ToString(),
-                    OriginalName = g.Key.ToString()
+                    Name = g.Key,  // Category name (e.g., "Temperatures", "Voltages")
+                    OriginalName = g.Key
                 })
                 .ToList();
 

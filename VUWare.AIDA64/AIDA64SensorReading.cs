@@ -9,6 +9,12 @@ namespace VUWare.AIDA64
     /// Represents a sensor reading from AIDA64, implementing the common ISensorReading interface.
     /// Adapts AIDA64's XML-based sensor data to the provider-agnostic abstraction.
     /// </summary>
+    /// <remarks>
+    /// AIDA64 has a flat structure where each reading is essentially its own sensor.
+    /// To work with the Settings UI which expects a sensor-entry hierarchy:
+    /// - SensorName = Category (e.g., "Temperature", "Voltage") - groups related readings
+    /// - EntryName = Label (e.g., "CPU Package", "GPU Diode") - the actual sensor reading
+    /// </remarks>
     public class AIDA64SensorReading : ISensorReading
     {
         /// <summary>
@@ -29,7 +35,8 @@ namespace VUWare.AIDA64
 
         /// <inheritdoc />
         /// <remarks>
-        /// For AIDA64, this represents the category grouping (e.g., "Temperature", "System").
+        /// For AIDA64, this represents the category grouping (e.g., "Temperature", "Voltage", "Fan").
+        /// This allows the Settings UI to show sensors grouped by type.
         /// </remarks>
         public string SensorName { get; init; } = string.Empty;
 
@@ -39,6 +46,7 @@ namespace VUWare.AIDA64
         /// <inheritdoc />
         /// <remarks>
         /// The human-readable label from AIDA64 (e.g., "CPU Package", "GPU Diode").
+        /// This is the actual sensor name that users see and select.
         /// </remarks>
         public string EntryName { get; init; } = string.Empty;
 
@@ -79,15 +87,20 @@ namespace VUWare.AIDA64
         public static AIDA64SensorReading FromRaw(AIDA64RawReading raw)
         {
             var category = MapToSensorCategory(raw.Category);
+            var sensorName = GetCategoryDisplayName(raw.Category);
+            
+            // Use a consistent SensorId for all readings in the same category
+            // This ensures they get grouped together in the Settings UI
+            uint sensorId = (uint)raw.Category;  // Use enum value directly for consistent grouping
             
             return new AIDA64SensorReading
             {
                 AIDA64Id = raw.Id,
-                SensorId = (uint)raw.Id.GetHashCode(),
+                SensorId = sensorId,  // Use category enum value for consistent grouping
                 SensorInstance = 0,
-                SensorName = raw.Category.ToString(),
-                EntryId = (uint)raw.Label.GetHashCode(),
-                EntryName = raw.Label,
+                SensorName = sensorName,  // Use friendly category name as sensor name
+                EntryId = (uint)raw.Id.GetHashCode(),  // Use AIDA64 ID hash as entry ID
+                EntryName = raw.Label,  // Use the label as entry name (e.g., "CPU Package")
                 Category = category,
                 Value = raw.Value,
                 ValueMin = raw.Value,
@@ -98,6 +111,21 @@ namespace VUWare.AIDA64
                 OriginalCategory = raw.Category
             };
         }
+
+        /// <summary>
+        /// Gets a user-friendly display name for an AIDA64 category.
+        /// </summary>
+        private static string GetCategoryDisplayName(AIDA64SensorCategory category) => category switch
+        {
+            AIDA64SensorCategory.Temperature => "Temperatures",
+            AIDA64SensorCategory.Voltage => "Voltages",
+            AIDA64SensorCategory.Fan => "Fan Speeds",
+            AIDA64SensorCategory.FanDuty => "Fan Duties",
+            AIDA64SensorCategory.Power => "Power",
+            AIDA64SensorCategory.Current => "Currents",
+            AIDA64SensorCategory.System => "System",
+            _ => "Other"
+        };
 
         /// <summary>
         /// Maps AIDA64 categories to the common SensorCategory enumeration.
@@ -117,7 +145,7 @@ namespace VUWare.AIDA64
 
     /// <summary>
     /// Represents an AIDA64 sensor descriptor for the ISensorDescriptor interface.
-    /// Groups sensors by their category (Temperature, Voltage, etc.).
+    /// For AIDA64, sensors are grouped by category (Temperature, Voltage, etc.).
     /// </summary>
     internal class AIDA64SensorDescriptor : ISensorDescriptor
     {
