@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12.0</LangVersion>
+    <Platforms>AnyCPU;x64</Platforms>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <RootNamespace>VUWare.AIDA64</RootNamespace>
+    <AssemblyName>VUWare.AIDA64</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
+  </ItemGroup>
+
+</Project>
