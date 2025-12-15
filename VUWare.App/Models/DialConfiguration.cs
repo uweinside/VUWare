@@ -6,6 +6,22 @@ using System.Linq;
 namespace VUWare.App.Models
 {
     /// <summary>
+    /// Supported sensor data providers for reading hardware monitoring data.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum SensorProviderType
+    {
+        /// <summary>HWInfo64 shared memory (default, most compatible)</summary>
+        HWInfo64,
+        
+        /// <summary>AIDA64 shared memory export</summary>
+        AIDA64,
+        
+        /// <summary>LibreHardwareMonitor (not yet implemented)</summary>
+        LibreHardwareMonitor
+    }
+
+    /// <summary>
     /// Represents color settings for a dial with optional threshold-based color changes.
     /// </summary>
     public class DialColorConfig
@@ -285,7 +301,7 @@ namespace VUWare.App.Models
         [JsonPropertyName("autoConnect")]
         public bool AutoConnect { get; set; } = true;
 
-        /// <summary>Enable/disable HWInfo64 polling</summary>
+        /// <summary>Enable/disable sensor polling</summary>
         [JsonPropertyName("enablePolling")]
         public bool EnablePolling { get; set; } = true;
 
@@ -319,5 +335,13 @@ namespace VUWare.App.Models
         /// </summary>
         [JsonPropertyName("runInit")]
         public bool RunInit { get; set; } = true;
+
+        /// <summary>
+        /// Sensor data provider to use for hardware monitoring.
+        /// Options: "HWInfo64" (default), "AIDA64", "LibreHardwareMonitor" (not yet implemented).
+        /// Change this value to switch between monitoring software.
+        /// </summary>
+        [JsonPropertyName("sensorProvider")]
+        public SensorProviderType SensorProvider { get; set; } = SensorProviderType.HWInfo64;
     }
 }

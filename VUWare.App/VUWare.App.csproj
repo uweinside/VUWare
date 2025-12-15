@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\VUWare.AIDA64\VUWare.AIDA64.csproj" />
     <ProjectReference Include="..\VUWare.HWInfo64\VUWare.HWInfo64.csproj" />
     <ProjectReference Include="..\VUWare.Lib\VUWare.Lib.csproj" />
   </ItemGroup>

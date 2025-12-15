@@ -16,7 +16,6 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using VUWare.App.Models;
 using VUWare.App.Services;
-using VUWare.HWInfo64;
 using VUWare.Lib.Sensors;
 using VULib = VUWare.Lib;
 using WpfColors = System.Windows.Media.Colors;
@@ -106,12 +105,11 @@ namespace VUWare.App
                 _monitoringService = null;
             }
             
-            // Step 2: Stop HWInfo64 polling
-            // BUT DON'T call Disconnect() yet - that would cancel the shutdown commands!
+            // Step 2: Disconnect sensor provider
             if (_initService != null)
             {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Stopping HWInfo64 polling");
-                _initService.GetHWInfo64Controller().Disconnect();
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Disconnecting sensor provider");
+                _initService.GetSensorProvider()?.Disconnect();
             }
             
             // Give loops to stop
@@ -448,7 +446,7 @@ namespace VUWare.App
 
             // Subscribe to status change events
             _initService.OnStatusChanged += InitService_OnStatusChanged;
-            _initService.OnHWInfoRetryStatusChanged += InitService_OnHWInfoRetryStatusChanged;
+            _initService.OnSensorRetryStatusChanged += InitService_OnSensorRetryStatusChanged;
             _initService.OnError += InitService_OnError;
             _initService.OnInitializationComplete += InitService_OnInitializationComplete;
 
@@ -464,11 +462,15 @@ namespace VUWare.App
             // Update UI on main thread
             Dispatcher.Invoke(() =>
             {
+                string providerName = _initService != null 
+                    ? SensorProviderFactory.GetProviderDisplayName(_initService.ConfiguredProviderType)
+                    : "Sensors";
+                    
                 StatusText.Text = status switch
                 {
                     AppInitializationService.InitializationStatus.ConnectingDials => "Connecting Dials",
                     AppInitializationService.InitializationStatus.InitializingDials => "Initializing Dials",
-                    AppInitializationService.InitializationStatus.ConnectingHWInfo => "Connecting HWInfo Sensors",
+                    AppInitializationService.InitializationStatus.ConnectingSensorProvider => $"Connecting {providerName}",
                     AppInitializationService.InitializationStatus.Monitoring => "Monitoring",
                     AppInitializationService.InitializationStatus.Failed => "Initialization Failed",
                     _ => "Unknown Status"
@@ -480,21 +482,25 @@ namespace VUWare.App
         }
 
         /// <summary>
-        /// Handles HWInfo connection retry status updates.
+        /// Handles sensor provider connection retry status updates.
         /// </summary>
-        private void InitService_OnHWInfoRetryStatusChanged(int retryCount, bool isConnected, int elapsedSeconds)
+        private void InitService_OnSensorRetryStatusChanged(int retryCount, bool isConnected, int elapsedSeconds)
         {
             Dispatcher.Invoke(() =>
             {
-                StatusText.Text = $"Connecting to HWiNFO64© [{retryCount}]";
+                string providerName = _initService != null 
+                    ? SensorProviderFactory.GetProviderDisplayName(_initService.ConfiguredProviderType)
+                    : "Sensors";
+                    
+                StatusText.Text = $"Connecting to {providerName} [{retryCount}]";
                 
                 if (isConnected)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[UI] HWInfo connected after {retryCount} attempts in {elapsedSeconds}s");
+                    System.Diagnostics.Debug.WriteLine($"[UI] {providerName} connected after {retryCount} attempts in {elapsedSeconds}s");
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"[UI] HWInfo retry #{retryCount} after {elapsedSeconds}s elapsed");
+                    System.Diagnostics.Debug.WriteLine($"[UI] {providerName} retry #{retryCount} after {elapsedSeconds}s elapsed");
                 }
             });
         }
@@ -789,7 +795,7 @@ namespace VUWare.App
         }
 
         /// <summary>
-        /// Registers dial-to-sensor mappings with both HWInfo64 controller and DialMappingService.
+        /// Registers dial-to-sensor mappings with the DialMappingService.
         /// This is needed after initial setup when sensor names are configured for the first time.
         /// </summary>
         private void RegisterDialMappingsFromConfig()
@@ -797,7 +803,6 @@ namespace VUWare.App
             if (_config == null || _initService == null)
                 return;
 
-            var hwInfo = _initService.GetHWInfo64Controller();
             IDialMappingService? mappingService = null;
             
             try
@@ -806,11 +811,11 @@ namespace VUWare.App
             }
             catch (InvalidOperationException)
             {
-                // Mapping service not yet initialized
+                System.Diagnostics.Debug.WriteLine("[MainWindow] Mapping service not yet initialized");
+                return;
             }
 
             // Clear existing mappings
-            hwInfo.ClearAllMappings();
             mappingService?.ClearAllMappings();
 
             var activeDials = _config.GetActiveDials();
@@ -833,8 +838,6 @@ namespace VUWare.App
                     DisplayName = dialConfig.DisplayName
                 };
 
-                // Register with both services
-                hwInfo.RegisterDialMapping(mapping);
                 mappingService?.RegisterMapping(mapping);
                 System.Diagnostics.Debug.WriteLine($"[MainWindow] Registered: {dialConfig.DisplayName} -> {dialConfig.SensorName}/{dialConfig.EntryName}");
             }
@@ -857,9 +860,13 @@ namespace VUWare.App
                 // Log diagnostics if debug mode is enabled
                 if (_config.AppSettings.DebugMode)
                 {
-                    var diagnostics = new DiagnosticsService(_initService.GetSensorProvider());
-                    var report = diagnostics.GetDiagnosticsReport();
-                    System.Diagnostics.Debug.WriteLine(report);
+                    var sensorProvider = _initService.GetSensorProvider();
+                    if (sensorProvider != null)
+                    {
+                        var diagnostics = new DiagnosticsService(sensorProvider);
+                        var report = diagnostics.GetDiagnosticsReport();
+                        System.Diagnostics.Debug.WriteLine(report);
+                    }
                     System.Diagnostics.Debug.WriteLine("=== Starting Monitoring Service ===");
                 }
 
@@ -871,15 +878,7 @@ namespace VUWare.App
                 }
                 catch (InvalidOperationException)
                 {
-                    // Fallback: create mapping service from HWInfo64 if not already initialized
-                    System.Diagnostics.Debug.WriteLine("[MainWindow] Creating fallback DialMappingService");
-                    var hwInfo = _initService.GetHWInfo64Controller();
-#pragma warning disable CS0618 // Type or member is obsolete
-                    _monitoringService = new SensorMonitoringService(vu1, hwInfo, _config);
-#pragma warning restore CS0618
-                    _monitoringService.OnDialUpdated += MonitoringService_OnDialUpdated;
-                    _monitoringService.OnError += MonitoringService_OnError;
-                    _monitoringService.Start();
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] Cannot start monitoring - dial mapping service not available");
                     return;
                 }
 
@@ -1003,7 +1002,7 @@ namespace VUWare.App
             {
                 AppInitializationService.InitializationStatus.ConnectingDials => Color.FromRgb(255, 200, 0),
                 AppInitializationService.InitializationStatus.InitializingDials => Color.FromRgb(255, 200, 0),
-                AppInitializationService.InitializationStatus.ConnectingHWInfo => Color.FromRgb(255, 200, 0),
+                AppInitializationService.InitializationStatus.ConnectingSensorProvider => Color.FromRgb(255, 200, 0),
                 AppInitializationService.InitializationStatus.Monitoring => Color.FromRgb(0, 200, 0),
                 AppInitializationService.InitializationStatus.Failed => WpfColors.Red,
                 _ => Color.FromRgb(200, 200, 200)
@@ -1195,12 +1194,6 @@ namespace VUWare.App
                 _monitoringService?.Stop();
                 await Task.Delay(200);
 
-                var hwInfo = _initService?.GetHWInfo64Controller();
-                if (hwInfo == null) return false;
-
-                // Clear mappings from both services
-                hwInfo.ClearAllMappings();
-                
                 IDialMappingService? mappingService = null;
                 try
                 {
@@ -1209,7 +1202,8 @@ namespace VUWare.App
                 }
                 catch (InvalidOperationException)
                 {
-                    // Mapping service not available
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] Mapping service not available for reload");
+                    return false;
                 }
 
                 foreach (var dial in newConfig.Dials.Where(d => d.Enabled))
@@ -1229,8 +1223,6 @@ namespace VUWare.App
                         DisplayName = dial.DisplayName
                     };
                     
-                    // Register with both services
-                    hwInfo.RegisterDialMapping(mapping);
                     mappingService?.RegisterMapping(mapping);
                 }
 
@@ -1245,8 +1237,6 @@ namespace VUWare.App
 
         private void ApplyIntervalChanges(DialsConfiguration newConfig)
         {
-            var hwInfo = _initService?.GetHWInfo64Controller();
-            hwInfo?.UpdatePollInterval(newConfig.AppSettings.GlobalUpdateIntervalMs);
             _monitoringService?.UpdateConfiguration(newConfig);
         }
 

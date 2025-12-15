@@ -9,7 +9,8 @@
     "serialCommandDelayMs": 150,
     "dialCountOverride": null,
     "startMinimized": false,
-    "runInit": true
+    "runInit": true,
+    "sensorProvider": "AIDA64"
   },
   "dials": [
     {
