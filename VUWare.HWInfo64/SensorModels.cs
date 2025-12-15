@@ -1,12 +1,14 @@
 using System;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.HWInfo64
 {
     /// <summary>
     /// Represents a single sensor reading from HWInfo64.
     /// Provides a friendly API for consuming sensor data.
+    /// Implements ISensorReading for use with the sensor provider abstraction.
     /// </summary>
-    public class SensorReading
+    public class SensorReading : ISensorReading
     {
         /// <summary>Unique identifier of the sensor</summary>
         public uint SensorId { get; set; }
@@ -23,8 +25,11 @@ namespace VUWare.HWInfo64
         /// <summary>Name of this entry (user name if set, otherwise original name)</summary>
         public string EntryName { get; set; } = string.Empty;
 
-        /// <summary>Type of sensor (Temperature, Voltage, Fan, etc.)</summary>
+        /// <summary>Type of sensor (Temperature, Voltage, Fan, etc.) - HWInfo64-specific type</summary>
         public SensorType Type { get; set; }
+
+        /// <summary>Category of sensor - provider-agnostic type for ISensorReading interface</summary>
+        public SensorCategory Category => MapSensorTypeToCategory(Type);
 
         /// <summary>Current value of the sensor</summary>
         public double Value { get; set; }
@@ -43,6 +48,26 @@ namespace VUWare.HWInfo64
 
         /// <summary>Timestamp of last update</summary>
         public DateTime LastUpdate { get; set; }
+
+        /// <summary>
+        /// Maps HWInfo64-specific SensorType to provider-agnostic SensorCategory.
+        /// </summary>
+        private static SensorCategory MapSensorTypeToCategory(SensorType type)
+        {
+            return type switch
+            {
+                SensorType.Temperature => SensorCategory.Temperature,
+                SensorType.Voltage => SensorCategory.Voltage,
+                SensorType.Fan => SensorCategory.Fan,
+                SensorType.Current => SensorCategory.Current,
+                SensorType.Power => SensorCategory.Power,
+                SensorType.Clock => SensorCategory.Clock,
+                SensorType.Usage => SensorCategory.Load,
+                SensorType.Other => SensorCategory.Unknown,
+                SensorType.None => SensorCategory.Unknown,
+                _ => SensorCategory.Unknown
+            };
+        }
 
         /// <summary>
         /// Gets a display-friendly string representation of the reading.
@@ -100,65 +125,8 @@ namespace VUWare.HWInfo64
         }
     }
 
-    /// <summary>
-    /// Represents a sensor that can be displayed on a VU1 dial.
-    /// Maps a HWInfo64 sensor reading to a dial display range.
-    /// </summary>
-    public class DialSensorMapping
-    {
-        /// <summary>Unique identifier for this mapping</summary>
-        public string Id { get; set; } = string.Empty;
-
-        /// <summary>Name of the sensor to display (from HWInfo64)</summary>
-        public string SensorName { get; set; } = string.Empty;
-
-        /// <summary>Sensor ID for unique identification (for sensors with duplicate names)</summary>
-        public uint SensorId { get; set; } = 0;
-
-        /// <summary>Sensor instance for unique identification (for sensors with duplicate names)</summary>
-        public uint SensorInstance { get; set; } = 0;
-
-        /// <summary>Name of the specific entry to display (from HWInfo64)</summary>
-        public string EntryName { get; set; } = string.Empty;
-
-        /// <summary>Entry ID for unique identification (for entries with duplicate names)</summary>
-        public uint EntryId { get; set; } = 0;
-
-        /// <summary>Minimum value for dial display (0%)</summary>
-        public double MinValue { get; set; }
-
-        /// <summary>Maximum value for dial display (100%)</summary>
-        public double MaxValue { get; set; }
-
-        /// <summary>Optional warning threshold (shows color change on dial)</summary>
-        public double? WarningThreshold { get; set; }
-
-        /// <summary>Optional critical threshold (shows color change on dial)</summary>
-        public double? CriticalThreshold { get; set; }
-
-        /// <summary>Display name for the dial</summary>
-        public string DisplayName { get; set; } = string.Empty;
-
-        /// <summary>Gets the percentage (0-100) for the current sensor value.</summary>
-        public byte GetPercentage(double sensorValue)
-        {
-            if (MaxValue <= MinValue)
-                return 0;
-
-            double percentage = (sensorValue - MinValue) / (MaxValue - MinValue) * 100.0;
-            return (byte)Math.Clamp(percentage, 0, 100);
-        }
-
-        /// <summary>Determines if the value exceeds the critical threshold.</summary>
-        public bool IsCritical(double sensorValue)
-        {
-            return CriticalThreshold.HasValue && sensorValue >= CriticalThreshold.Value;
-        }
-
-        /// <summary>Determines if the value exceeds the warning threshold.</summary>
-        public bool IsWarning(double sensorValue)
-        {
-            return WarningThreshold.HasValue && sensorValue >= WarningThreshold.Value && !IsCritical(sensorValue);
-        }
-    }
+    // NOTE: DialSensorMapping has been moved to VUWare.Lib.Sensors.DialSensorMapping
+    // This type alias is kept for backward compatibility
+    // [Obsolete("Use VUWare.Lib.Sensors.DialSensorMapping instead")]
+    // If needed, consumers should use: using DialSensorMapping = VUWare.Lib.Sensors.DialSensorMapping;
 }

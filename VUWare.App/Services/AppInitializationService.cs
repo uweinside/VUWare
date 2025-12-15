@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using VUWare.App.Models;
 using VUWare.HWInfo64;
 using VUWare.Lib;
+using VUWare.Lib.Sensors;
 
 namespace VUWare.App.Services
 {
@@ -17,6 +18,7 @@ namespace VUWare.App.Services
     {
         private readonly VU1Controller _vuController;
         private readonly HWInfo64Controller _hwInfoController;
+        private IDialMappingService? _dialMappingService;
         private readonly DialsConfiguration _config;
         private CancellationTokenSource? _initializationCts;
         private Task? _initializationTask;
@@ -111,8 +113,28 @@ namespace VUWare.App.Services
 
         /// <summary>
         /// Gets the HWInfo64 controller (available after successful initialization).
+        /// This provides access to HWInfo64-specific features.
         /// </summary>
         public HWInfo64Controller GetHWInfo64Controller() => _hwInfoController;
+
+        /// <summary>
+        /// Gets the sensor provider abstraction (available after successful initialization).
+        /// Use this when you need provider-agnostic sensor access.
+        /// </summary>
+        public ISensorProvider GetSensorProvider() => _hwInfoController.SensorProvider;
+
+        /// <summary>
+        /// Gets the dial mapping service (available after successful initialization).
+        /// Use this for provider-agnostic dial-to-sensor mapping.
+        /// </summary>
+        public IDialMappingService GetDialMappingService()
+        {
+            if (_dialMappingService == null)
+            {
+                throw new InvalidOperationException("Dial mapping service not available. Ensure initialization is complete.");
+            }
+            return _dialMappingService;
+        }
 
         /// <summary>
         /// Background worker thread that handles initialization steps.
@@ -325,17 +347,14 @@ namespace VUWare.App.Services
             {
                 try
                 {
-                    // Create a new reader that will be used for initialization
                     var hwInfoReader = new HWiNFOReader();
                     
-                    // Create initialization service with retry logic
                     var hwInfoInit = new HWiNFOInitializationService(
                         reader: hwInfoReader,
-                        retryIntervalMs: 1000,      // Retry every 1 second
-                        maxTimeoutMs: 300000        // Timeout after 5 minutes
+                        retryIntervalMs: 1000,
+                        maxTimeoutMs: 300000
                     );
 
-                    // Subscribe to retry status updates
                     hwInfoInit.OnStatusChanged += (retryCount, isConnected, elapsedMs) =>
                     {
                         _hwInfoRetryCount = retryCount;
@@ -344,7 +363,6 @@ namespace VUWare.App.Services
                         RaiseHWInfoRetryStatusChanged(retryCount, isConnected, elapsedSeconds);
                     };
 
-                    // Synchronously initialize (blocks until connection or timeout)
                     bool connected = hwInfoInit.InitializeSync(cancellationToken);
 
                     if (!connected)
@@ -354,13 +372,18 @@ namespace VUWare.App.Services
                         return false;
                     }
 
-                    // Get active dials based on effective dial count (considers physical dials)
+                    // Start polling with the successfully connected reader
+                    _hwInfoController.ConnectWithReader(hwInfoReader);
+
+                    // Create the dial mapping service using the sensor provider
+                    _dialMappingService = new DialMappingService(_hwInfoController.SensorProvider);
+
+                    // Get active dials and register mappings
                     int physicalDialCount = _vuController.DialCount;
                     var activeDials = _config.GetActiveDials(physicalDialCount);
                     
                     System.Diagnostics.Debug.WriteLine($"[HWInfo] Registering {activeDials.Count} active dial mappings (Physical: {physicalDialCount})");
 
-                    // Register all enabled active dial configurations as sensor mappings
                     foreach (var dialConfig in activeDials.Where(d => d.Enabled))
                     {
                         var mapping = new DialSensorMapping
@@ -378,15 +401,13 @@ namespace VUWare.App.Services
                             DisplayName = dialConfig.DisplayName
                         };
 
+                        // Register with both services for backward compatibility
                         _hwInfoController.RegisterDialMapping(mapping);
+                        _dialMappingService.RegisterMapping(mapping);
                         System.Diagnostics.Debug.WriteLine($"[HWInfo] Registered mapping for {dialConfig.DisplayName}");
                     }
 
-                    // Set polling interval from config
                     _hwInfoController.PollIntervalMs = _config.AppSettings.GlobalUpdateIntervalMs;
-                    
-                    // Start polling with the successfully connected reader
-                    _hwInfoController.ConnectWithReader(hwInfoReader);
 
                     System.Diagnostics.Debug.WriteLine($"[HWInfo] Successfully connected and configured after {_hwInfoRetryCount} attempts");
                     
@@ -519,6 +540,7 @@ namespace VUWare.App.Services
 
                 _vuController?.Dispose();
                 _hwInfoController?.Dispose();
+                _dialMappingService?.Dispose();
                 _initializationCts?.Dispose();
                 _disposed = true;
             }

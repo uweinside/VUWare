@@ -17,6 +17,7 @@ using System.Windows.Shapes;
 using VUWare.App.Models;
 using VUWare.App.Services;
 using VUWare.HWInfo64;
+using VUWare.Lib.Sensors;
 using VULib = VUWare.Lib;
 using WpfColors = System.Windows.Media.Colors;
 
@@ -551,7 +552,8 @@ namespace VUWare.App
                 {
                     var dialCount = _initService?.GetVU1Controller().DialCount ?? 0;
                     var effectiveDialCount = _config?.GetEffectiveDialCount(dialCount) ?? 0;
-                    var hwInfoConnected = _initService?.GetHWInfo64Controller().IsConnected ?? false;
+                    var sensorProvider = _initService?.GetSensorProvider();
+                    var sensorConnected = sensorProvider?.IsConnected ?? false;
                     
                     string overrideInfo = _config.AppSettings.DialCountOverride.HasValue 
                         ? $" (Override: {_config.AppSettings.DialCountOverride.Value})" 
@@ -561,7 +563,8 @@ namespace VUWare.App
                         $"? Initialization Complete\n\n" +
                         $"Physical Dials Detected: {dialCount}\n" +
                         $"Active Dials: {effectiveDialCount}{overrideInfo}\n" +
-                        $"HWInfo Connected: {hwInfoConnected}",
+                        $"Sensor Provider: {sensorProvider?.ProviderName ?? "None"}\n" +
+                        $"Sensors Connected: {sensorConnected}",
                         "Debug: Ready",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -657,9 +660,11 @@ namespace VUWare.App
             // Pass controllers to the settings window
             if (_initService != null)
             {
-                if (_initService.GetHWInfo64Controller() != null)
+                // Use the sensor provider abstraction
+                var sensorProvider = _initService.GetSensorProvider();
+                if (sensorProvider != null)
                 {
-                    settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
+                    settingsWindow.SetSensorProvider(sensorProvider);
                 }
                 
                 if (_initService.GetVU1Controller() != null)
@@ -784,7 +789,7 @@ namespace VUWare.App
         }
 
         /// <summary>
-        /// Registers dial-to-sensor mappings with the HWInfo64 controller based on current configuration.
+        /// Registers dial-to-sensor mappings with both HWInfo64 controller and DialMappingService.
         /// This is needed after initial setup when sensor names are configured for the first time.
         /// </summary>
         private void RegisterDialMappingsFromConfig()
@@ -793,14 +798,20 @@ namespace VUWare.App
                 return;
 
             var hwInfo = _initService.GetHWInfo64Controller();
-            if (hwInfo == null)
+            IDialMappingService? mappingService = null;
+            
+            try
             {
-                System.Diagnostics.Debug.WriteLine("[MainWindow] Cannot register mappings - HWInfo controller is null");
-                return;
+                mappingService = _initService.GetDialMappingService();
+            }
+            catch (InvalidOperationException)
+            {
+                // Mapping service not yet initialized
             }
 
-            // Clear existing mappings and re-register with new config
+            // Clear existing mappings
             hwInfo.ClearAllMappings();
+            mappingService?.ClearAllMappings();
 
             var activeDials = _config.GetActiveDials();
             System.Diagnostics.Debug.WriteLine($"[MainWindow] Registering {activeDials.Count} dial mappings");
@@ -822,7 +833,9 @@ namespace VUWare.App
                     DisplayName = dialConfig.DisplayName
                 };
 
+                // Register with both services
                 hwInfo.RegisterDialMapping(mapping);
+                mappingService?.RegisterMapping(mapping);
                 System.Diagnostics.Debug.WriteLine($"[MainWindow] Registered: {dialConfig.DisplayName} -> {dialConfig.SensorName}/{dialConfig.EntryName}");
             }
 
@@ -840,19 +853,37 @@ namespace VUWare.App
             try
             {
                 var vu1 = _initService.GetVU1Controller();
-                var hwInfo = _initService.GetHWInfo64Controller();
 
                 // Log diagnostics if debug mode is enabled
                 if (_config.AppSettings.DebugMode)
                 {
-                    var diagnostics = new DiagnosticsService(hwInfo);
+                    var diagnostics = new DiagnosticsService(_initService.GetSensorProvider());
                     var report = diagnostics.GetDiagnosticsReport();
                     System.Diagnostics.Debug.WriteLine(report);
                     System.Diagnostics.Debug.WriteLine("=== Starting Monitoring Service ===");
                 }
 
-                // Create and start monitoring service
-                _monitoringService = new SensorMonitoringService(vu1, hwInfo, _config);
+                // Create and start monitoring service using IDialMappingService
+                IDialMappingService mappingService;
+                try
+                {
+                    mappingService = _initService.GetDialMappingService();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Fallback: create mapping service from HWInfo64 if not already initialized
+                    System.Diagnostics.Debug.WriteLine("[MainWindow] Creating fallback DialMappingService");
+                    var hwInfo = _initService.GetHWInfo64Controller();
+#pragma warning disable CS0618 // Type or member is obsolete
+                    _monitoringService = new SensorMonitoringService(vu1, hwInfo, _config);
+#pragma warning restore CS0618
+                    _monitoringService.OnDialUpdated += MonitoringService_OnDialUpdated;
+                    _monitoringService.OnError += MonitoringService_OnError;
+                    _monitoringService.Start();
+                    return;
+                }
+
+                _monitoringService = new SensorMonitoringService(vu1, mappingService, _config);
                 _monitoringService.OnDialUpdated += MonitoringService_OnDialUpdated;
                 _monitoringService.OnError += MonitoringService_OnError;
                 _monitoringService.Start();
@@ -1167,11 +1198,23 @@ namespace VUWare.App
                 var hwInfo = _initService?.GetHWInfo64Controller();
                 if (hwInfo == null) return false;
 
+                // Clear mappings from both services
                 hwInfo.ClearAllMappings();
+                
+                IDialMappingService? mappingService = null;
+                try
+                {
+                    mappingService = _initService?.GetDialMappingService();
+                    mappingService?.ClearAllMappings();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Mapping service not available
+                }
 
                 foreach (var dial in newConfig.Dials.Where(d => d.Enabled))
                 {
-                    hwInfo.RegisterDialMapping(new DialSensorMapping
+                    var mapping = new DialSensorMapping
                     {
                         Id = dial.DialUid,
                         SensorName = dial.SensorName,
@@ -1184,7 +1227,11 @@ namespace VUWare.App
                         WarningThreshold = dial.WarningThreshold,
                         CriticalThreshold = dial.CriticalThreshold,
                         DisplayName = dial.DisplayName
-                    });
+                    };
+                    
+                    // Register with both services
+                    hwInfo.RegisterDialMapping(mapping);
+                    mappingService?.RegisterMapping(mapping);
                 }
 
                 _monitoringService?.Start();
@@ -1210,8 +1257,10 @@ namespace VUWare.App
             
             if (_initService != null)
             {
-                if (_initService.GetHWInfo64Controller() != null)
-                    settingsWindow.SetHWInfo64Controller(_initService.GetHWInfo64Controller());
+                // Use the sensor provider abstraction
+                var sensorProvider = _initService.GetSensorProvider();
+                if (sensorProvider != null)
+                    settingsWindow.SetSensorProvider(sensorProvider);
                 if (_initService.GetVU1Controller() != null)
                     settingsWindow.SetVU1Controller(_initService.GetVU1Controller());
             }
