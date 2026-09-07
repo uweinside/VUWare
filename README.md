@@ -3,7 +3,7 @@
 A comprehensive C# toolkit for controlling **Streacom VU1 Dials** via the VU1 Gauge Hub. Features a powerful library for programmatic control and an interactive console application for hands-on management.
 
 **Repository:** [github.com/uweinside/VUWare](https://github.com/uweinside/VUWare)  
-**Based on:** Official VU1 code by Sa�a Karanovi? ([vudials.com](https://vudials.com))
+**Based on:** Official VU1 code by Sa�a Karanovi? ([vudials.com](https://vudials.com))
 
 ---
 
@@ -34,10 +34,10 @@ git clone https://github.com/uweinside/VUWare.git
 cd VUWare
 
 # Build the solution
-dotnet build
+dotnet build Windows/VUWare.sln
 
 # Run the console application
-dotnet run --project VUWare.Console
+dotnet run --project Windows/VUWare.Console
 ```
 
 Once running, use these commands:
@@ -95,7 +95,7 @@ VU1Controller (main entry point)
 ??? ImageUpdateQueue (async image updates)
 ```
 
-**Learn More:** See [`VUWare.Lib/README.md`](VUWare.Lib/README.md) and [`VUWare.Lib/doc/SERIAL_PROTOCOL.md`](VUWare.Lib/doc/SERIAL_PROTOCOL.md)
+**Learn More:** See [`Windows/VUWare.Lib/README.md`](Windows/VUWare.Lib/README.md) and [`Windows/VUWare.Lib/doc/SERIAL_PROTOCOL.md`](Windows/VUWare.Lib/doc/SERIAL_PROTOCOL.md)
 
 ---
 
@@ -150,7 +150,7 @@ A professional command-line interface for complete dial control with comprehensi
 
 **Backlight Colors:** Red, Green, Blue, White, Yellow, Cyan, Magenta, Orange, Purple, Pink, Off
 
-**Learn More:** See [`VUWare.Console/README.md`](VUWare.Console/README.md) and [`VUWare.Console/QUICK_START.md`](VUWare.Console/QUICK_START.md)
+**Learn More:** See [`Windows/VUWare.Console/README.md`](Windows/VUWare.Console/README.md) and [`Windows/VUWare.Console/QUICK_START.md`](Windows/VUWare.Console/QUICK_START.md)
 
 ---
 
@@ -167,7 +167,7 @@ A library for reading HWInfo64 sensor data and mapping it to VU1 dials for real-
 - ? Auto-scaling of sensor values to dial range
 
 **Supported Sensor Types:**
-- Temperature (�C, �F)
+- Temperature (�C, �F)
 - Voltage (V)
 - Fan Speed (RPM)
 - Current (A)
@@ -206,7 +206,7 @@ if (reader.Connect())
 2. "Shared Memory Support" enabled in Options
 3. .NET 8.0+ runtime
 
-**Learn More:** See [`VUWare.HWInfo64/README.md`](VUWare.HWInfo64/README.md) and [`VUWare.Console/HWINFO64_INTEGRATION.md`](VUWare.Console/HWINFO64_INTEGRATION.md)
+**Learn More:** See [`Windows/VUWare.HWInfo64/README.md`](Windows/VUWare.HWInfo64/README.md) and [`Windows/VUWare.Console/HWINFO64_INTEGRATION.md`](Windows/VUWare.Console/HWINFO64_INTEGRATION.md)
 
 ---
 
@@ -216,7 +216,7 @@ The VU1 dials feature e-paper displays with the following specifications:
 
 | Property | Value |
 |----------|-------|
-| **Resolution** | 200 � 144 pixels |
+| **Resolution** | 200 � 144 pixels |
 | **Color Depth** | 1-bit monochrome (black/white) |
 | **Buffer Size** | 3600 bytes (exactly) |
 | **Packing** | Vertical: 8 pixels per byte (MSB = top pixel) |
@@ -230,7 +230,7 @@ The VU1 dials feature e-paper displays with the following specifications:
 
 Images are automatically:
 1. Loaded from PNG/BMP/JPEG
-2. Aspect-fitted to 200�144 (white letterbox if needed)
+2. Aspect-fitted to 200�144 (white letterbox if needed)
 3. Converted to grayscale
 4. Thresholded and vertically packed
 5. Transmitted in 4 chunks (1000+1000+1000+600 bytes)
@@ -243,11 +243,11 @@ Reference images are included in `etc/image_pack/` and ready to use.
 
 | Operation | Typical Time |
 |-----------|--------------|
-| Auto-detection | 1�3 seconds |
-| Discovery (1 dial) | 1�2 seconds |
-| Set dial position | ~50�100 ms |
-| Set backlight color | ~50�100 ms |
-| Image upload (3600 bytes) | 2�3 seconds |
+| Auto-detection | 1�3 seconds |
+| Discovery (1 dial) | 1�2 seconds |
+| Set dial position | ~50�100 ms |
+| Set backlight color | ~50�100 ms |
+| Image upload (3600 bytes) | 2�3 seconds |
 | Sensor poll (HWInfo64) | Configurable (default 500 ms) |
 
 ---
@@ -265,7 +265,7 @@ Reference images are included in `etc/image_pack/` and ready to use.
 ?  ?   ??? Device provisioning                      ?
 ?  ?   ??? UID-based identification                 ?
 ?  ??? ImageProcessor                               ?
-?  ?   ??? 1-bit image conversion (200�144)         ?
+?  ?   ??? 1-bit image conversion (200�144)         ?
 ?  ??? CommandBuilder                               ?
 ?      ??? 30+ device commands                      ?
 ?                                                    ?
@@ -296,36 +296,28 @@ git clone https://github.com/uweinside/VUWare.git
 cd VUWare
 
 # Build all projects
-dotnet build
+dotnet build Windows/VUWare.sln
 
 # Run tests (if available)
-dotnet test
+dotnet test Windows/VUWare.sln
 
 # Build release binaries
-dotnet build --configuration Release
+dotnet build Windows/VUWare.sln --configuration Release
 ```
 
 ### Project Structure
 ```
 VUWare/
-??? VUWare.Lib/                  # Core control library
-?   ??? VU1Controller.cs         # Main API
-?   ??? SerialPortManager.cs     # USB communication
-?   ??? DeviceManager.cs         # Device discovery
-?   ??? CommandBuilder.cs        # Command encoding
-?   ??? ImageProcessor.cs        # Image handling
-?   ??? ImageUpdateQueue.cs      # Async queue
-?   ??? doc/                      # Documentation
-??? VUWare.Console/              # CLI application
-?   ??? Program.cs               # Interactive CLI
-?   ??? QUICK_START.md           # Getting started
-?   ??? HWINFO64_INTEGRATION.md  # Sensor guide
-??? VUWare.HWInfo64/             # Sensor integration
-?   ??? HWiNFOReader.cs          # Low-level reader
-?   ??? HWInfo64Controller.cs    # High-level API
-?   ??? SensorModels.cs          # Data structures
-?   ??? README.md                # Library docs
-??? README.md                     # This file
+├── Windows/                     # Existing Windows implementation
+│   ├── VUWare.App/              # WPF desktop application
+│   ├── VUWare.Console/          # CLI application
+│   ├── VUWare.HWInfo64/         # HWInfo64 sensor integration
+│   ├── VUWare.Lib/              # Core control library
+│   ├── Installer/               # Windows installer
+│   └── VUWare.sln               # Windows solution
+├── Linux/                       # Linux implementation
+├── docs/                        # Shared documentation
+└── README.md                    # This file
 ```
 
 ---
@@ -334,13 +326,13 @@ VUWare/
 
 | Document | Purpose |
 |----------|---------|
-| [`VUWare.Lib/README.md`](VUWare.Lib/README.md) | Library architecture and API |
-| [`VUWare.Lib/doc/SERIAL_PROTOCOL.md`](VUWare.Lib/doc/SERIAL_PROTOCOL.md) | Serial protocol specification |
-| [`VUWare.Lib/doc/QUICK_REFERENCE.md`](VUWare.Lib/doc/QUICK_REFERENCE.md) | Quick reference guide |
-| [`VUWare.Console/README.md`](VUWare.Console/README.md) | CLI application manual |
-| [`VUWare.Console/QUICK_START.md`](VUWare.Console/QUICK_START.md) | CLI getting started |
-| [`VUWare.Console/HWINFO64_INTEGRATION.md`](VUWare.Console/HWINFO64_INTEGRATION.md) | Sensor monitoring guide |
-| [`VUWare.HWInfo64/README.md`](VUWare.HWInfo64/README.md) | HWInfo64 library documentation |
+| [`Windows/VUWare.Lib/README.md`](Windows/VUWare.Lib/README.md) | Library architecture and API |
+| [`Windows/VUWare.Lib/doc/SERIAL_PROTOCOL.md`](Windows/VUWare.Lib/doc/SERIAL_PROTOCOL.md) | Serial protocol specification |
+| [`Windows/VUWare.Lib/doc/QUICK_REFERENCE.md`](Windows/VUWare.Lib/doc/QUICK_REFERENCE.md) | Quick reference guide |
+| [`Windows/VUWare.Console/README.md`](Windows/VUWare.Console/README.md) | CLI application manual |
+| [`Windows/VUWare.Console/QUICK_START.md`](Windows/VUWare.Console/QUICK_START.md) | CLI getting started |
+| [`Windows/VUWare.Console/HWINFO64_INTEGRATION.md`](Windows/VUWare.Console/HWINFO64_INTEGRATION.md) | Sensor monitoring guide |
+| [`Windows/VUWare.HWInfo64/README.md`](Windows/VUWare.HWInfo64/README.md) | HWInfo64 library documentation |
 
 ---
 
@@ -357,7 +349,7 @@ VUWare/
 - **Backlight not changing:** Verify dial is initialized, check power
 
 ### Image Upload Issues
-- **Upload fails:** Ensure image converts to exactly 3600 bytes (200�144 1-bit)
+- **Upload fails:** Ensure image converts to exactly 3600 bytes (200�144 1-bit)
 - **Image not displaying:** Try a test pattern: `image <uid> ./etc/image_pack/blank.png`
 - **Wrong aspect ratio:** Images are auto-fitted with white letterboxing
 
@@ -411,7 +403,7 @@ if (controller.AutoDetectAndConnect() && await controller.InitializeAsync())
 
 ## ?? Contributing
 
-Contributions are welcome! This project is based on the official VU1 code by Sa�a Karanovi?.
+Contributions are welcome! This project is based on the official VU1 code by Sa�a Karanovi?.
 
 - **Bug reports:** Open an issue on GitHub
 - **Feature requests:** Discuss in GitHub Discussions
@@ -424,7 +416,7 @@ Contributions are welcome! This project is based on the official VU1 code by Sa�
 VUWare is part of an open-source ecosystem for Streacom VU1 dials. See the repository for specific license details.
 
 **Credits:**
-- Original VU1 implementation: Sa�a Karanovi?
+- Original VU1 implementation: Sa�a Karanovi?
 - VUWare .NET implementation: Uwe Baumann
 - Based on: [Official VU1 code](https://github.com/SasaKaranovic/VU-Server)
 
@@ -477,12 +469,12 @@ Ready to get started? Follow these steps:
    ```bash
    git clone https://github.com/uweinside/VUWare.git
    cd VUWare
-   dotnet build
+    dotnet build Windows/VUWare.sln
    ```
 
 2. **Run the Console App:**
    ```bash
-   dotnet run --project VUWare.Console
+    dotnet run --project Windows/VUWare.Console
    ```
 
 3. **Connect & Initialize:**

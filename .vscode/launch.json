@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Linux: Debug VUWare Console",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Linux: build",
+      "program": "${workspaceFolder}/Linux/VUWare.Console/bin/Debug/net10.0/VUWare.Console.dll",
+      "cwd": "${workspaceFolder}/Linux/VUWare.Console",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": true
+    }
+  ]
+}

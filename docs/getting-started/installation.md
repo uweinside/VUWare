@@ -98,15 +98,15 @@ For developers or advanced users who want to build from source.
 
 2. **Build the Project**
     ```bash
-    dotnet build VUWare.App -c Release
+    dotnet build Windows/VUWare.App -c Release
     ```
 
 3. **Run the Application**
     ```bash
-    dotnet run --project VUWare.App
+    dotnet run --project Windows/VUWare.App
     ```
 
-Alternatively, open `VUWare.sln` in Visual Studio and build/run from there.
+Alternatively, open `Windows/VUWare.sln` in Visual Studio and build/run from there.
 
 ## Post-Installation
 
