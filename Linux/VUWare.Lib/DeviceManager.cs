@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace VUWare.Lib;
 
 public sealed class DeviceManager : IDisposable
@@ -21,7 +23,8 @@ public sealed class DeviceManager : IDisposable
 
     public DialState? GetDialByUID(string uid)
     {
-        lock (_stateLock) return _dials.GetValueOrDefault(uid);
+        if (!TryNormalizeUid(uid, out var normalizedUid)) return null;
+        lock (_stateLock) return _dials.GetValueOrDefault(normalizedUid);
     }
 
     public DialState? GetDialByIndex(byte index)
@@ -76,7 +79,7 @@ public sealed class DeviceManager : IDisposable
         var response = await _transport.SendCommandAsync(CommandBuilder.GetDeviceUID(index), 2000, cancellationToken).ConfigureAwait(false);
         var message = ProtocolHandler.ParseResponse(response);
         if (!ProtocolHandler.IsSuccessResponse(message) || message.BinaryData.Length == 0) return;
-        var uid = message.RawData;
+        if (!TryNormalizeUid(message.RawData, out var uid)) return;
         lock (_stateLock)
         {
             if (!_dials.TryGetValue(uid, out var dial))
@@ -131,6 +134,18 @@ public sealed class DeviceManager : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(uid);
         return GetDialByUID(uid) ?? throw new KeyNotFoundException($"Dial '{uid}' was not discovered.");
+    }
+
+    internal static bool TryNormalizeUid(string? uid, out string normalizedUid)
+    {
+        normalizedUid = string.Empty;
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        normalizedUid = string.Concat(uid.Where(character =>
+            !char.IsWhiteSpace(character) &&
+            CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.Format));
+
+        return normalizedUid.Length > 0 && normalizedUid.All(Uri.IsHexDigit);
     }
 
     private async Task<bool> SendForSuccessAsync(string command, int timeout, CancellationToken cancellationToken)

@@ -93,6 +93,15 @@ List readings and their selected kernel source paths:
 sensors
 ```
 
+Continuously print all readings without connecting to the VU1 hub or sending any dial commands. The optional interval is in seconds and defaults to one second:
+
+```text
+watch
+watch 0.5
+```
+
+Press Ctrl+C to stop watching and return to the prompt.
+
 After connecting and initializing the VU1 hub, drive a dial from a measurement:
 
 ```text
@@ -102,7 +111,7 @@ monitor <dial-uid> gpu-load
 monitor <dial-uid> gpu-temp 20 110
 ```
 
-Press Ctrl+C to stop monitoring and return to the prompt. Without an active monitor, Ctrl+C exits the console.
+Press Ctrl+C to stop monitoring and return to the prompt. Repeated SIGINT events from some integrated terminals are ignored once monitoring has stopped, so they cannot also close the REPL. Use `exit` to close the console.
 
 On CachyOS, the kernel normally loads `k10temp` and `amdgpu` automatically. Standard hwmon attributes are world-readable. If a value is unavailable, use the source path printed by `sensors` and verify that the corresponding driver and sysfs file exist. The `sensors` command from the optional `lm_sensors` package can be used for comparison, but it is not a runtime dependency.
 

@@ -12,7 +12,7 @@ Console.CancelKeyPress += (_, eventArgs) =>
     if (operation is not null)
         operation.Cancel();
     else
-        cancellation.Cancel();
+        Console.WriteLine("\nNo operation is running. Use 'exit' to close VUWare Console.");
 };
 
 using var controller = new VU1Controller();
@@ -58,6 +58,9 @@ while (!cancellation.IsCancellationRequested)
                 break;
             case "sensors":
                 await PrintSensorsAsync();
+                break;
+            case "watch" or "watch-sensors":
+                await WatchSensorsAsync(arguments);
                 break;
             case "monitor":
                 RequireArguments(arguments, 3, "monitor <uid> <cpu-load|cpu-temp|gpu-load|gpu-temp> [min] [max]");
@@ -179,6 +182,43 @@ async Task PrintSensorsAsync()
     }
 }
 
+async Task WatchSensorsAsync(IReadOnlyList<string> arguments)
+{
+    var intervalSeconds = arguments.Count > 1 ? ParseNumber(arguments[1], "interval") : 1d;
+    if (intervalSeconds is < 0.1 or > 60)
+        throw new ArgumentOutOfRangeException(nameof(arguments), "Watch interval must be between 0.1 and 60 seconds.");
+    if (!sensorProvider.IsConnected && !sensorProvider.Connect())
+        throw new InvalidOperationException("Linux sensor provider could not start.");
+
+    await sensorProvider.WaitForFirstSampleAsync(TimeSpan.FromSeconds(3), cancellation.Token);
+    using var watchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+    Volatile.Write(ref activeOperation, watchCancellation);
+    Console.WriteLine($"Watching all sensor readings every {intervalSeconds:0.##} second(s). No dial commands will be sent. Press Ctrl+C to stop.");
+    try
+    {
+        while (!watchCancellation.IsCancellationRequested)
+        {
+            Console.WriteLine($"\n[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]");
+            foreach (var key in LinuxMetricKeys.All)
+            {
+                var reading = sensorProvider.GetMetric(key);
+                if (reading is not null)
+                    Console.WriteLine($"  {key,-10} {reading.Value,6:0.0} {reading.Unit,-2}  min={reading.ValueMin,6:0.0} max={reading.ValueMax,6:0.0} avg={reading.ValueAvg,6:0.0}");
+                else if (sensorProvider.Diagnostics.TryGetValue(key, out var diagnostic))
+                    Console.WriteLine($"  {key,-10} unavailable  {diagnostic.Message}");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), watchCancellation.Token);
+        }
+    }
+    catch (OperationCanceledException) when (watchCancellation.IsCancellationRequested) { }
+    finally
+    {
+        Volatile.Write(ref activeOperation, null);
+        Console.WriteLine("\nSensor watch stopped. Returning to the VUWare prompt.");
+    }
+}
+
 async Task MonitorAsync(IReadOnlyList<string> arguments)
 {
     RequireInitialized();
@@ -224,7 +264,9 @@ async Task MonitorAsync(IReadOnlyList<string> arguments)
     finally
     {
         Volatile.Write(ref activeOperation, null);
-        Console.WriteLine("\nMonitoring stopped.");
+        Console.WriteLine(cancellation.IsCancellationRequested
+            ? "\nMonitoring stopped because the console is shutting down."
+            : "\nMonitoring stopped. Returning to the VUWare prompt.");
     }
 }
 
@@ -267,7 +309,8 @@ static void PrintHelp()
 Commands:
   devices                    List VU1 serial-device candidates
   doctor                     Diagnose runtime, discovery, and permissions
-    sensors                    Show CPU and AMD GPU load and temperature
+    sensors                    Show one CPU and AMD GPU sensor snapshot
+    watch [seconds]            Continuously show all sensors without using dials
     monitor <uid> <metric>     Drive a dial from a sensor; Ctrl+C stops monitoring
                                                             Metrics: cpu-load, cpu-temp, gpu-load, gpu-temp
                                                             Optional: monitor <uid> <metric> <min> <max>
@@ -283,7 +326,7 @@ Commands:
   image <uid> <path>         Upload PNG, JPEG, or BMP (scaled to 200x144)
   test                       Apply a visible test state to all dials
   help                       Show this help
-  exit                       Exit
+    exit                       Exit (Ctrl+C only stops an active operation)
 """);
 }
 
