@@ -64,7 +64,7 @@ Stable sensor IDs must not depend on volatile names such as `hwmon0`.
 
 ## Console strategy
 
-The first console preserves the existing interactive REPL for rapid parity. It includes connection, initialization, dial listing and inspection, position, backlight, image upload, and tests. HWInfo64-specific `sensors` and `monitor` commands are omitted.
+The first console preserves the existing interactive REPL for rapid parity. It includes connection, initialization, dial listing and inspection, position, backlight, image upload, and tests. Linux-native `sensors` and `monitor` commands expose the four prototype measurements without HWInfo64.
 
 Two Linux diagnostics are added:
 
@@ -109,7 +109,16 @@ Transport and discovery have interfaces so protocol/device tests can use determi
 - Remove HWInfo64 coupling and Windows terminology.
 - Add `devices` and `doctor` diagnostics.
 
-### 4. Verification
+### 4. Linux measurements
+
+- Add a provider compatible with the portable Windows sensor contracts.
+- Calculate aggregate CPU load from `/proc/stat` deltas.
+- Read AMD CPU temperature from `k10temp` hwmon channels.
+- Read primary AMD GPU load and temperature from `amdgpu` sysfs/hwmon.
+- Sample once per second and map the four stable metric keys to dials through the console.
+- Treat NVIDIA/NVML, Intel GPU load, multiple GPUs, and persistent mappings as later work.
+
+### 5. Verification
 
 - Test command encoding, response validation, image packing/chunking, discovery, cancellation, and fake transport sequences.
 - Build and test the solution in Release mode.
@@ -118,7 +127,8 @@ Transport and discovery have interfaces so protocol/device tests can use determi
 
 ## Deferred scope
 
-- Linux sensor implementation and dial-to-sensor monitoring.
+- NVIDIA/NVML, Intel GPU load, and multi-GPU sensor support.
+- Persistent dial-to-sensor mappings and startup monitoring.
 - Desktop UI.
 - systemd service mode.
 - Hot-plug event monitoring through libudev.

@@ -12,11 +12,14 @@ Implemented:
 - Dial discovery, position, backlight, easing, and e-paper image transfer.
 - PNG, JPEG, and BMP normalization through SkiaSharp.
 - Interactive Linux console with `devices` and `doctor` diagnostics.
+- CPU load and temperature plus primary AMD GPU load and temperature.
+- Live mapping of a Linux measurement to a physical dial.
 - Unit tests for protocol and image behavior.
 
 Deferred:
 
-- Linux hardware-sensor providers and automatic sensor-to-dial monitoring.
+- NVIDIA/NVML, Intel GPU load, multi-GPU selection, and additional sensors.
+- Persistent sensor-to-dial configuration and automatic startup monitoring.
 - Desktop UI, service mode, and distribution packages.
 
 See [TECH_STACK_EVALUATION.md](TECH_STACK_EVALUATION.md) for the decisions and roadmap.
@@ -61,6 +64,7 @@ At the prompt, run:
 ```text
 doctor
 devices
+sensors
 connect
 init
 dials
@@ -72,6 +76,36 @@ An explicit stable path may be supplied when auto-detection is unsuitable:
 connect /dev/serial/by-id/<device-name>
 ```
 
+## Linux measurements
+
+The `VUWare.Sensors.Linux` module reads stable Linux kernel interfaces directly. It does not parse the output of `sensors`, `rocm-smi`, or other commands:
+
+- `cpu-load`: aggregate CPU-time deltas from `/proc/stat`.
+- `cpu-temp`: AMD `k10temp` hwmon data; `Tdie` is preferred over `Tctl`.
+- `gpu-load`: `gpu_busy_percent` from the primary AMD `amdgpu` DRM device.
+- `gpu-temp`: AMD hwmon data; `edge` is preferred over `junction`.
+
+The prototype selects the AMD GPU marked `boot_vga`; if none is marked, it uses a deterministic PCI-address order. PCI addresses provide stable identity even when `cardN` and `hwmonN` indices change. Readings are sampled once per second. Missing measurements are reported as unavailable rather than as zero.
+
+List readings and their selected kernel source paths:
+
+```text
+sensors
+```
+
+After connecting and initializing the VU1 hub, drive a dial from a measurement:
+
+```text
+monitor <dial-uid> cpu-load
+monitor <dial-uid> cpu-temp 20 100
+monitor <dial-uid> gpu-load
+monitor <dial-uid> gpu-temp 20 110
+```
+
+Press Ctrl+C to stop monitoring and return to the prompt. Without an active monitor, Ctrl+C exits the console.
+
+On CachyOS, the kernel normally loads `k10temp` and `amdgpu` automatically. Standard hwmon attributes are world-readable. If a value is unavailable, use the source path printed by `sensors` and verify that the corresponding driver and sysfs file exist. The `sensors` command from the optional `lm_sensors` package can be used for comparison, but it is not a runtime dependency.
+
 ## Serial permissions
 
 If `doctor` finds the hub but reports insufficient access, inspect the device ownership and add the user to the appropriate serial-device group for the distribution. Sign out and back in after changing group membership. A packaged udev rule is intentionally deferred until policies have been tested on supported distributions.
@@ -79,5 +113,6 @@ If `doctor` finds the hub but reports insufficient access, inspect the device ow
 ## Projects
 
 - `VUWare.Lib`: protocol, serial transport/discovery, device state, controller, and image conversion.
+- `VUWare.Sensors.Linux`: procfs/sysfs sensor provider for CPU and AMD GPU telemetry.
 - `VUWare.Console`: interactive dial-control console.
 - `VUWare.Tests`: hardware-independent unit tests.

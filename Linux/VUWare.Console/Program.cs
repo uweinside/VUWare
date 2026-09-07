@@ -1,14 +1,23 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using VUWare.Lib;
+using VUWare.Sensors.Linux;
 
 var cancellation = new CancellationTokenSource();
+CancellationTokenSource? activeOperation = null;
 Console.CancelKeyPress += (_, eventArgs) =>
 {
     eventArgs.Cancel = true;
-    cancellation.Cancel();
+    var operation = Volatile.Read(ref activeOperation);
+    if (operation is not null)
+        operation.Cancel();
+    else
+        cancellation.Cancel();
 };
 
 using var controller = new VU1Controller();
+using var sensorProvider = new LinuxSensorProvider();
+sensorProvider.Connect();
 var discovery = new LinuxSerialDeviceDiscovery();
 PrintBanner();
 PrintHelp();
@@ -46,6 +55,13 @@ while (!cancellation.IsCancellationRequested)
                 break;
             case "doctor":
                 PrintDoctor(discovery.FindDevices());
+                break;
+            case "sensors":
+                await PrintSensorsAsync();
+                break;
+            case "monitor":
+                RequireArguments(arguments, 3, "monitor <uid> <cpu-load|cpu-temp|gpu-load|gpu-temp> [min] [max]");
+                await MonitorAsync(arguments);
                 break;
             case "dials":
                 RequireInitialized();
@@ -137,6 +153,88 @@ void RequireInitialized()
 
 DialState RequireDial(string uid) => controller.GetDial(uid) ?? throw new KeyNotFoundException($"Dial '{uid}' was not found.");
 
+async Task PrintSensorsAsync()
+{
+    if (!sensorProvider.IsConnected && !sensorProvider.Connect())
+    {
+        WriteError("Linux sensor provider could not start.");
+        return;
+    }
+
+    await sensorProvider.WaitForFirstSampleAsync(TimeSpan.FromSeconds(3), cancellation.Token);
+    foreach (var key in LinuxMetricKeys.All)
+    {
+        var reading = sensorProvider.GetMetric(key);
+        if (reading is LinuxSensorReading linuxReading)
+        {
+            Console.WriteLine($"{key,-10} {reading.Value,6:0.0} {reading.Unit,-2}  min={reading.ValueMin,6:0.0} max={reading.ValueMax,6:0.0} avg={reading.ValueAvg,6:0.0}");
+            Console.WriteLine($"             source: {linuxReading.Source}");
+        }
+        else if (sensorProvider.Diagnostics.TryGetValue(key, out var diagnostic))
+        {
+            Console.WriteLine($"{key,-10} unavailable  {diagnostic.Message}");
+            if (diagnostic.Source is not null)
+                Console.WriteLine($"             source: {diagnostic.Source}");
+        }
+    }
+}
+
+async Task MonitorAsync(IReadOnlyList<string> arguments)
+{
+    RequireInitialized();
+    var dial = RequireDial(arguments[1]);
+    var key = arguments[2].ToLowerInvariant();
+    if (!LinuxMetricKeys.All.Contains(key, StringComparer.OrdinalIgnoreCase))
+        throw new ArgumentException($"Unknown metric '{key}'. Run 'sensors' to list metrics.");
+
+    var minimum = arguments.Count > 3 ? ParseNumber(arguments[3], "minimum") : 0d;
+    var maximum = arguments.Count > 4 ? ParseNumber(arguments[4], "maximum") : 100d;
+    if (maximum <= minimum)
+        throw new ArgumentException("Maximum must be greater than minimum.");
+    if (!sensorProvider.IsConnected && !sensorProvider.Connect())
+        throw new InvalidOperationException("Linux sensor provider could not start.");
+
+    await sensorProvider.WaitForFirstSampleAsync(TimeSpan.FromSeconds(3), cancellation.Token);
+    using var monitorCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+    Volatile.Write(ref activeOperation, monitorCancellation);
+    Console.WriteLine($"Monitoring {key} on {dial.Name} ({dial.UID}) over {minimum:0.##}..{maximum:0.##}. Press Ctrl+C to stop.");
+    byte? lastPercentage = null;
+    try
+    {
+        while (!monitorCancellation.IsCancellationRequested)
+        {
+            var reading = sensorProvider.GetMetric(key);
+            if (reading is null || DateTime.UtcNow - reading.LastUpdate > TimeSpan.FromSeconds(3))
+                throw new InvalidOperationException($"Metric '{key}' is unavailable or stale.");
+
+            var percentage = (byte)Math.Round(Math.Clamp(
+                100d * (reading.Value - minimum) / (maximum - minimum), 0d, 100d));
+            if (percentage != lastPercentage)
+            {
+                if (!await controller.SetDialPercentageAsync(dial.UID, percentage, monitorCancellation.Token))
+                    throw new IOException("Dial update failed.");
+                lastPercentage = percentage;
+            }
+
+            Console.Write($"\r{key}: {reading.Value,6:0.0} {reading.Unit} -> {percentage,3}%   ");
+            await Task.Delay(TimeSpan.FromSeconds(1), monitorCancellation.Token);
+        }
+    }
+    catch (OperationCanceledException) when (monitorCancellation.IsCancellationRequested) { }
+    finally
+    {
+        Volatile.Write(ref activeOperation, null);
+        Console.WriteLine("\nMonitoring stopped.");
+    }
+}
+
+static double ParseNumber(string value, string name)
+{
+    if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result) || !double.IsFinite(result))
+        throw new ArgumentException($"Invalid {name} value '{value}'. Use invariant decimal notation.");
+    return result;
+}
+
 static void RequireArguments(IReadOnlyList<string> arguments, int count, string usage)
 {
     if (arguments.Count < count) throw new ArgumentException($"Usage: {usage}");
@@ -169,6 +267,10 @@ static void PrintHelp()
 Commands:
   devices                    List VU1 serial-device candidates
   doctor                     Diagnose runtime, discovery, and permissions
+    sensors                    Show CPU and AMD GPU load and temperature
+    monitor <uid> <metric>     Drive a dial from a sensor; Ctrl+C stops monitoring
+                                                            Metrics: cpu-load, cpu-temp, gpu-load, gpu-temp
+                                                            Optional: monitor <uid> <metric> <min> <max>
   connect [device]           Auto-detect or use /dev/ttyUSB* or /dev/serial/by-id/*
   disconnect                 Disconnect from the hub
   init                       Discover connected dials

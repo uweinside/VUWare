@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../VUWare.Lib/VUWare.Lib.csproj" />
+    <ProjectReference Include="../VUWare.Sensors.Linux/VUWare.Sensors.Linux.csproj" />
   </ItemGroup>
 </Project>
